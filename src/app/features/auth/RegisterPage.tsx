@@ -4,6 +4,7 @@ import { Button } from '@/app/components/ui/button';
 import { Input } from '@/app/components/ui/input';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/app/components/ui/card';
 import { Label } from '@/app/components/ui/label';
+import { ROUTES } from '@/routes/routesList';
 
 const REGISTRATION_API = 'http://localhost:3001/api/register';
 
@@ -92,7 +93,7 @@ export default function RegisterPage() {
       if (data.success) {
         setSuccess(true);
         setTimeout(() => {
-          navigate('/login');
+          navigate(ROUTES.SERVER_CONFIG);
         }, 2000);
       } else {
         setApiError(data.error || 'Registration failed');
@@ -247,7 +248,7 @@ export default function RegisterPage() {
         <CardFooter className="flex justify-center">
           <p className="text-sm text-muted-foreground">
             Already have an account?{' '}
-            <Link to="/login" className="text-primary hover:underline">
+            <Link to={ROUTES.SERVER_CONFIG} className="text-primary hover:underline">
               Sign in
             </Link>
           </p>
