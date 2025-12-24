@@ -178,7 +178,7 @@ export default function ArtGallery() {
         <div>
           <h1 className="text-3xl font-bold mb-2">Art Gallery</h1>
           <p className="text-muted-foreground">
-            Explore album artwork and custom designs from your music library
+            Explore artwork created by the community.
           </p>
         </div>
         <UploadArtworkDialog />

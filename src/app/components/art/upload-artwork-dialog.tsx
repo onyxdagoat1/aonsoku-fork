@@ -190,7 +190,7 @@ export function UploadArtworkDialog({ trigger }: UploadArtworkDialogProps) {
               id="artwork-name"
               value={artworkName}
               onChange={(e) => setArtworkName(e.target.value)}
-              placeholder="e.g., Cowboy Carter Tour Poster"
+              placeholder="e.g., BULLY Comp Cover"
             />
           </div>
 
@@ -201,7 +201,7 @@ export function UploadArtworkDialog({ trigger }: UploadArtworkDialogProps) {
               id="artist-name"
               value={artistName}
               onChange={(e) => setArtistName(e.target.value)}
-              placeholder="e.g., Beyoncé"
+              placeholder="e.g., NobodyIsNari"
             />
           </div>
 
@@ -223,7 +223,7 @@ export function UploadArtworkDialog({ trigger }: UploadArtworkDialogProps) {
               id="comp-era"
               value={compEra}
               onChange={(e) => setCompEra(e.target.value)}
-              placeholder="e.g., Cowboy Carter Era, Renaissance Era"
+              placeholder="e.g., BULLY"
             />
           </div>
 
