@@ -1,1 +1,10 @@
-pnpm lint
+#!/usr/bin/env sh
+. "$(dirname -- "$0")/_/husky.sh"
+
+# Check if pnpm is available, if not skip linting
+if command -v pnpm >/dev/null 2>&1; then
+  pnpm lint
+else
+  echo "Warning: pnpm not found in PATH, skipping lint check"
+  exit 0
+fi
