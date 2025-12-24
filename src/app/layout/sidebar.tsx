@@ -4,6 +4,7 @@ import {
   ListMusicIcon,
   Mic2Icon,
   Music2Icon,
+  PaletteIcon,
   PodcastIcon,
   RadioIcon,
 } from 'lucide-react'
@@ -17,6 +18,7 @@ const Radio = memo(RadioIcon)
 const Home = memo(HomeIcon)
 const Library = memo(LibraryIcon)
 const Podcast = memo(PodcastIcon)
+const Palette = memo(PaletteIcon)
 
 export interface ISidebarItem {
   id: string
@@ -33,6 +35,7 @@ export enum SidebarItems {
   Playlists = 'playlists',
   Podcasts = 'podcasts',
   Radios = 'radios',
+  Art = 'art',
   PodcastAll = 'podcast-all',
   PodcastLatest = 'podcast-latest',
 }
@@ -82,6 +85,12 @@ export const libraryItems = [
     title: 'sidebar.radios',
     route: ROUTES.LIBRARY.RADIOS,
     icon: Radio,
+  },
+  {
+    id: SidebarItems.Art,
+    title: 'sidebar.art',
+    route: ROUTES.LIBRARY.ART,
+    icon: Palette,
   },
 ]
 

@@ -40,6 +40,7 @@ const Episode = lazy(() => import('@/app/pages/podcasts/episode'))
 const LatestEpisodes = lazy(
   () => import('@/app/pages/podcasts/latest-episodes'),
 )
+const ArtGallery = lazy(() => import('@/app/pages/art/gallery'))
 
 export const router = createHashRouter([
   {
@@ -105,6 +106,16 @@ export const router = createHashRouter([
         element: (
           <Suspense fallback={<SongListFallback />}>
             <Radios />
+          </Suspense>
+        ),
+      },
+      {
+        id: 'art',
+        path: ROUTES.LIBRARY.ART,
+        errorElement: <ErrorPage />,
+        element: (
+          <Suspense fallback={<AlbumsFallback />}>
+            <ArtGallery />
           </Suspense>
         ),
       },
