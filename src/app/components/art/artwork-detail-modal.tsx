@@ -5,10 +5,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/app/components/ui/dialog'
-import { Button } from '@/app/components/ui/button'
-import { Trash2, Calendar, User, Palette, FileImage } from 'lucide-react'
-import { toast } from 'sonner'
-import { useState } from 'react'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -18,7 +14,10 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from '@/app/components/ui/dialog'
+} from '@/app/components/ui/alert-dialog'
+import { Button } from '@/app/components/ui/button'
+import { Trash2, Calendar, User, Palette, FileImage } from 'lucide-react'
+import { useState } from 'react'
 
 interface ArtworkDetailModalProps {
   artwork: CustomArtwork | null
@@ -45,11 +44,13 @@ export function ArtworkDetailModal({
   const handleDelete = async () => {
     try {
       await deleteArtwork(artwork.id)
-      toast.success('Artwork deleted successfully')
       setShowDeleteDialog(false)
       onOpenChange(false)
+      setTimeout(() => {
+        alert('Artwork deleted successfully')
+      }, 100)
     } catch (error) {
-      toast.error('Failed to delete artwork')
+      alert('Failed to delete artwork')
       console.error(error)
     }
   }
@@ -152,8 +153,8 @@ export function ArtworkDetailModal({
       </Dialog>
 
       {/* Delete Confirmation Dialog */}
-      <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
-        <DialogContent>
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Are you sure?</AlertDialogTitle>
             <AlertDialogDescription>
@@ -169,8 +170,8 @@ export function ArtworkDetailModal({
               Delete
             </AlertDialogAction>
           </AlertDialogFooter>
-        </DialogContent>
-      </Dialog>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   )
 }

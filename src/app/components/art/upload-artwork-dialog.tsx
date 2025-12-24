@@ -22,7 +22,6 @@ import { Textarea } from '@/app/components/ui/textarea'
 import { Label } from '@/app/components/ui/label'
 import { Upload, X } from 'lucide-react'
 import { ArtworkType, useArtworkStore } from '@/store/artwork.store'
-import { toast } from 'sonner'
 
 interface UploadArtworkDialogProps {
   trigger?: React.ReactNode
@@ -43,6 +42,7 @@ export function UploadArtworkDialog({ trigger }: UploadArtworkDialogProps) {
   const [description, setDescription] = useState('')
   const [imageData, setImageData] = useState<string>('')
   const [imagePreview, setImagePreview] = useState<string>('')
+  const [errorMessage, setErrorMessage] = useState<string>('')
 
   const resetForm = () => {
     setArtworkName('')
@@ -53,6 +53,7 @@ export function UploadArtworkDialog({ trigger }: UploadArtworkDialogProps) {
     setDescription('')
     setImageData('')
     setImagePreview('')
+    setErrorMessage('')
   }
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -61,7 +62,7 @@ export function UploadArtworkDialog({ trigger }: UploadArtworkDialogProps) {
 
     // Check file size (max 5MB)
     if (file.size > 5 * 1024 * 1024) {
-      toast.error('Image size must be less than 5MB')
+      setErrorMessage('Image size must be less than 5MB')
       return
     }
 
@@ -70,6 +71,7 @@ export function UploadArtworkDialog({ trigger }: UploadArtworkDialogProps) {
       const base64 = reader.result as string
       setImageData(base64)
       setImagePreview(base64)
+      setErrorMessage('')
     }
     reader.readAsDataURL(file)
   }
@@ -77,23 +79,24 @@ export function UploadArtworkDialog({ trigger }: UploadArtworkDialogProps) {
   const handleSubmit = async () => {
     // Validation
     if (!artworkName.trim()) {
-      toast.error('Artwork name is required')
+      setErrorMessage('Artwork name is required')
       return
     }
     if (!artistName.trim()) {
-      toast.error('Artist name is required')
+      setErrorMessage('Artist name is required')
       return
     }
     if (!compEra.trim()) {
-      toast.error('Comp/Era is required')
+      setErrorMessage('Comp/Era is required')
       return
     }
     if (!imageData) {
-      toast.error('Please upload an image')
+      setErrorMessage('Please upload an image')
       return
     }
 
     setIsSubmitting(true)
+    setErrorMessage('')
     try {
       await addArtwork({
         artworkName: artworkName.trim(),
@@ -105,11 +108,14 @@ export function UploadArtworkDialog({ trigger }: UploadArtworkDialogProps) {
         imageData,
       })
 
-      toast.success('Artwork uploaded successfully!')
       resetForm()
       setOpen(false)
+      // Success feedback
+      setTimeout(() => {
+        alert('Artwork uploaded successfully!')
+      }, 100)
     } catch (error) {
-      toast.error('Failed to upload artwork')
+      setErrorMessage('Failed to upload artwork')
       console.error(error)
     } finally {
       setIsSubmitting(false)
@@ -133,6 +139,12 @@ export function UploadArtworkDialog({ trigger }: UploadArtworkDialogProps) {
             Add your custom artwork with detailed information and tags
           </DialogDescription>
         </DialogHeader>
+
+        {errorMessage && (
+          <div className="bg-destructive/15 text-destructive px-4 py-3 rounded-md text-sm">
+            {errorMessage}
+          </div>
+        )}
 
         <div className="space-y-4 py-4">
           {/* Image Upload */}
