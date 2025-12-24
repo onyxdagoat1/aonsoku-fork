@@ -33,7 +33,7 @@ type SortType = 'recent' | 'popular'
 const typeLabels: Record<ArtworkType, string> = {
   [ArtworkType.SingleCover]: 'Single Cover',
   [ArtworkType.Artwork]: 'Artwork',
-  [ArtworkType.AlbumCover]: 'Comp/Album Cover',
+  [ArtworkType.AlbumCover]: 'Comp Cover',
 }
 
 export default function ArtGallery() {
@@ -214,7 +214,7 @@ export default function ArtGallery() {
           </TabsTrigger>
         </TabsList>
 
-        {/* Album Covers Tab */}
+        {/* Comp Covers Tab */}
         <TabsContent value="albums" className="space-y-6">
           {/* Filters */}
           <div className="flex flex-wrap gap-4 items-end">
@@ -364,7 +364,7 @@ export default function ArtGallery() {
                   </SelectItem>
                   <SelectItem value={ArtworkType.Artwork}>Artwork</SelectItem>
                   <SelectItem value={ArtworkType.AlbumCover}>
-                    Comp/Album Cover
+                    Comp Cover
                   </SelectItem>
                 </SelectContent>
               </Select>
@@ -454,7 +454,7 @@ export default function ArtGallery() {
         onOpenChange={setShowDetailModal}
       />
 
-      {/* Album Info Modal */}
+      {/* Comp Info Modal */}
       <AlbumInfoModal
         album={selectedAlbum}
         open={showAlbumModal}
@@ -550,7 +550,7 @@ function AlbumArtCard({
               <Disc3 className="w-3 h-3 text-white/80" />
             )}
             <span className="text-xs text-white/80">
-              {isSingle ? 'Single' : 'Album'}
+              {isSingle ? 'Single' : 'Comp'}
             </span>
           </div>
           <p className="text-sm font-medium text-white line-clamp-1">

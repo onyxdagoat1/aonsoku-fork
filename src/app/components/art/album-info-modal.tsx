@@ -48,7 +48,7 @@ export function AlbumInfoModal({
       incrementAlbumDownload(album.id)
       success('Downloaded', `${album.name} cover saved to downloads`)
     } catch (err) {
-      error('Download failed', 'Failed to download album cover')
+      error('Download failed', 'Failed to download comp cover')
       console.error(err)
     }
   }
@@ -93,7 +93,7 @@ export function AlbumInfoModal({
               >
                 <Link to={ROUTES.ALBUM.PAGE(album.id)}>
                   <Music className="w-4 h-4 mr-2" />
-                  View Album
+                  View Comp
                 </Link>
               </Button>
             </div>
@@ -120,7 +120,7 @@ export function AlbumInfoModal({
                 )}
                 <span>Type</span>
               </div>
-              <p className="text-lg">{isSingle ? 'Single' : 'Album/Comp'}</p>
+              <p className="text-lg">{isSingle ? 'Single' : 'Comp'}</p>
             </div>
 
             {/* Song Count */}
