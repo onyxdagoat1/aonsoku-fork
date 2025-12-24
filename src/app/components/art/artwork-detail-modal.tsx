@@ -16,8 +16,9 @@ import {
   AlertDialogTitle,
 } from '@/app/components/ui/alert-dialog'
 import { Button } from '@/app/components/ui/button'
-import { Trash2, Calendar, User, Palette, FileImage } from 'lucide-react'
+import { Trash2, Calendar, User, Palette, FileImage, Download } from 'lucide-react'
 import { useState } from 'react'
+import { useToast } from '@/hooks/use-toast'
 
 interface ArtworkDetailModalProps {
   artwork: CustomArtwork | null
@@ -37,6 +38,7 @@ export function ArtworkDetailModal({
   onOpenChange,
 }: ArtworkDetailModalProps) {
   const { deleteArtwork } = useArtworkStore()
+  const { success, error } = useToast()
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
 
   if (!artwork) return null
@@ -46,12 +48,26 @@ export function ArtworkDetailModal({
       await deleteArtwork(artwork.id)
       setShowDeleteDialog(false)
       onOpenChange(false)
-      setTimeout(() => {
-        alert('Artwork deleted successfully')
-      }, 100)
-    } catch (error) {
-      alert('Failed to delete artwork')
-      console.error(error)
+      success('Deleted', 'Artwork has been removed from your gallery')
+    } catch (err) {
+      error('Delete failed', 'Failed to delete artwork. Please try again.')
+      console.error(err)
+    }
+  }
+
+  const handleDownload = () => {
+    try {
+      // Create a temporary link element
+      const link = document.createElement('a')
+      link.href = artwork.imageData
+      link.download = `${artwork.artworkName} - ${artwork.artistName}.png`
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      success('Downloaded', 'Artwork saved to your downloads')
+    } catch (err) {
+      error('Download failed', 'Failed to download artwork')
+      console.error(err)
     }
   }
 
@@ -77,14 +93,24 @@ export function ArtworkDetailModal({
                 alt={artwork.artworkName}
                 className="w-full rounded-lg shadow-lg"
               />
-              <Button
-                variant="destructive"
-                className="w-full"
-                onClick={() => setShowDeleteDialog(true)}
-              >
-                <Trash2 className="w-4 h-4 mr-2" />
-                Delete Artwork
-              </Button>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  className="flex-1"
+                  onClick={handleDownload}
+                >
+                  <Download className="w-4 h-4 mr-2" />
+                  Download
+                </Button>
+                <Button
+                  variant="destructive"
+                  className="flex-1"
+                  onClick={() => setShowDeleteDialog(true)}
+                >
+                  <Trash2 className="w-4 h-4 mr-2" />
+                  Delete
+                </Button>
+              </div>
             </div>
 
             {/* Details */}

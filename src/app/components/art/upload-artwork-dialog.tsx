@@ -22,6 +22,7 @@ import { Textarea } from '@/app/components/ui/textarea'
 import { Label } from '@/app/components/ui/label'
 import { Upload, X } from 'lucide-react'
 import { ArtworkType, useArtworkStore } from '@/store/artwork.store'
+import { useToast } from '@/hooks/use-toast'
 
 interface UploadArtworkDialogProps {
   trigger?: React.ReactNode
@@ -30,6 +31,7 @@ interface UploadArtworkDialogProps {
 export function UploadArtworkDialog({ trigger }: UploadArtworkDialogProps) {
   const { t } = useTranslation()
   const { addArtwork } = useArtworkStore()
+  const { success, error } = useToast()
   const [open, setOpen] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
@@ -42,7 +44,6 @@ export function UploadArtworkDialog({ trigger }: UploadArtworkDialogProps) {
   const [description, setDescription] = useState('')
   const [imageData, setImageData] = useState<string>('')
   const [imagePreview, setImagePreview] = useState<string>('')
-  const [errorMessage, setErrorMessage] = useState<string>('')
 
   const resetForm = () => {
     setArtworkName('')
@@ -53,7 +54,6 @@ export function UploadArtworkDialog({ trigger }: UploadArtworkDialogProps) {
     setDescription('')
     setImageData('')
     setImagePreview('')
-    setErrorMessage('')
   }
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -62,7 +62,7 @@ export function UploadArtworkDialog({ trigger }: UploadArtworkDialogProps) {
 
     // Check file size (max 5MB)
     if (file.size > 5 * 1024 * 1024) {
-      setErrorMessage('Image size must be less than 5MB')
+      error('File too large', 'Image size must be less than 5MB')
       return
     }
 
@@ -71,7 +71,6 @@ export function UploadArtworkDialog({ trigger }: UploadArtworkDialogProps) {
       const base64 = reader.result as string
       setImageData(base64)
       setImagePreview(base64)
-      setErrorMessage('')
     }
     reader.readAsDataURL(file)
   }
@@ -79,24 +78,23 @@ export function UploadArtworkDialog({ trigger }: UploadArtworkDialogProps) {
   const handleSubmit = async () => {
     // Validation
     if (!artworkName.trim()) {
-      setErrorMessage('Artwork name is required')
+      error('Artwork name required', 'Please enter a name for the artwork')
       return
     }
     if (!artistName.trim()) {
-      setErrorMessage('Artist name is required')
+      error('Artist name required', 'Please enter the artist name')
       return
     }
     if (!compEra.trim()) {
-      setErrorMessage('Comp/Era is required')
+      error('Comp/Era required', 'Please specify the comp or era')
       return
     }
     if (!imageData) {
-      setErrorMessage('Please upload an image')
+      error('Image required', 'Please upload an image')
       return
     }
 
     setIsSubmitting(true)
-    setErrorMessage('')
     try {
       await addArtwork({
         artworkName: artworkName.trim(),
@@ -108,15 +106,12 @@ export function UploadArtworkDialog({ trigger }: UploadArtworkDialogProps) {
         imageData,
       })
 
+      success('Artwork uploaded!', `${artworkName} has been added to your gallery`)
       resetForm()
       setOpen(false)
-      // Success feedback
-      setTimeout(() => {
-        alert('Artwork uploaded successfully!')
-      }, 100)
-    } catch (error) {
-      setErrorMessage('Failed to upload artwork')
-      console.error(error)
+    } catch (err) {
+      error('Upload failed', 'Failed to upload artwork. Please try again.')
+      console.error(err)
     } finally {
       setIsSubmitting(false)
     }
@@ -139,12 +134,6 @@ export function UploadArtworkDialog({ trigger }: UploadArtworkDialogProps) {
             Add your custom artwork with detailed information and tags
           </DialogDescription>
         </DialogHeader>
-
-        {errorMessage && (
-          <div className="bg-destructive/15 text-destructive px-4 py-3 rounded-md text-sm">
-            {errorMessage}
-          </div>
-        )}
 
         <div className="space-y-4 py-4">
           {/* Image Upload */}

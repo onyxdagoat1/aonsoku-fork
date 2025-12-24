@@ -15,7 +15,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/app/components/ui/ta
 import { ROUTES } from '@/routes/routesList'
 import { getAlbumList } from '@/queries/albums'
 import { IAlbum } from '@/types/responses/album'
-import { Disc, Disc3, User, Calendar } from 'lucide-react'
+import { Disc, Disc3, User, Calendar, Download } from 'lucide-react'
 import { useInfiniteQuery } from '@tanstack/react-query'
 import debounce from 'lodash/debounce'
 import { queryKeys } from '@/utils/queryKeys'
@@ -24,6 +24,7 @@ import { getMainScrollElement } from '@/utils/scrollPageToTop'
 import { UploadArtworkDialog } from '@/app/components/art/upload-artwork-dialog'
 import { useArtworkStore, CustomArtwork, ArtworkType } from '@/store/artwork.store'
 import { ArtworkDetailModal } from '@/app/components/art/artwork-detail-modal'
+import { useToast } from '@/hooks/use-toast'
 
 type ArtType = 'all' | 'album' | 'single'
 
@@ -432,6 +433,24 @@ function CustomArtCard({
   artwork: CustomArtwork
   onClick: () => void
 }) {
+  const { success, error } = useToast()
+
+  const handleDownload = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    try {
+      const link = document.createElement('a')
+      link.href = artwork.imageData
+      link.download = `${artwork.artworkName} - ${artwork.artistName}.png`
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      success('Downloaded', `${artwork.artworkName} saved to downloads`)
+    } catch (err) {
+      error('Download failed', 'Failed to download artwork')
+      console.error(err)
+    }
+  }
+
   return (
     <button
       onClick={onClick}
@@ -444,6 +463,13 @@ function CustomArtCard({
       />
 
       <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity">
+        <button
+          onClick={handleDownload}
+          className="absolute top-2 right-2 p-2 rounded-full bg-black/50 hover:bg-black/70 text-white transition-colors"
+          title="Download"
+        >
+          <Download className="w-4 h-4" />
+        </button>
         <div className="absolute bottom-0 left-0 right-0 p-3 space-y-1">
           <div className="flex items-center gap-1">
             <User className="w-3 h-3 text-white/80" />
