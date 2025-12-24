@@ -1,5 +1,5 @@
 import { getCoverArtUrl } from '@/api/httpClient'
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LazyLoadImage } from 'react-lazy-load-image-component'
 import { Link } from 'react-router-dom'
@@ -12,9 +12,14 @@ import {
   SelectValue,
 } from '@/app/components/ui/select'
 import { ROUTES } from '@/routes/routesList'
-import { useAlbumsInfinite } from '@/app/api/album'
+import { getAlbumList } from '@/queries/albums'
 import { IAlbum } from '@/types/responses/album'
 import { Disc, Disc3 } from 'lucide-react'
+import { useInfiniteQuery } from '@tanstack/react-query'
+import debounce from 'lodash/debounce'
+import { queryKeys } from '@/utils/queryKeys'
+import { AlbumsFilters } from '@/utils/albumsFilter'
+import { getMainScrollElement } from '@/utils/scrollPageToTop'
 
 type ArtType = 'all' | 'album' | 'single'
 
@@ -23,13 +28,38 @@ export default function ArtGallery() {
   const [selectedArtist, setSelectedArtist] = useState<string>('all')
   const [selectedType, setSelectedType] = useState<ArtType>('all')
   const [searchQuery, setSearchQuery] = useState('')
+  const scrollDivRef = useRef<HTMLDivElement | null>(null)
+
+  const defaultOffset = 128
+  const oldestYear = '0001'
+  const currentYear = new Date().getFullYear().toString()
+
+  useEffect(() => {
+    scrollDivRef.current = getMainScrollElement()
+  }, [])
+
+  const fetchAlbums = async ({ pageParam = 0 }) => {
+    return getAlbumList({
+      type: AlbumsFilters.RecentlyAdded,
+      size: defaultOffset,
+      offset: pageParam,
+      fromYear: oldestYear,
+      toYear: currentYear,
+      genre: '',
+    })
+  }
 
   const { data, fetchNextPage, hasNextPage, isFetchingNextPage } =
-    useAlbumsInfinite()
+    useInfiniteQuery({
+      queryKey: [queryKeys.album.all, 'art-gallery'],
+      queryFn: fetchAlbums,
+      initialPageParam: 0,
+      getNextPageParam: (lastPage) => lastPage.nextOffset,
+    })
 
   const albums = useMemo(() => {
     if (!data?.pages) return []
-    return data.pages.flatMap((page) => page.album.album)
+    return data.pages.flatMap((page) => page.albums)
   }, [data])
 
   // Get unique artists
@@ -73,23 +103,26 @@ export default function ArtGallery() {
     })
   }, [albums, selectedArtist, selectedType, searchQuery])
 
-  const handleScroll = useCallback(() => {
-    const scrollArea = document.getElementById('main-scroll-area')
-    if (!scrollArea || !hasNextPage || isFetchingNextPage) return
-
-    const { scrollTop, scrollHeight, clientHeight } = scrollArea
-    if (scrollTop + clientHeight >= scrollHeight - 500) {
-      fetchNextPage()
-    }
-  }, [hasNextPage, isFetchingNextPage, fetchNextPage])
-
   useEffect(() => {
-    const scrollArea = document.getElementById('main-scroll-area')
-    if (!scrollArea) return
+    const scrollElement = scrollDivRef.current
+    if (!scrollElement) return
 
-    scrollArea.addEventListener('scroll', handleScroll)
-    return () => scrollArea.removeEventListener('scroll', handleScroll)
-  }, [handleScroll])
+    const handleScroll = debounce(() => {
+      const { scrollTop, clientHeight, scrollHeight } = scrollElement
+
+      const isNearBottom =
+        scrollTop + clientHeight >= scrollHeight - scrollHeight / 4
+
+      if (isNearBottom) {
+        if (hasNextPage) fetchNextPage()
+      }
+    }, 200)
+
+    scrollElement.addEventListener('scroll', handleScroll)
+    return () => {
+      scrollElement.removeEventListener('scroll', handleScroll)
+    }
+  }, [fetchNextPage, hasNextPage])
 
   return (
     <div className="w-full p-6">
@@ -122,7 +155,10 @@ export default function ArtGallery() {
 
         <div className="flex-1 min-w-[200px]">
           <label className="text-sm font-medium mb-2 block">Type</label>
-          <Select value={selectedType} onValueChange={(v) => setSelectedType(v as ArtType)}>
+          <Select
+            value={selectedType}
+            onValueChange={(v) => setSelectedType(v as ArtType)}
+          >
             <SelectTrigger>
               <SelectValue placeholder="All Types" />
             </SelectTrigger>
@@ -145,7 +181,9 @@ export default function ArtGallery() {
           />
         </div>
 
-        {(selectedArtist !== 'all' || selectedType !== 'all' || searchQuery) && (
+        {(selectedArtist !== 'all' ||
+          selectedType !== 'all' ||
+          searchQuery) && (
           <Button
             variant="outline"
             onClick={() => {
@@ -161,7 +199,8 @@ export default function ArtGallery() {
 
       {/* Results count */}
       <div className="mb-4 text-sm text-muted-foreground">
-        Showing {filteredAlbums.length} artwork{filteredAlbums.length !== 1 ? 's' : ''}
+        Showing {filteredAlbums.length} artwork
+        {filteredAlbums.length !== 1 ? 's' : ''}
       </div>
 
       {/* Art Grid */}
@@ -173,7 +212,9 @@ export default function ArtGallery() {
 
       {/* Loading indicator */}
       {isFetchingNextPage && (
-        <div className="text-center py-8 text-muted-foreground">Loading more...</div>
+        <div className="text-center py-8 text-muted-foreground">
+          Loading more...
+        </div>
       )}
     </div>
   )
@@ -193,7 +234,7 @@ function ArtCard({ album }: { album: IAlbum }) {
         className="w-full h-full object-cover"
         effect="opacity"
       />
-      
+
       {/* Overlay with info */}
       <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity">
         <div className="absolute bottom-0 left-0 right-0 p-3">
