@@ -1,7 +1,7 @@
 import { NavigationButtons } from '@/app/components/header/navigation-buttons'
 import { ThemeToggle } from '@/app/components/header/theme-toggle'
 import { UserDropdown } from '@/app/components/header/user-dropdown'
-import { HeaderSearch } from '@/app/components/header/header-search'
+import { HeaderSongInfo } from '@/app/components/header-song'
 import { SettingsButton } from '@/app/components/settings/header-button'
 import { MainSidebarTrigger } from '@/app/components/ui/main-sidebar'
 import { useAppWindow } from '@/app/hooks/use-app-window'
@@ -17,7 +17,7 @@ export function Header() {
         <NavigationButtons />
         <MainSidebarTrigger className="ml-2" />
       </div>
-      <HeaderSearch />
+      <HeaderSongInfo />
       <div className="flex justify-end items-center gap-2">
         <ThemeToggle />
         <SettingsButton />
