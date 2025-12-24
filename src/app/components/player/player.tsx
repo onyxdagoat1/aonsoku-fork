@@ -178,10 +178,10 @@ export function Player() {
   }
 
   return (
-    <footer className="h-[--player-height] w-full flex items-center fixed bottom-0 left-0 right-0 z-40 pointer-events-none px-4 pb-4 pt-4">
-      <div className="w-full h-full grid grid-cols-player gap-2 px-4 bg-background/95 backdrop-blur-md border rounded-2xl shadow-2xl pointer-events-auto">
+    <footer className="h-[--player-height] w-full flex items-center fixed bottom-0 left-0 right-0 z-40 pointer-events-none px-4 pb-6 pt-4">
+      <div className="w-full h-full grid grid-cols-player gap-4 px-6 py-4 bg-background/95 backdrop-blur-md border rounded-2xl shadow-2xl pointer-events-auto">
         {/* Track Info */}
-        <div className="flex items-center gap-2 w-full">
+        <div className="flex items-center gap-3 w-full">
           {isSong && <MemoTrackInfo song={song} />}
           {isRadio && <MemoRadioInfo radio={radio} />}
           {isPodcast && <MemoPodcastInfo podcast={podcast} />}
