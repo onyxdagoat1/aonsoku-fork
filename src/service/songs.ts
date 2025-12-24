@@ -13,6 +13,20 @@ interface GetRandomSongsParams {
   toYear?: number
 }
 
+interface UpdateSongMetadataParams {
+  id: string
+  title?: string
+  artist?: string
+  album?: string
+  albumArtist?: string
+  year?: number
+  track?: number
+  discNumber?: number
+  genre?: string
+  bpm?: number
+  comment?: string
+}
+
 async function getRandomSongs({
   size,
   genre,
@@ -66,9 +80,35 @@ async function getSong(id: string) {
   return response?.data.song
 }
 
+// Update song metadata using Subsonic's updateSong endpoint
+async function updateSong(params: UpdateSongMetadataParams) {
+  const query: Record<string, string> = {
+    id: params.id,
+  }
+
+  if (params.title) query.title = params.title
+  if (params.artist) query.artist = params.artist
+  if (params.album) query.album = params.album
+  if (params.albumArtist) query.albumArtist = params.albumArtist
+  if (params.year) query.year = params.year.toString()
+  if (params.track) query.track = params.track.toString()
+  if (params.discNumber) query.discNumber = params.discNumber.toString()
+  if (params.genre) query.genre = params.genre
+  if (params.bpm) query.bpm = params.bpm.toString()
+  if (params.comment !== undefined) query.comment = params.comment
+
+  const response = await httpClient('/updateSong', {
+    method: 'GET',
+    query,
+  })
+
+  return response
+}
+
 export const songs = {
   getAllSongs,
   getRandomSongs,
   getTopSongs,
   getSong,
+  updateSong,
 }
