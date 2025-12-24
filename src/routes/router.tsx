@@ -21,7 +21,6 @@ import { albumsLoader } from '@/routes/loaders/albumsLoader'
 import { loginLoader } from '@/routes/loginLoader'
 import { podcastsLoader, protectedLoader } from '@/routes/protectedLoader'
 import { ROUTES } from '@/routes/routesList'
-import { routeList } from '@/routes/routesList'
 
 const BaseLayout = lazy(() => import('@/app/layout/base'))
 const Album = lazy(() => import('@/app/pages/albums/album'))
@@ -218,7 +217,7 @@ export const router = createHashRouter([
   },
   {
     id: 'register',
-    path: routeList.REGISTER,
+    path: ROUTES.REGISTER,
     loader: loginLoader,
     element: (
       <Suspense>
