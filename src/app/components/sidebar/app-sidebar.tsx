@@ -5,6 +5,7 @@ import {
   MainSidebarHeader,
   MainSidebarRail,
 } from '@/app/components/ui/main-sidebar'
+import { appName } from '@/utils/appName'
 import { MiniSidebarSearch } from './mini-search'
 import { SidebarMiniSeparator } from './mini-separator'
 import { MobileCloseButton } from './mobile-close-button'
@@ -19,6 +20,13 @@ export function AppSidebar({
     <MainSidebar collapsible="icon" {...props}>
       <MobileCloseButton />
       <MainSidebarHeader>
+        <div className="flex items-center gap-3 px-2 pb-2">
+          <img
+            src="/resources/icons/yedits-YE-logo-white1.webp"
+            alt={appName}
+            className="h-8 w-auto object-contain"
+          />
+        </div>
         <CommandMenu />
       </MainSidebarHeader>
       <MiniSidebarSearch />
