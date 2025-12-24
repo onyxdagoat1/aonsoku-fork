@@ -131,14 +131,14 @@ export const usePlayerStore = createWithEqualityFn<IPlayerContext>()(
               currentSongColor: null,
               currentSongColorIntensity: 0.65,
               bigPlayer: {
-                useSongColor: false,
+                useSongColor: true,
                 blur: {
                   value: 40,
                   settings: blurSettings,
                 },
               },
               queue: {
-                useSongColor: false,
+                useSongColor: true,
               },
             },
           },
@@ -804,8 +804,8 @@ export const usePlayerStore = createWithEqualityFn<IPlayerContext>()(
             },
             resetConfig: () => {
               set((state) => {
-                state.settings.colors.queue.useSongColor = false
-                state.settings.colors.bigPlayer.useSongColor = false
+                state.settings.colors.queue.useSongColor = true
+                state.settings.colors.bigPlayer.useSongColor = true
                 state.settings.colors.bigPlayer.blur.value = 40
                 state.settings.colors.bigPlayer.blur.settings = blurSettings
                 state.settings.colors.currentSongColorIntensity = 0.65

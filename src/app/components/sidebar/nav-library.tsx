@@ -20,8 +20,8 @@ export function NavLibrary() {
       <MainSidebarGroupLabel>{t('sidebar.library')}</MainSidebarGroupLabel>
       <MainSidebarMenu>
         {libraryItems.map((item) => {
-          // Setting to show/hide Radios/Podcasts section
-          if (hideRadiosSection && item.id === SidebarItems.Radios) return null
+          // Always hide Radios from sidebar (functionality still exists)
+          if (item.id === SidebarItems.Radios) return null
           if (!isPodcastsActive && item.id === SidebarItems.Podcasts)
             return null
 
