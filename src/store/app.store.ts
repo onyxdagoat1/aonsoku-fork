@@ -97,7 +97,7 @@ export const useAppStore = createWithEqualityFn<IAppContext>()(
                 state.pages.showInfoPanel = !showInfoPanel
               })
             },
-            hideRadiosSection: HIDE_RADIOS_SECTION ?? true,
+            hideRadiosSection: HIDE_RADIOS_SECTION ?? false,
             setHideRadiosSection: (value) => {
               set((state) => {
                 state.pages.hideRadiosSection = value
@@ -226,7 +226,7 @@ export const useAppStore = createWithEqualityFn<IAppContext>()(
                 state.data.serverType = 'subsonic'
                 state.data.songCount = null
                 state.pages.showInfoPanel = true
-                state.pages.hideRadiosSection = HIDE_RADIOS_SECTION ?? true
+                state.pages.hideRadiosSection = HIDE_RADIOS_SECTION ?? false
                 state.pages.artistsPageViewType = 'table'
                 state.podcasts.active = false
                 state.podcasts.serviceUrl = ''
@@ -253,10 +253,10 @@ export const useAppStore = createWithEqualityFn<IAppContext>()(
           try {
             const persisted = persistedState as Partial<IAppContext> | undefined
 
-            let hideRadiosSection = true
+            let hideRadiosSection = false
 
             if (persisted) {
-              hideRadiosSection = persisted.pages?.hideRadiosSection ?? true
+              hideRadiosSection = persisted.pages?.hideRadiosSection ?? false
             }
             if (HIDE_RADIOS_SECTION !== undefined) {
               hideRadiosSection = HIDE_RADIOS_SECTION
