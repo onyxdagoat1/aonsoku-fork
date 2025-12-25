@@ -221,6 +221,36 @@ export default function ArtGallery() {
     success('Download complete', `Downloaded ${selectedAlbums.length + selectedCustom.length} items`)
   }, [selectedItems, filteredAlbums, filteredCustomArtworks, downloadAlbums, downloadCustomArtworks, recordDownload, incrementAlbumDownload, incrementDownload, success])
 
+  const handleBulkFavorite = useCallback(() => {
+    let favoriteCount = 0
+    let unfavoriteCount = 0
+    
+    selectedItems.forEach(key => {
+      const [type, id] = key.split('-')
+      const itemType = type as 'album' | 'custom'
+      const currentlyFavorited = isFavorite(id, itemType)
+      
+      if (!currentlyFavorited) {
+        favoriteCount++
+      } else {
+        unfavoriteCount++
+      }
+      
+      toggleFavorite(id, itemType)
+    })
+    
+    setSelectedItems(new Set())
+    setSelectionMode(false)
+    
+    if (favoriteCount > 0 && unfavoriteCount > 0) {
+      success('Updated favorites', `Added ${favoriteCount}, removed ${unfavoriteCount} items`)
+    } else if (favoriteCount > 0) {
+      success('Added to favorites', `${favoriteCount} item${favoriteCount !== 1 ? 's' : ''} added`)
+    } else {
+      success('Removed from favorites', `${unfavoriteCount} item${unfavoriteCount !== 1 ? 's' : ''} removed`)
+    }
+  }, [selectedItems, isFavorite, toggleFavorite, success])
+
   useEffect(() => {
     const scrollElement = scrollDivRef.current
     if (!scrollElement) return
@@ -270,6 +300,15 @@ export default function ArtGallery() {
                 }}
               >
                 Cancel
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={handleBulkFavorite}
+                disabled={selectedItems.size === 0}
+              >
+                <Heart className="h-4 w-4 mr-2" />
+                Favorite Selected
               </Button>
               <Button
                 size="sm"
