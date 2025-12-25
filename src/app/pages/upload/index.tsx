@@ -2,13 +2,15 @@ import { useState } from 'react';
 import { FileUploader } from '@/app/components/upload/FileUploader';
 import { MetadataEditor } from '@/app/components/upload/MetadataEditor';
 import { UploadProgress } from '@/app/components/upload/UploadProgress';
+import { UploadHistory } from '@/app/components/upload/UploadHistory';
 import { Button } from '@/app/components/ui/button';
 import { Checkbox } from '@/app/components/ui/checkbox';
 import { Label } from '@/app/components/ui/label';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/app/components/ui/tabs';
 import { uploadService } from '@/api/uploadService';
 import type { UploadFile, MusicMetadata } from '@/types/upload';
 import { toast } from 'react-toastify';
-import { Upload, Settings, FolderTree } from 'lucide-react';
+import { Upload, Settings, FolderTree, History, UploadCloud } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -22,6 +24,7 @@ export default function UploadPage() {
   const [editingFile, setEditingFile] = useState<UploadFile | null>(null);
   const [isEditorOpen, setIsEditorOpen] = useState(false);
   const [useBatchMode, setUseBatchMode] = useState(false);
+  const [activeTab, setActiveTab] = useState('upload');
 
   const handleFilesSelected = async (files: File[]) => {
     const newUploads: UploadFile[] = files.map((file) => ({
@@ -33,7 +36,6 @@ export default function UploadPage() {
 
     setUploads((prev) => [...prev, ...newUploads]);
 
-    // Auto-extract metadata for each file (unless in batch mode with many files)
     if (!useBatchMode || files.length <= 5) {
       for (const upload of newUploads) {
         try {
@@ -74,7 +76,6 @@ export default function UploadPage() {
     const pendingUploads = uploads.filter((u) => u.status === 'pending');
 
     if (useBatchMode && pendingUploads.length > 1) {
-      // Batch upload mode - upload all at once
       try {
         setUploads((prev) =>
           prev.map((u) =>
@@ -113,7 +114,6 @@ export default function UploadPage() {
         toast.error('Batch upload failed');
       }
     } else {
-      // Individual upload mode - upload with metadata and cover art
       for (const upload of pendingUploads) {
         try {
           setUploads((prev) =>
@@ -122,7 +122,6 @@ export default function UploadPage() {
             )
           );
 
-          // Upload with cover art as separate file (not base64)
           await uploadService.uploadFile(
             upload.file,
             upload.metadata,
@@ -174,115 +173,132 @@ export default function UploadPage() {
       <div className="mb-8">
         <h1 className="text-3xl font-bold mb-2">Upload Music</h1>
         <p className="text-muted-foreground">
-          Upload your music files to Navidrome with custom metadata
+          Upload new files or edit metadata of previously uploaded tracks
         </p>
       </div>
 
-      <div className="space-y-6">
-        <div className="flex items-center gap-4 p-4 border rounded-lg bg-card">
-          <Checkbox
-            id="batch-mode"
-            checked={useBatchMode}
-            onCheckedChange={(checked) => setUseBatchMode(checked === true)}
-          />
-          <div className="flex-1">
-            <Label htmlFor="batch-mode" className="cursor-pointer font-medium">
-              <div className="flex items-center gap-2">
-                <FolderTree className="w-4 h-4" />
-                Batch Upload Mode
-              </div>
-            </Label>
-            <p className="text-sm text-muted-foreground mt-1">
-              Upload multiple files at once. Files will be organized by Artist/Album from their existing metadata.
-              Perfect for uploading full albums or folders.
-            </p>
-          </div>
-        </div>
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+        <TabsList className="grid w-full max-w-md grid-cols-2">
+          <TabsTrigger value="upload" className="flex items-center gap-2">
+            <UploadCloud className="w-4 h-4" />
+            New Upload
+          </TabsTrigger>
+          <TabsTrigger value="history" className="flex items-center gap-2">
+            <History className="w-4 h-4" />
+            Upload History
+          </TabsTrigger>
+        </TabsList>
 
-        <FileUploader onFilesSelected={handleFilesSelected} />
-
-        {uploads.length > 0 && (
-          <>
-            <div className="flex gap-2 justify-end">
-              <Button
-                variant="outline"
-                onClick={handleClearCompleted}
-                disabled={uploads.filter((u) => u.status === 'success').length === 0}
-              >
-                Clear Completed
-              </Button>
-              <Button
-                onClick={handleUploadAll}
-                disabled={pendingCount === 0 || uploadingCount > 0}
-              >
-                <Upload className="w-4 h-4 mr-2" />
-                {useBatchMode ? 'Batch Upload' : 'Upload'} {pendingCount}{' '}
-                {pendingCount === 1 ? 'File' : 'Files'}
-              </Button>
-            </div>
-
-            <UploadProgress uploads={uploads} />
-
-            {!useBatchMode && uploads.some((u) => u.status === 'pending') && (
-              <div className="space-y-2">
-                <h3 className="text-lg font-semibold">Pending Files</h3>
-                <p className="text-sm text-muted-foreground">
-                  Review and edit metadata before uploading
-                </p>
-                <div className="space-y-2">
-                  {uploads
-                    .filter((u) => u.status === 'pending')
-                    .map((upload) => (
-                      <div
-                        key={upload.id}
-                        className="p-3 border rounded-lg bg-card flex items-center justify-between"
-                      >
-                        <div className="flex-1 min-w-0">
-                          <p className="font-medium truncate">{upload.file.name}</p>
-                          {upload.metadata && (
-                            <p className="text-sm text-muted-foreground truncate">
-                              {upload.metadata.artist} - {upload.metadata.title || 'Unknown'}
-                              {upload.metadata.album && ` • ${upload.metadata.album}`}
-                            </p>
-                          )}
-                          {upload.coverArtFile && (
-                            <p className="text-xs text-green-600 mt-1">
-                              ✓ Cover art attached
-                            </p>
-                          )}
-                        </div>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleEditMetadata(upload)}
-                        >
-                          <Settings className="w-4 h-4 mr-2" />
-                          Edit Metadata
-                        </Button>
-                      </div>
-                    ))}
+        <TabsContent value="upload" className="space-y-6">
+          <div className="flex items-center gap-4 p-4 border rounded-lg bg-card">
+            <Checkbox
+              id="batch-mode"
+              checked={useBatchMode}
+              onCheckedChange={(checked) => setUseBatchMode(checked === true)}
+            />
+            <div className="flex-1">
+              <Label htmlFor="batch-mode" className="cursor-pointer font-medium">
+                <div className="flex items-center gap-2">
+                  <FolderTree className="w-4 h-4" />
+                  Batch Upload Mode
                 </div>
-              </div>
-            )}
+              </Label>
+              <p className="text-sm text-muted-foreground mt-1">
+                Upload multiple files at once. Files will be organized by Artist/Album from their existing metadata.
+                Perfect for uploading full albums or folders.
+              </p>
+            </div>
+          </div>
 
-            {useBatchMode && pendingCount > 0 && (
-              <div className="p-4 border rounded-lg bg-card">
-                <div className="flex items-start gap-3">
-                  <FolderTree className="w-5 h-5 text-primary mt-0.5" />
-                  <div>
-                    <h4 className="font-medium mb-1">Batch Mode Active</h4>
-                    <p className="text-sm text-muted-foreground">
-                      {pendingCount} file{pendingCount !== 1 ? 's' : ''} ready to upload.
-                      Files will be organized by their existing metadata into Artist/Album folders.
-                      Click "Batch Upload" to upload all files at once.
-                    </p>
+          <FileUploader onFilesSelected={handleFilesSelected} />
+
+          {uploads.length > 0 && (
+            <>
+              <div className="flex gap-2 justify-end">
+                <Button
+                  variant="outline"
+                  onClick={handleClearCompleted}
+                  disabled={uploads.filter((u) => u.status === 'success').length === 0}
+                >
+                  Clear Completed
+                </Button>
+                <Button
+                  onClick={handleUploadAll}
+                  disabled={pendingCount === 0 || uploadingCount > 0}
+                >
+                  <Upload className="w-4 h-4 mr-2" />
+                  {useBatchMode ? 'Batch Upload' : 'Upload'} {pendingCount}{' '}
+                  {pendingCount === 1 ? 'File' : 'Files'}
+                </Button>
+              </div>
+
+              <UploadProgress uploads={uploads} />
+
+              {!useBatchMode && uploads.some((u) => u.status === 'pending') && (
+                <div className="space-y-2">
+                  <h3 className="text-lg font-semibold">Pending Files</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Review and edit metadata before uploading
+                  </p>
+                  <div className="space-y-2">
+                    {uploads
+                      .filter((u) => u.status === 'pending')
+                      .map((upload) => (
+                        <div
+                          key={upload.id}
+                          className="p-3 border rounded-lg bg-card flex items-center justify-between"
+                        >
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium truncate">{upload.file.name}</p>
+                            {upload.metadata && (
+                              <p className="text-sm text-muted-foreground truncate">
+                                {upload.metadata.artist} - {upload.metadata.title || 'Unknown'}
+                                {upload.metadata.album && ` • ${upload.metadata.album}`}
+                              </p>
+                            )}
+                            {upload.coverArtFile && (
+                              <p className="text-xs text-green-600 mt-1">
+                                ✓ Cover art attached
+                              </p>
+                            )}
+                          </div>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleEditMetadata(upload)}
+                          >
+                            <Settings className="w-4 h-4 mr-2" />
+                            Edit Metadata
+                          </Button>
+                        </div>
+                      ))}
                   </div>
                 </div>
-              </div>
-            )}
-          </>
-        )}
-      </div>
+              )}
+
+              {useBatchMode && pendingCount > 0 && (
+                <div className="p-4 border rounded-lg bg-card">
+                  <div className="flex items-start gap-3">
+                    <FolderTree className="w-5 h-5 text-primary mt-0.5" />
+                    <div>
+                      <h4 className="font-medium mb-1">Batch Mode Active</h4>
+                      <p className="text-sm text-muted-foreground">
+                        {pendingCount} file{pendingCount !== 1 ? 's' : ''} ready to upload.
+                        Files will be organized by their existing metadata into Artist/Album folders.
+                        Click "Batch Upload" to upload all files at once.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+        </TabsContent>
+
+        <TabsContent value="history">
+          <UploadHistory />
+        </TabsContent>
+      </Tabs>
 
       <Dialog open={isEditorOpen} onOpenChange={setIsEditorOpen}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
