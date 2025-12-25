@@ -27,6 +27,39 @@ await fs.mkdir(config.uploadDir, { recursive: true });
 // Load upload history from persistent storage
 let uploadHistory = await loadHistory();
 
+// Helper function to resolve file path from various input formats
+async function resolveFilePath(filePath) {
+  // If it's already an absolute path, check if it exists
+  if (path.isAbsolute(filePath)) {
+    try {
+      await fs.access(filePath);
+      return filePath;
+    } catch (error) {
+      // File doesn't exist at absolute path, try treating as relative
+    }
+  }
+  
+  // Try as relative path from music library
+  const relPath = path.join(config.musicLibraryPath, filePath);
+  const normalizedPath = path.normalize(relPath);
+  
+  try {
+    await fs.access(normalizedPath);
+    return normalizedPath;
+  } catch (error) {
+    // Try one more time - extract just the filename and search in music library
+    const filename = path.basename(filePath);
+    const searchPath = path.join(config.musicLibraryPath, filename);
+    
+    try {
+      await fs.access(searchPath);
+      return searchPath;
+    } catch (error2) {
+      throw new Error(`File not found. Tried:\n1. ${filePath}\n2. ${normalizedPath}\n3. ${searchPath}`);
+    }
+  }
+}
+
 // Helper function to move files across filesystems
 async function moveFile(source, destination) {
   try {
@@ -113,11 +146,21 @@ app.post('/api/metadata/read', async (req, res) => {
       return res.status(400).json({ error: 'File path required' });
     }
 
-    const fullPath = path.join(config.musicLibraryPath, filePath);
-    const normalizedPath = path.normalize(fullPath);
+    let normalizedPath;
+    try {
+      normalizedPath = await resolveFilePath(filePath);
+    } catch (error) {
+      return res.status(404).json({ 
+        error: 'File not found',
+        details: error.message,
+        receivedPath: filePath,
+        musicLibraryPath: config.musicLibraryPath
+      });
+    }
     
+    // Security check: ensure resolved path is within music library
     if (!normalizedPath.startsWith(config.musicLibraryPath)) {
-      return res.status(403).json({ error: 'Access denied' });
+      return res.status(403).json({ error: 'Access denied: File outside music library' });
     }
 
     const metadata = await parseFile(normalizedPath);
@@ -125,7 +168,7 @@ app.post('/api/metadata/read', async (req, res) => {
     res.json({
       format: metadata.format,
       common: metadata.common,
-      filePath: filePath
+      filePath: path.relative(config.musicLibraryPath, normalizedPath)
     });
   } catch (error) {
     console.error('Metadata read error:', error);
@@ -143,11 +186,21 @@ app.post('/api/metadata/update', metadataUpload.single('coverart'), async (req, 
       return res.status(400).json({ error: 'File path required' });
     }
 
-    const fullPath = path.join(config.musicLibraryPath, filePath);
-    const normalizedPath = path.normalize(fullPath);
+    let normalizedPath;
+    try {
+      normalizedPath = await resolveFilePath(filePath);
+    } catch (error) {
+      return res.status(404).json({ 
+        error: 'File not found',
+        details: error.message,
+        receivedPath: filePath,
+        musicLibraryPath: config.musicLibraryPath
+      });
+    }
     
+    // Security check
     if (!normalizedPath.startsWith(config.musicLibraryPath)) {
-      return res.status(403).json({ error: 'Access denied' });
+      return res.status(403).json({ error: 'Access denied: File outside music library' });
     }
 
     const ext = path.extname(normalizedPath).toLowerCase();
