@@ -10,7 +10,7 @@ import { parseFile } from 'music-metadata';
 import axios from 'axios';
 import config from './config.js';
 import { writeMp3Metadata, writeFlacMetadata, writeM4aMetadata, writeOggMetadata } from './metadata-writers.js';
-import { loadHistory, saveHistory, addToHistory } from './history-storage.js';
+import { loadHistory, saveHistory, addToHistory, updateHistoryPath } from './history-storage.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -284,6 +284,11 @@ app.post('/api/metadata/update', metadataUpload.single('coverart'), async (req, 
     if (normalizedPath !== newPath) {
       await fs.mkdir(newDir, { recursive: true });
       await moveFile(normalizedPath, newPath);
+      
+      // Update upload history with new path
+      const oldRelativePath = path.relative(config.musicLibraryPath, normalizedPath);
+      const newRelativePath = path.relative(config.musicLibraryPath, newPath);
+      uploadHistory = await updateHistoryPath(uploadHistory, oldRelativePath, newRelativePath);
       
       try {
         const oldDir = path.dirname(normalizedPath);
