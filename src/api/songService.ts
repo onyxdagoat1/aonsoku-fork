@@ -1,5 +1,8 @@
 import { httpClient } from './httpClient';
 import type { MusicMetadata } from '@/types/upload';
+import axios from 'axios';
+
+const TAG_SERVICE_URL = process.env.REACT_APP_TAG_SERVICE_URL || 'http://localhost:3001';
 
 export interface Song {
   id: string;
@@ -178,10 +181,50 @@ class SongService {
     }
   }
 
-  // Download song file for external editing
-  getDownloadUrl(songId: string): string {
-    // This uses the existing download endpoint from httpClient
-    return `/api/download?id=${songId}`;
+  // Convert File to base64
+  private async fileToBase64(file: File): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = error => reject(error);
+    });
+  }
+
+  // Update song metadata using backend tag service
+  async updateSongMetadata(
+    songId: string,
+    metadata: Partial<MusicMetadata>,
+    coverArtFile?: File
+  ): Promise<boolean> {
+    try {
+      let coverArtBase64;
+      if (coverArtFile) {
+        coverArtBase64 = await this.fileToBase64(coverArtFile);
+      }
+
+      const response = await axios.post(
+        `${TAG_SERVICE_URL}/api/update-song-tags`,
+        {
+          songId,
+          metadata,
+          coverArt: coverArtBase64,
+        },
+        {
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+
+      return response.data.success;
+    } catch (error) {
+      console.error('Failed to update song metadata:', error);
+      if (axios.isAxiosError(error) && error.response) {
+        throw new Error(error.response.data.error || 'Failed to update tags');
+      }
+      throw error;
+    }
   }
 
   // Convert Song to MusicMetadata format
