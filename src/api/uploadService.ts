@@ -1,23 +1,34 @@
 import type { MusicMetadata, UploadResponse, MetadataResponse } from '@/types/upload';
 
-const UPLOAD_SERVICE_URL = import.meta.env.VITE_UPLOAD_SERVICE_URL || 'http://localhost:3002';
+const UPLOAD_SERVICE_URL = import.meta.env.VITE_UPLOAD_SERVICE_URL || 'http://localhost:3001';
 
 export interface UploadHistoryItem {
   id: string;
+  timestamp: string;
   originalName: string;
   path: string;
   size: number;
-  artist?: string;
-  album?: string;
-  title?: string;
-  uploadedAt: string;
+  metadata?: {
+    title?: string;
+    artist?: string;
+    album?: string;
+    [key: string]: any;
+  };
 }
 
 export const uploadService = {
   /**
+   * Health check
+   */
+  async healthCheck(): Promise<any> {
+    const response = await fetch(`${UPLOAD_SERVICE_URL}/health`);
+    return response.json();
+  },
+
+  /**
    * Get upload history
    */
-  async getHistory(limit: number = 50): Promise<UploadHistoryItem[]> {
+  async getHistory(limit: number = 100): Promise<UploadHistoryItem[]> {
     const response = await fetch(`${UPLOAD_SERVICE_URL}/api/upload/history?limit=${limit}`);
     
     if (!response.ok) {
@@ -31,7 +42,7 @@ export const uploadService = {
   /**
    * Read metadata from an existing file
    */
-  async readMetadata(filePath: string): Promise<MetadataResponse> {
+  async readMetadata(filePath: string): Promise<any> {
     const response = await fetch(`${UPLOAD_SERVICE_URL}/api/metadata/read`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -40,10 +51,16 @@ export const uploadService = {
 
     if (!response.ok) {
       const error = await response.json();
-      throw new Error(error.error || 'Failed to read metadata');
+      throw new Error(error.details || error.error || 'Failed to read metadata');
     }
 
-    return response.json();
+    const data = await response.json();
+    
+    // Map v2 response to expected format
+    return {
+      common: data.tags,
+      format: data.format,
+    };
   },
 
   /**
@@ -53,7 +70,7 @@ export const uploadService = {
     filePath: string,
     metadata: MusicMetadata,
     coverArt?: File
-  ): Promise<{ success: boolean; newPath: string }> {
+  ): Promise<{ success: boolean; message?: string; newPath?: string }> {
     const formData = new FormData();
     formData.append('filePath', filePath);
     formData.append('metadata', JSON.stringify(metadata));
@@ -69,30 +86,30 @@ export const uploadService = {
 
     if (!response.ok) {
       const error = await response.json();
-      throw new Error(error.error || 'Failed to update metadata');
+      throw new Error(error.details || error.error || 'Failed to update metadata');
     }
 
-    return response.json();
+    const data = await response.json();
+    return {
+      success: data.success,
+      message: 'Metadata updated successfully',
+      newPath: data.path,
+    };
   },
 
   /**
-   * Extract metadata from an audio file
+   * Extract metadata from an audio file (not needed in v2 - just read after upload)
    */
   async extractMetadata(file: File): Promise<MetadataResponse> {
-    const formData = new FormData();
-    formData.append('file', file);
-
-    const response = await fetch(`${UPLOAD_SERVICE_URL}/api/upload/metadata`, {
-      method: 'POST',
-      body: formData,
-    });
-
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error || 'Failed to extract metadata');
-    }
-
-    return response.json();
+    // V2 doesn't have this endpoint - just return basic info
+    return {
+      common: {
+        title: file.name.replace(/\.[^/.]+$/, ''),
+      },
+      format: {
+        container: file.name.split('.').pop() || 'unknown',
+      },
+    } as any;
   },
 
   /**
@@ -105,14 +122,14 @@ export const uploadService = {
     onProgress?: (progress: number) => void
   ): Promise<UploadResponse> {
     const formData = new FormData();
-    formData.append('file', file);
+    formData.append('audio', file); // v2 uses 'audio' not 'file'
     
     if (metadata) {
       formData.append('metadata', JSON.stringify(metadata));
     }
 
     if (coverArt) {
-      formData.append('coverart', coverArt);
+      formData.append('cover', coverArt); // v2 uses 'cover' not 'coverart'
     }
 
     return new Promise((resolve, reject) => {
@@ -127,7 +144,12 @@ export const uploadService = {
 
       xhr.addEventListener('load', () => {
         if (xhr.status >= 200 && xhr.status < 300) {
-          resolve(JSON.parse(xhr.responseText));
+          const data = JSON.parse(xhr.responseText);
+          resolve({
+            success: data.success,
+            message: 'File uploaded successfully',
+            file: data.file,
+          } as UploadResponse);
         } else {
           const error = JSON.parse(xhr.responseText);
           reject(new Error(error.error || 'Upload failed'));
