@@ -4,7 +4,7 @@ import { MetadataEditor } from './MetadataEditor';
 import { Button } from '@/app/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/app/components/ui/dialog';
 import { toast } from 'react-toastify';
-import { Edit, Music, RefreshCw } from 'lucide-react';
+import { Edit, Music, RefreshCw, AlertCircle } from 'lucide-react';
 import { formatBytes } from '@/utils/formatBytes';
 
 // Simple time formatter
@@ -56,8 +56,21 @@ export function UploadHistory() {
       setIsEditorOpen(true);
     } catch (error) {
       console.error('Failed to load metadata:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Failed to load file metadata';
-      toast.error(`${errorMessage}\nFile: ${item.path}\n\nThe file may have been moved or deleted.`);
+      let errorMessage = 'Failed to load file metadata';
+      
+      if (error instanceof Error) {
+        errorMessage = error.message;
+      }
+      
+      // Show detailed error with file path
+      toast.error(
+        <div>
+          <div className="font-bold mb-1">Failed to read metadata</div>
+          <div className="text-sm">{errorMessage}</div>
+          <div className="text-xs mt-2 opacity-75">File: {item.path}</div>
+        </div>,
+        { autoClose: 7000 }
+      );
     } finally {
       setIsLoadingMetadata(false);
     }
@@ -67,11 +80,21 @@ export function UploadHistory() {
     if (!editingItem) return;
 
     try {
-      const result = await uploadService.updateMetadata(editingItem.path, metadata, coverArt);
+      const result = await uploadService.updateMetadata(
+        editingItem.path,
+        metadata,
+        coverArt
+      );
       
       // Show success with any warnings from backend
       if (result.warning) {
-        toast.warning(`${result.message}\n${result.warning}`, { autoClose: 5000 });
+        toast.warning(
+          <div>
+            <div className="font-bold mb-1">{result.message || 'Metadata updated'}</div>
+            <div className="text-sm">{result.warning}</div>
+          </div>,
+          { autoClose: 5000 }
+        );
       } else {
         toast.success(result.message || 'Metadata updated successfully');
       }
@@ -84,7 +107,19 @@ export function UploadHistory() {
       await loadHistory();
     } catch (error) {
       console.error('Failed to update metadata:', error);
-      toast.error(error instanceof Error ? error.message : 'Failed to update metadata');
+      let errorMessage = 'Failed to update metadata';
+      
+      if (error instanceof Error) {
+        errorMessage = error.message;
+      }
+      
+      toast.error(
+        <div>
+          <div className="font-bold mb-1">Update failed</div>
+          <div className="text-sm">{errorMessage}</div>
+        </div>,
+        { autoClose: 5000 }
+      );
     }
   };
 
@@ -122,7 +157,8 @@ export function UploadHistory() {
         <div className="space-y-2">
           {history.map((item) => {
             const ext = item.path.split('.').pop()?.toLowerCase();
-            const isNonMp3 = ext !== 'mp3';
+            const supportedFormats = ['mp3', 'flac', 'ogg', 'opus', 'm4a', 'aac', 'wav', 'wma', 'ape'];
+            const isSupported = ext && supportedFormats.includes(ext);
             
             return (
               <div
@@ -135,8 +171,12 @@ export function UploadHistory() {
                     <p className="font-medium truncate">
                       {item.title || item.originalName}
                     </p>
-                    {isNonMp3 && (
-                      <span className="text-xs px-2 py-0.5 rounded bg-blue-500/20 text-blue-300 uppercase">
+                    {ext && (
+                      <span className={`text-xs px-2 py-0.5 rounded uppercase font-medium ${
+                        isSupported 
+                          ? 'bg-blue-500/20 text-blue-300' 
+                          : 'bg-orange-500/20 text-orange-300'
+                      }`}>
                         {ext}
                       </span>
                     )}
