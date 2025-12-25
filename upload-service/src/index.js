@@ -7,9 +7,10 @@ import fs from 'fs/promises';
 import { fileURLToPath } from 'url';
 import sanitize from 'sanitize-filename';
 import { parseFile } from 'music-metadata';
-import NodeID3 from 'node-id3';
 import axios from 'axios';
 import config from './config.js';
+import { writeMp3Metadata, writeFlacMetadata, writeM4aMetadata, writeOggMetadata } from './metadata-writers.js';
+import { loadHistory, saveHistory, addToHistory } from './history-storage.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -23,8 +24,8 @@ app.use(express.json({ limit: '10mb' }));
 // Ensure upload directory exists
 await fs.mkdir(config.uploadDir, { recursive: true });
 
-// Upload history storage
-const uploadHistory = [];
+// Load upload history from persistent storage
+let uploadHistory = await loadHistory();
 
 // Helper function to move files across filesystems
 async function moveFile(source, destination) {
@@ -37,19 +38,6 @@ async function moveFile(source, destination) {
     } else {
       throw error;
     }
-  }
-}
-
-// Helper to add to upload history
-function addToHistory(fileInfo) {
-  uploadHistory.unshift({
-    id: uuidv4(),
-    ...fileInfo,
-    uploadedAt: new Date().toISOString()
-  });
-  
-  if (uploadHistory.length > 500) {
-    uploadHistory.pop();
   }
 }
 
@@ -171,58 +159,58 @@ app.post('/api/metadata/update', metadataUpload.single('coverart'), async (req, 
     const existingMetadata = await parseFile(normalizedPath);
     const existingCover = existingMetadata.common.picture?.[0];
 
-    // Prepare tags for all formats
-    const tags = {
-      title: metadata.title,
-      artist: metadata.artist,
-      album: metadata.album,
-      year: metadata.year,
-      trackNumber: metadata.track,
-      genre: metadata.genre,
-      comment: { text: metadata.comment || '' },
-      albumArtist: metadata.albumArtist,
-    };
-
     // Handle cover art - use new if provided, otherwise keep existing
     let imageBuffer = null;
     let imageMime = 'image/jpeg';
 
     if (coverArtFile) {
-      // New cover art uploaded
       imageBuffer = await fs.readFile(coverArtFile.path);
       imageMime = coverArtFile.mimetype;
       await fs.unlink(coverArtFile.path);
     } else if (existingCover) {
-      // Keep existing cover art
       imageBuffer = existingCover.data;
       imageMime = existingCover.format || 'image/jpeg';
     } else if (metadata.coverArt) {
-      // Base64 cover art provided
       imageBuffer = Buffer.from(metadata.coverArt, 'base64');
     }
 
-    // Add image to tags if we have one
-    if (imageBuffer) {
-      tags.image = {
-        mime: imageMime,
-        type: { id: 3, name: 'front cover' },
-        description: 'Cover',
-        imageBuffer: imageBuffer
-      };
-    }
-
     // Write metadata based on file type
-    if (ext === '.mp3') {
-      NodeID3.write(tags, normalizedPath);
-    } else if (ext === '.flac' || ext === '.m4a') {
-      // For FLAC and M4A, we need to use a different approach
-      // For now, we'll use ffmpeg-based tag writing (requires ffmpeg installed)
-      // This is a simplified version - you may need ffmpeg-static package
-      console.log(`Metadata writing for ${ext} files is limited. MP3 recommended for full editing support.`);
-      // Note: FLAC and M4A editing would require additional libraries like:
-      // - node-flac for FLAC
-      // - node-mp4 for M4A
-      // Returning success but with a warning
+    let success = false;
+    let warning = null;
+
+    switch (ext) {
+      case '.mp3':
+        await writeMp3Metadata(normalizedPath, metadata, imageBuffer, imageMime);
+        success = true;
+        break;
+      
+      case '.flac':
+        success = await writeFlacMetadata(normalizedPath, metadata, imageBuffer, imageMime);
+        if (!success) {
+          warning = 'metaflac tool not found. Install flac package for full FLAC editing support.';
+        }
+        break;
+      
+      case '.m4a':
+      case '.aac':
+        success = await writeM4aMetadata(normalizedPath, metadata, imageBuffer, imageMime);
+        if (!success) {
+          warning = 'ffmpeg not found. Install ffmpeg for full M4A/AAC editing support.';
+        }
+        break;
+      
+      case '.ogg':
+      case '.opus':
+        success = await writeOggMetadata(normalizedPath, metadata, imageBuffer, imageMime);
+        if (!success) {
+          warning = 'ffmpeg not found. Install ffmpeg for full OGG/OPUS editing support.';
+        }
+        break;
+      
+      default:
+        return res.status(400).json({ 
+          error: `Metadata editing not supported for ${ext} files` 
+        });
     }
 
     // Move file if artist/album/title changed
@@ -256,11 +244,9 @@ app.post('/api/metadata/update', metadataUpload.single('coverart'), async (req, 
 
     res.json({
       success: true,
-      message: ext === '.mp3' 
-        ? 'Metadata updated successfully' 
-        : `Metadata updated (${ext} files have limited editing support - MP3 recommended)`,
+      message: 'Metadata updated successfully',
       newPath: path.relative(config.musicLibraryPath, newPath),
-      warning: ext !== '.mp3' ? 'Some metadata fields may not be updated for non-MP3 files' : null
+      warning: warning
     });
   } catch (error) {
     console.error('Metadata update error:', error);
@@ -314,44 +300,40 @@ app.post('/api/upload', upload.fields([{ name: 'file', maxCount: 1 }, { name: 'c
     const filePath = audioFile.path;
     const ext = path.extname(audioFile.originalname).toLowerCase();
 
-    if (parsedMetadata && ext === '.mp3') {
-      try {
-        const tags = {
-          title: parsedMetadata.title,
-          artist: parsedMetadata.artist,
-          album: parsedMetadata.album,
-          year: parsedMetadata.year,
-          trackNumber: parsedMetadata.track,
-          genre: parsedMetadata.genre,
-          comment: { text: parsedMetadata.comment || '' },
-          albumArtist: parsedMetadata.albumArtist,
-        };
-
-        if (coverArtFile) {
-          const imageBuffer = await fs.readFile(coverArtFile.path);
-          tags.image = {
-            mime: coverArtFile.mimetype,
-            type: { id: 3, name: 'front cover' },
-            description: 'Cover',
-            imageBuffer: imageBuffer
-          };
-        } else if (parsedMetadata.coverArt) {
-          tags.image = {
-            mime: 'image/jpeg',
-            type: { id: 3, name: 'front cover' },
-            description: 'Cover',
-            imageBuffer: Buffer.from(parsedMetadata.coverArt, 'base64')
-          };
-        }
-
-        NodeID3.write(tags, filePath);
-      } catch (error) {
-        console.error('Failed to write ID3 tags:', error);
-      }
-    }
+    // Handle cover art
+    let imageBuffer = null;
+    let imageMime = 'image/jpeg';
 
     if (coverArtFile) {
+      imageBuffer = await fs.readFile(coverArtFile.path);
+      imageMime = coverArtFile.mimetype;
       await fs.unlink(coverArtFile.path);
+    } else if (parsedMetadata?.coverArt) {
+      imageBuffer = Buffer.from(parsedMetadata.coverArt, 'base64');
+    }
+
+    // Write metadata if provided
+    if (parsedMetadata) {
+      try {
+        switch (ext) {
+          case '.mp3':
+            await writeMp3Metadata(filePath, parsedMetadata, imageBuffer, imageMime);
+            break;
+          case '.flac':
+            await writeFlacMetadata(filePath, parsedMetadata, imageBuffer, imageMime);
+            break;
+          case '.m4a':
+          case '.aac':
+            await writeM4aMetadata(filePath, parsedMetadata, imageBuffer, imageMime);
+            break;
+          case '.ogg':
+          case '.opus':
+            await writeOggMetadata(filePath, parsedMetadata, imageBuffer, imageMime);
+            break;
+        }
+      } catch (error) {
+        console.error('Failed to write metadata:', error);
+      }
     }
 
     const finalFilename = sanitize(parsedMetadata?.title || audioFile.originalname);
@@ -364,14 +346,19 @@ app.post('/api/upload', upload.fields([{ name: 'file', maxCount: 1 }, { name: 'c
     const finalPath = path.join(finalDir, `${finalFilename}${ext}`);
     await moveFile(filePath, finalPath);
 
-    addToHistory({
+    // Add to history and save
+    const historyItem = {
+      id: uuidv4(),
       originalName: audioFile.originalname,
       path: path.relative(config.musicLibraryPath, finalPath),
       size: audioFile.size,
       artist: parsedMetadata?.artist,
       album: parsedMetadata?.album,
-      title: parsedMetadata?.title
-    });
+      title: parsedMetadata?.title,
+      uploadedAt: new Date().toISOString()
+    };
+    
+    uploadHistory = await addToHistory(uploadHistory, historyItem);
 
     if (config.navidromeUrl) {
       try {
@@ -470,16 +457,18 @@ app.post('/api/upload/batch', upload.array('files', 50), async (req, res) => {
         await moveFile(file.path, finalPath);
 
         const fileInfo = {
+          id: uuidv4(),
           originalName: file.originalname,
           path: path.relative(config.musicLibraryPath, finalPath),
           size: file.size,
           artist: metadata?.artist,
           album: metadata?.album,
-          title: metadata?.title
+          title: metadata?.title,
+          uploadedAt: new Date().toISOString()
         };
 
         results.push(fileInfo);
-        addToHistory(fileInfo);
+        uploadHistory = await addToHistory(uploadHistory, fileInfo);
 
         console.log(`Uploaded: ${artistFolder}/${albumFolder}/${trackTitle}${ext}`);
       } catch (error) {
@@ -529,4 +518,5 @@ app.listen(config.port, () => {
   console.log(`Upload service running on port ${config.port}`);
   console.log(`Upload directory: ${config.uploadDir}`);
   console.log(`Music library: ${config.musicLibraryPath}`);
+  console.log(`Upload history: ${uploadHistory.length} items loaded`);
 });
