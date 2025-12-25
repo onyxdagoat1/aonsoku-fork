@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { Image, Upload, X } from 'lucide-react';
 import { Button } from '@/app/components/ui/button';
 import { Label } from '@/app/components/ui/label';
@@ -9,7 +9,23 @@ interface CoverArtUploadProps {
 }
 
 export function CoverArtUpload({ onCoverArtSelected, currentCoverArt }: CoverArtUploadProps) {
-  const [preview, setPreview] = useState<string | null>(currentCoverArt || null);
+  const [preview, setPreview] = useState<string | null>(null);
+  const [hasExistingArt, setHasExistingArt] = useState(false);
+
+  // Initialize preview with current cover art
+  useEffect(() => {
+    if (currentCoverArt) {
+      // If it's base64 data, prepend the data URL prefix if not already there
+      if (currentCoverArt.startsWith('/9j/') || currentCoverArt.startsWith('iVBOR')) {
+        setPreview(`data:image/jpeg;base64,${currentCoverArt}`);
+      } else if (currentCoverArt.startsWith('data:')) {
+        setPreview(currentCoverArt);
+      } else {
+        setPreview(currentCoverArt);
+      }
+      setHasExistingArt(true);
+    }
+  }, [currentCoverArt]);
 
   const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -18,6 +34,7 @@ export function CoverArtUpload({ onCoverArtSelected, currentCoverArt }: CoverArt
       reader.onload = (e) => {
         const result = e.target?.result as string;
         setPreview(result);
+        setHasExistingArt(false);
       };
       reader.readAsDataURL(file);
       onCoverArtSelected(file);
@@ -26,6 +43,7 @@ export function CoverArtUpload({ onCoverArtSelected, currentCoverArt }: CoverArt
 
   const handleRemove = useCallback(() => {
     setPreview(null);
+    setHasExistingArt(false);
     onCoverArtSelected(null);
   }, [onCoverArtSelected]);
 
@@ -41,6 +59,7 @@ export function CoverArtUpload({ onCoverArtSelected, currentCoverArt }: CoverArt
             className="w-48 h-48 object-cover rounded-lg border"
           />
           <Button
+            type="button"
             variant="destructive"
             size="icon"
             className="absolute top-2 right-2"
@@ -48,6 +67,11 @@ export function CoverArtUpload({ onCoverArtSelected, currentCoverArt }: CoverArt
           >
             <X className="w-4 h-4" />
           </Button>
+          {hasExistingArt && (
+            <p className="text-xs text-muted-foreground mt-2">
+              Current cover art (upload a new one to replace)
+            </p>
+          )}
         </div>
       ) : (
         <label className="flex flex-col items-center justify-center w-48 h-48 border-2 border-dashed rounded-lg cursor-pointer hover:border-primary transition-colors">

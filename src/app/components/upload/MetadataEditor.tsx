@@ -16,6 +16,7 @@ interface MetadataEditorProps {
 export function MetadataEditor({ initialMetadata, onSave, onCancel }: MetadataEditorProps) {
   const [metadata, setMetadata] = useState<MusicMetadata>(initialMetadata || {});
   const [coverArtFile, setCoverArtFile] = useState<File | null>(null);
+  const [hasNewCoverArt, setHasNewCoverArt] = useState(false);
 
   useEffect(() => {
     if (initialMetadata) {
@@ -30,15 +31,36 @@ export function MetadataEditor({ initialMetadata, onSave, onCancel }: MetadataEd
     }));
   };
 
+  const handleCoverArtChange = (file: File | null) => {
+    setCoverArtFile(file);
+    setHasNewCoverArt(file !== null);
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onSave(metadata, coverArtFile || undefined);
+    
+    // Create a clean metadata object WITHOUT the existing cover art
+    // Only include cover art if user uploaded a new one
+    const cleanMetadata: MusicMetadata = {
+      title: metadata.title,
+      artist: metadata.artist,
+      album: metadata.album,
+      albumArtist: metadata.albumArtist,
+      year: metadata.year,
+      track: metadata.track,
+      genre: metadata.genre,
+      comment: metadata.comment,
+      // Don't include coverArt field - it will be sent as separate file if needed
+    };
+    
+    // Only pass coverArtFile if user selected a new one
+    onSave(cleanMetadata, hasNewCoverArt ? (coverArtFile || undefined) : undefined);
   };
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <CoverArtUpload 
-        onCoverArtSelected={setCoverArtFile}
+        onCoverArtSelected={handleCoverArtChange}
         currentCoverArt={metadata.coverArt}
       />
 
