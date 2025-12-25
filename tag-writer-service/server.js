@@ -5,7 +5,6 @@ const path = require('path');
 const fs = require('fs').promises;
 const axios = require('axios');
 const NodeID3 = require('node-id3');
-const mm = require('music-metadata');
 require('dotenv').config();
 
 const app = express();
