@@ -4,7 +4,7 @@ import { MetadataEditor } from './MetadataEditor';
 import { Button } from '@/app/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/app/components/ui/dialog';
 import { toast } from 'react-toastify';
-import { Edit, Music, RefreshCw, Info } from 'lucide-react';
+import { Edit, Music, RefreshCw } from 'lucide-react';
 import { formatBytes } from '@/utils/formatBytes';
 
 // Simple time formatter
@@ -50,24 +50,14 @@ export function UploadHistory() {
       setIsLoadingMetadata(true);
       setEditingItem(item);
       
-      // Check file extension
-      const ext = item.path.split('.').pop()?.toLowerCase();
-      
-      // Show info for non-MP3 files
-      if (ext !== 'mp3') {
-        toast.info(
-          `Editing ${ext?.toUpperCase()} files has limited support. MP3 format recommended for full metadata editing.`,
-          { autoClose: 5000 }
-        );
-      }
-      
       // Load current metadata from file
       const metadata = await uploadService.readMetadata(item.path);
       setEditingMetadata(metadata.common);
       setIsEditorOpen(true);
     } catch (error) {
       console.error('Failed to load metadata:', error);
-      toast.error('Failed to load file metadata');
+      const errorMessage = error instanceof Error ? error.message : 'Failed to load file metadata';
+      toast.error(`${errorMessage}\nFile: ${item.path}\n\nThe file may have been moved or deleted.`);
     } finally {
       setIsLoadingMetadata(false);
     }
