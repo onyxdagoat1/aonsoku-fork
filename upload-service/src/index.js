@@ -29,35 +29,53 @@ let uploadHistory = await loadHistory();
 
 // Helper function to resolve file path from various input formats
 async function resolveFilePath(filePath) {
-  // If it's already an absolute path, check if it exists
+  console.log(`[PATH RESOLUTION] Input path: ${filePath}`);
+  console.log(`[PATH RESOLUTION] Music library: ${config.musicLibraryPath}`);
+  
+  const attempts = [];
+  
+  // Attempt 1: Try as absolute path
   if (path.isAbsolute(filePath)) {
+    attempts.push({ method: 'Absolute path', path: filePath });
     try {
       await fs.access(filePath);
+      console.log(`[PATH RESOLUTION] ✓ Found at absolute path: ${filePath}`);
       return filePath;
     } catch (error) {
-      // File doesn't exist at absolute path, try treating as relative
+      console.log(`[PATH RESOLUTION] ✗ Not found at absolute path`);
     }
   }
   
-  // Try as relative path from music library
+  // Attempt 2: Try as relative path from music library
   const relPath = path.join(config.musicLibraryPath, filePath);
   const normalizedPath = path.normalize(relPath);
+  attempts.push({ method: 'Relative to music library', path: normalizedPath });
   
   try {
     await fs.access(normalizedPath);
+    console.log(`[PATH RESOLUTION] ✓ Found as relative path: ${normalizedPath}`);
     return normalizedPath;
   } catch (error) {
-    // Try one more time - extract just the filename and search in music library
-    const filename = path.basename(filePath);
-    const searchPath = path.join(config.musicLibraryPath, filename);
-    
-    try {
-      await fs.access(searchPath);
-      return searchPath;
-    } catch (error2) {
-      throw new Error(`File not found. Tried:\n1. ${filePath}\n2. ${normalizedPath}\n3. ${searchPath}`);
-    }
+    console.log(`[PATH RESOLUTION] ✗ Not found as relative path`);
   }
+  
+  // Attempt 3: Try with just filename
+  const filename = path.basename(filePath);
+  const searchPath = path.join(config.musicLibraryPath, filename);
+  attempts.push({ method: 'Basename in music library', path: searchPath });
+  
+  try {
+    await fs.access(searchPath);
+    console.log(`[PATH RESOLUTION] ✓ Found by basename: ${searchPath}`);
+    return searchPath;
+  } catch (error) {
+    console.log(`[PATH RESOLUTION] ✗ Not found by basename`);
+  }
+  
+  // All attempts failed
+  const errorMessage = `File not found. Tried:\n${attempts.map((a, i) => `${i + 1}. [${a.method}] ${a.path}`).join('\n')}`;
+  console.error(`[PATH RESOLUTION] ✗ All attempts failed`);
+  throw new Error(errorMessage);
 }
 
 // Helper function to move files across filesystems
@@ -150,6 +168,7 @@ app.post('/api/metadata/read', async (req, res) => {
     try {
       normalizedPath = await resolveFilePath(filePath);
     } catch (error) {
+      console.error('[METADATA READ] Path resolution failed:', error.message);
       return res.status(404).json({ 
         error: 'File not found',
         details: error.message,
@@ -160,9 +179,11 @@ app.post('/api/metadata/read', async (req, res) => {
     
     // Security check: ensure resolved path is within music library
     if (!normalizedPath.startsWith(config.musicLibraryPath)) {
+      console.warn('[METADATA READ] Security violation: Path outside music library');
       return res.status(403).json({ error: 'Access denied: File outside music library' });
     }
 
+    console.log(`[METADATA READ] Reading metadata from: ${normalizedPath}`);
     const metadata = await parseFile(normalizedPath);
     
     res.json({
@@ -171,7 +192,7 @@ app.post('/api/metadata/read', async (req, res) => {
       filePath: path.relative(config.musicLibraryPath, normalizedPath)
     });
   } catch (error) {
-    console.error('Metadata read error:', error);
+    console.error('[METADATA READ] Error:', error);
     res.status(500).json({ error: 'Failed to read metadata', details: error.message });
   }
 });
@@ -190,6 +211,7 @@ app.post('/api/metadata/update', metadataUpload.single('coverart'), async (req, 
     try {
       normalizedPath = await resolveFilePath(filePath);
     } catch (error) {
+      console.error('[METADATA UPDATE] Path resolution failed:', error.message);
       return res.status(404).json({ 
         error: 'File not found',
         details: error.message,
@@ -200,9 +222,12 @@ app.post('/api/metadata/update', metadataUpload.single('coverart'), async (req, 
     
     // Security check
     if (!normalizedPath.startsWith(config.musicLibraryPath)) {
+      console.warn('[METADATA UPDATE] Security violation: Path outside music library');
       return res.status(403).json({ error: 'Access denied: File outside music library' });
     }
 
+    console.log(`[METADATA UPDATE] Updating: ${normalizedPath}`);
+    
     const ext = path.extname(normalizedPath).toLowerCase();
     let metadata = null;
 
@@ -282,6 +307,7 @@ app.post('/api/metadata/update', metadataUpload.single('coverart'), async (req, 
     const newPath = path.join(newDir, `${newTitle}${ext}`);
 
     if (normalizedPath !== newPath) {
+      console.log(`[METADATA UPDATE] Moving file: ${normalizedPath} -> ${newPath}`);
       await fs.mkdir(newDir, { recursive: true });
       await moveFile(normalizedPath, newPath);
       
@@ -295,6 +321,7 @@ app.post('/api/metadata/update', metadataUpload.single('coverart'), async (req, 
         const files = await fs.readdir(oldDir);
         if (files.length === 0) {
           await fs.rmdir(oldDir);
+          console.log(`[METADATA UPDATE] Removed empty directory: ${oldDir}`);
         }
       } catch (e) {}
     }
@@ -302,11 +329,13 @@ app.post('/api/metadata/update', metadataUpload.single('coverart'), async (req, 
     if (config.navidromeUrl) {
       try {
         await triggerNavidromeScan();
+        console.log('[METADATA UPDATE] Triggered Navidrome scan');
       } catch (error) {
-        console.error('Failed to trigger scan:', error.message);
+        console.error('[METADATA UPDATE] Failed to trigger scan:', error.message);
       }
     }
 
+    console.log(`[METADATA UPDATE] Success: ${path.relative(config.musicLibraryPath, newPath)}`);
     res.json({
       success: true,
       message: 'Metadata updated successfully',
@@ -314,7 +343,7 @@ app.post('/api/metadata/update', metadataUpload.single('coverart'), async (req, 
       warning: warning
     });
   } catch (error) {
-    console.error('Metadata update error:', error);
+    console.error('[METADATA UPDATE] Error:', error);
     res.status(500).json({ error: 'Failed to update metadata', details: error.message });
   }
 });
