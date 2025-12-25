@@ -3,8 +3,6 @@ import { FileUploader } from '@/app/components/upload/FileUploader';
 import { MetadataEditorEnhanced } from '@/app/components/upload/MetadataEditorEnhanced';
 import { FilePreviewCard } from '@/app/components/upload/FilePreviewCard';
 import { ExistingSongEditor } from '@/app/components/upload/ExistingSongEditor';
-import { ShadowHeader } from '@/app/components/album/shadow-header';
-import { HeaderTitle } from '@/app/components/header-title';
 import { Button } from '@/app/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/app/components/ui/tabs';
 import { Input } from '@/app/components/ui/input';
@@ -258,191 +256,178 @@ export default function UploadPage() {
   const errorCount = uploads.filter((u) => u.status === 'error').length;
 
   return (
-    <div className="w-full h-content">
-      <ShadowHeader
-        showGlassEffect={false}
-        fixed={false}
-        className="relative w-full justify-between items-center"
-      >
-        <HeaderTitle title="Upload" />
-        
-        <Tabs value={pageMode} onValueChange={(v) => setPageMode(v as PageMode)} className="flex-1 max-w-md">
-          <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="upload" className="gap-2">
-              <Upload className="w-4 h-4" />
-              Upload
-            </TabsTrigger>
-            <TabsTrigger value="batch" className="gap-2">
-              <FolderTree className="w-4 h-4" />
-              Batch
-            </TabsTrigger>
-            <TabsTrigger value="edit" className="gap-2">
-              <Edit3 className="w-4 h-4" />
-              Edit Tags
-            </TabsTrigger>
-          </TabsList>
-        </Tabs>
-      </ShadowHeader>
+    <div className="w-full p-6">
+      {/* Header */}
+      <div className="mb-6">
+        <h1 className="text-3xl font-bold mb-2">Upload</h1>
+        <p className="text-muted-foreground">
+          Upload new music or edit tags of existing tracks in your library
+        </p>
+      </div>
 
-      <div className="w-full h-[calc(100%-80px)] overflow-auto p-6">
-        <Tabs value={pageMode} onValueChange={(v) => setPageMode(v as PageMode)}>
-          <TabsContent value="upload" className="space-y-6 mt-0">
-            <div className="p-4 border rounded-lg bg-card">
-              <div className="flex items-start gap-3">
-                <Upload className="w-5 h-5 text-primary mt-0.5" />
-                <div>
-                  <h4 className="font-medium mb-1">Upload Mode</h4>
-                  <p className="text-sm text-muted-foreground">
-                    Upload files with full metadata editing. Review and customize tags, artwork, and lyrics for each track.
-                    Ideal for single tracks or when you need precise control.
-                  </p>
-                </div>
+      <Tabs defaultValue="upload" value={pageMode} onValueChange={(v) => setPageMode(v as PageMode)} className="w-full">
+        <TabsList className="mb-6">
+          <TabsTrigger value="upload">Upload</TabsTrigger>
+          <TabsTrigger value="batch">Batch Upload</TabsTrigger>
+          <TabsTrigger value="edit">Edit Tags</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="upload" className="space-y-6">
+          <div className="p-4 border rounded-lg bg-card">
+            <div className="flex items-start gap-3">
+              <Upload className="w-5 h-5 text-primary mt-0.5" />
+              <div>
+                <h4 className="font-medium mb-1">Upload Mode</h4>
+                <p className="text-sm text-muted-foreground">
+                  Upload files with full metadata editing. Review and customize tags, artwork, and lyrics for each track.
+                  Ideal for single tracks or when you need precise control.
+                </p>
               </div>
-            </div>
-            <FileUploader onFilesSelected={handleFilesSelected} />
-          </TabsContent>
-
-          <TabsContent value="batch" className="space-y-6 mt-0">
-            <div className="p-4 border rounded-lg bg-card">
-              <div className="flex items-start gap-3">
-                <FolderTree className="w-5 h-5 text-primary mt-0.5" />
-                <div>
-                  <h4 className="font-medium mb-1">Batch Upload Mode</h4>
-                  <p className="text-sm text-muted-foreground">
-                    Upload multiple files and apply common metadata to all. Great for uploading albums or compilations
-                    where tracks share artist, album, and year information.
-                  </p>
-                </div>
-              </div>
-            </div>
-            <FileUploader onFilesSelected={handleFilesSelected} />
-          </TabsContent>
-
-          <TabsContent value="edit" className="space-y-6 mt-0">
-            <ExistingSongEditor />
-          </TabsContent>
-        </Tabs>
-
-        {uploads.length > 0 && pageMode !== 'edit' && (
-          <div className="space-y-6 mt-6">
-            {/* Stats and Actions Bar */}
-            <div className="flex flex-wrap items-center justify-between gap-4 p-4 border rounded-lg bg-card">
-              <div className="flex flex-wrap gap-4">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium">Total:</span>
-                  <span className="text-sm text-muted-foreground">{uploads.length}</span>
-                </div>
-                {pendingCount > 0 && (
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium text-blue-500">Pending:</span>
-                    <span className="text-sm">{pendingCount}</span>
-                  </div>
-                )}
-                {uploadingCount > 0 && (
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium text-primary">Uploading:</span>
-                    <span className="text-sm">{uploadingCount}</span>
-                  </div>
-                )}
-                {successCount > 0 && (
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium text-green-500">Success:</span>
-                    <span className="text-sm">{successCount}</span>
-                  </div>
-                )}
-                {errorCount > 0 && (
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium text-destructive">Failed:</span>
-                    <span className="text-sm">{errorCount}</span>
-                  </div>
-                )}
-              </div>
-
-              <div className="flex flex-wrap gap-2">
-                <Select value={filterStatus} onValueChange={setFilterStatus}>
-                  <SelectTrigger className="w-[140px]">
-                    <Filter className="w-4 h-4 mr-2" />
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Files</SelectItem>
-                    <SelectItem value="pending">Pending</SelectItem>
-                    <SelectItem value="uploading">Uploading</SelectItem>
-                    <SelectItem value="success">Success</SelectItem>
-                    <SelectItem value="error">Failed</SelectItem>
-                  </SelectContent>
-                </Select>
-
-                <Select value={sortBy} onValueChange={setSortBy}>
-                  <SelectTrigger className="w-[140px]">
-                    <SortAsc className="w-4 h-4 mr-2" />
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="order">Upload Order</SelectItem>
-                    <SelectItem value="name">File Name</SelectItem>
-                    <SelectItem value="size">File Size</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            {/* Action Buttons */}
-            <div className="flex flex-wrap gap-2 justify-end">
-              {uploadMode === 'batch' && pendingCount > 0 && (
-                <Button
-                  variant="outline"
-                  onClick={handleBatchEdit}
-                >
-                  <Settings className="w-4 h-4 mr-2" />
-                  Batch Edit Metadata
-                </Button>
-              )}
-              <Button
-                variant="outline"
-                onClick={handleClearCompleted}
-                disabled={successCount === 0}
-              >
-                <CheckCircle className="w-4 h-4 mr-2" />
-                Clear Completed
-              </Button>
-              <Button
-                variant="outline"
-                onClick={handleClearAll}
-                disabled={uploads.length === 0}
-              >
-                <Trash2 className="w-4 h-4 mr-2" />
-                Clear All
-              </Button>
-              <Button
-                onClick={handleUploadAll}
-                disabled={pendingCount === 0 || uploadingCount > 0}
-              >
-                <Upload className="w-4 h-4 mr-2" />
-                Upload {pendingCount} {pendingCount === 1 ? 'File' : 'Files'}
-              </Button>
-            </div>
-
-            {/* File List */}
-            <div className="space-y-3">
-              <h3 className="text-lg font-semibold">Upload Queue</h3>
-              {filteredUploads.map((upload) => (
-                <FilePreviewCard
-                  key={upload.id}
-                  upload={upload}
-                  onEdit={handleEditMetadata}
-                  onRemove={handleRemoveFile}
-                  isDraggable={uploadMode === 'detailed' || uploadMode === 'batch'}
-                  onDragStart={handleDragStart}
-                  onDragOver={handleDragOver}
-                  onDrop={handleDrop}
-                  dragOver={dragOverId === upload.id}
-                />
-              ))}
             </div>
           </div>
-        )}
-      </div>
+          <FileUploader onFilesSelected={handleFilesSelected} />
+        </TabsContent>
+
+        <TabsContent value="batch" className="space-y-6">
+          <div className="p-4 border rounded-lg bg-card">
+            <div className="flex items-start gap-3">
+              <FolderTree className="w-5 h-5 text-primary mt-0.5" />
+              <div>
+                <h4 className="font-medium mb-1">Batch Upload Mode</h4>
+                <p className="text-sm text-muted-foreground">
+                  Upload multiple files and apply common metadata to all. Great for uploading albums or compilations
+                  where tracks share artist, album, and year information.
+                </p>
+              </div>
+            </div>
+          </div>
+          <FileUploader onFilesSelected={handleFilesSelected} />
+        </TabsContent>
+
+        <TabsContent value="edit" className="space-y-6">
+          <ExistingSongEditor />
+        </TabsContent>
+      </Tabs>
+
+      {uploads.length > 0 && pageMode !== 'edit' && (
+        <div className="space-y-6 mt-6">
+          {/* Stats and Actions Bar */}
+          <div className="flex flex-wrap items-center justify-between gap-4 p-4 border rounded-lg bg-card">
+            <div className="flex flex-wrap gap-4">
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-medium">Total:</span>
+                <span className="text-sm text-muted-foreground">{uploads.length}</span>
+              </div>
+              {pendingCount > 0 && (
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium text-blue-500">Pending:</span>
+                  <span className="text-sm">{pendingCount}</span>
+                </div>
+              )}
+              {uploadingCount > 0 && (
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium text-primary">Uploading:</span>
+                  <span className="text-sm">{uploadingCount}</span>
+                </div>
+              )}
+              {successCount > 0 && (
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium text-green-500">Success:</span>
+                  <span className="text-sm">{successCount}</span>
+                </div>
+              )}
+              {errorCount > 0 && (
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium text-destructive">Failed:</span>
+                  <span className="text-sm">{errorCount}</span>
+                </div>
+              )}
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+              <Select value={filterStatus} onValueChange={setFilterStatus}>
+                <SelectTrigger className="w-[140px]">
+                  <Filter className="w-4 h-4 mr-2" />
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Files</SelectItem>
+                  <SelectItem value="pending">Pending</SelectItem>
+                  <SelectItem value="uploading">Uploading</SelectItem>
+                  <SelectItem value="success">Success</SelectItem>
+                  <SelectItem value="error">Failed</SelectItem>
+                </SelectContent>
+              </Select>
+
+              <Select value={sortBy} onValueChange={setSortBy}>
+                <SelectTrigger className="w-[140px]">
+                  <SortAsc className="w-4 h-4 mr-2" />
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="order">Upload Order</SelectItem>
+                  <SelectItem value="name">File Name</SelectItem>
+                  <SelectItem value="size">File Size</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          {/* Action Buttons */}
+          <div className="flex flex-wrap gap-2 justify-end">
+            {uploadMode === 'batch' && pendingCount > 0 && (
+              <Button
+                variant="outline"
+                onClick={handleBatchEdit}
+              >
+                <Settings className="w-4 h-4 mr-2" />
+                Batch Edit Metadata
+              </Button>
+            )}
+            <Button
+              variant="outline"
+              onClick={handleClearCompleted}
+              disabled={successCount === 0}
+            >
+              <CheckCircle className="w-4 h-4 mr-2" />
+              Clear Completed
+            </Button>
+            <Button
+              variant="outline"
+              onClick={handleClearAll}
+              disabled={uploads.length === 0}
+            >
+              <Trash2 className="w-4 h-4 mr-2" />
+              Clear All
+            </Button>
+            <Button
+              onClick={handleUploadAll}
+              disabled={pendingCount === 0 || uploadingCount > 0}
+            >
+              <Upload className="w-4 h-4 mr-2" />
+              Upload {pendingCount} {pendingCount === 1 ? 'File' : 'Files'}
+            </Button>
+          </div>
+
+          {/* File List */}
+          <div className="space-y-3">
+            <h3 className="text-lg font-semibold">Upload Queue</h3>
+            {filteredUploads.map((upload) => (
+              <FilePreviewCard
+                key={upload.id}
+                upload={upload}
+                onEdit={handleEditMetadata}
+                onRemove={handleRemoveFile}
+                isDraggable={uploadMode === 'detailed' || uploadMode === 'batch'}
+                onDragStart={handleDragStart}
+                onDragOver={handleDragOver}
+                onDrop={handleDrop}
+                dragOver={dragOverId === upload.id}
+              />
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Metadata Editor Dialog */}
       <Dialog open={isEditorOpen} onOpenChange={setIsEditorOpen}>
