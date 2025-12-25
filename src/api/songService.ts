@@ -138,58 +138,50 @@ class SongService {
     }
   }
 
-  async updateSongMetadata(
-    songId: string,
-    metadata: Partial<MusicMetadata>
-  ): Promise<boolean> {
+  async startScan(): Promise<{ scanning: boolean; count?: number }> {
     try {
-      // Navidrome uses the updateShare endpoint for metadata updates
-      // This is a workaround - in a real implementation, you'd need a proper API endpoint
-      const params: Record<string, string | number> = {
-        id: songId,
-      };
+      const response = await httpClient<{ scanStatus: { scanning: boolean; count?: number } }>(
+        'startScan',
+        {
+          method: 'GET',
+        }
+      );
 
-      if (metadata.title) params.title = metadata.title;
-      if (metadata.artist) params.artist = metadata.artist;
-      if (metadata.album) params.album = metadata.album;
-      if (metadata.albumArtist) params.albumArtist = metadata.albumArtist;
-      if (metadata.year) params.year = metadata.year;
-      if (metadata.genre) params.genre = metadata.genre;
-      if (metadata.track) params.track = metadata.track;
-      if (metadata.disc) params.disc = metadata.disc;
+      if (response?.data?.scanStatus) {
+        return response.data.scanStatus;
+      }
 
-      // Note: Navidrome doesn't have a direct updateSong endpoint in the Subsonic API
-      // This would need to be implemented on the backend or use ID3 tag writing
-      // For now, we'll return true and log the attempt
-      console.log('Update song metadata request:', songId, metadata);
-      
-      // In a real implementation, you would:
-      // 1. Send the metadata to a custom backend endpoint
-      // 2. Backend writes the tags to the file using a library like node-id3
-      // 3. Trigger a library rescan
-      
-      return true;
+      return { scanning: false };
     } catch (error) {
-      console.error('Failed to update song metadata:', error);
-      return false;
+      console.error('Failed to start scan:', error);
+      throw error;
     }
   }
 
-  async updateCoverArt(songId: string, coverArtFile: File): Promise<boolean> {
+  async getScanStatus(): Promise<{ scanning: boolean; count?: number }> {
     try {
-      const formData = new FormData();
-      formData.append('id', songId);
-      formData.append('coverArt', coverArtFile);
+      const response = await httpClient<{ scanStatus: { scanning: boolean; count?: number } }>(
+        'getScanStatus',
+        {
+          method: 'GET',
+        }
+      );
 
-      // Note: Similar to metadata updates, Navidrome doesn't have a direct endpoint
-      // This would need backend implementation
-      console.log('Update cover art request:', songId, coverArtFile.name);
-      
-      return true;
+      if (response?.data?.scanStatus) {
+        return response.data.scanStatus;
+      }
+
+      return { scanning: false };
     } catch (error) {
-      console.error('Failed to update cover art:', error);
-      return false;
+      console.error('Failed to get scan status:', error);
+      return { scanning: false };
     }
+  }
+
+  // Download song file for external editing
+  getDownloadUrl(songId: string): string {
+    // This uses the existing download endpoint from httpClient
+    return `/api/download?id=${songId}`;
   }
 
   // Convert Song to MusicMetadata format
