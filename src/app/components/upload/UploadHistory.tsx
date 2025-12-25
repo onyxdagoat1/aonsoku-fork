@@ -4,7 +4,7 @@ import { MetadataEditor } from './MetadataEditor';
 import { Button } from '@/app/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/app/components/ui/dialog';
 import { toast } from 'react-toastify';
-import { Edit, Music, RefreshCw } from 'lucide-react';
+import { Edit, Music, RefreshCw, Info } from 'lucide-react';
 import { formatBytes } from '@/utils/formatBytes';
 
 // Simple time formatter
@@ -50,6 +50,17 @@ export function UploadHistory() {
       setIsLoadingMetadata(true);
       setEditingItem(item);
       
+      // Check file extension
+      const ext = item.path.split('.').pop()?.toLowerCase();
+      
+      // Show info for non-MP3 files
+      if (ext !== 'mp3') {
+        toast.info(
+          `Editing ${ext?.toUpperCase()} files has limited support. MP3 format recommended for full metadata editing.`,
+          { autoClose: 5000 }
+        );
+      }
+      
       // Load current metadata from file
       const metadata = await uploadService.readMetadata(item.path);
       setEditingMetadata(metadata.common);
@@ -66,8 +77,15 @@ export function UploadHistory() {
     if (!editingItem) return;
 
     try {
-      await uploadService.updateMetadata(editingItem.path, metadata, coverArt);
-      toast.success('Metadata updated successfully');
+      const result = await uploadService.updateMetadata(editingItem.path, metadata, coverArt);
+      
+      // Show success with any warnings from backend
+      if (result.warning) {
+        toast.warning(`${result.message}\n${result.warning}`, { autoClose: 5000 });
+      } else {
+        toast.success(result.message || 'Metadata updated successfully');
+      }
+      
       setIsEditorOpen(false);
       setEditingItem(null);
       setEditingMetadata(null);
@@ -112,42 +130,52 @@ export function UploadHistory() {
         </div>
 
         <div className="space-y-2">
-          {history.map((item) => (
-            <div
-              key={item.id}
-              className="p-4 border rounded-lg bg-card hover:bg-accent/50 transition-colors flex items-center justify-between"
-            >
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
-                  <Music className="w-4 h-4 text-muted-foreground flex-shrink-0" />
-                  <p className="font-medium truncate">
-                    {item.title || item.originalName}
+          {history.map((item) => {
+            const ext = item.path.split('.').pop()?.toLowerCase();
+            const isNonMp3 = ext !== 'mp3';
+            
+            return (
+              <div
+                key={item.id}
+                className="p-4 border rounded-lg bg-card hover:bg-accent/50 transition-colors flex items-center justify-between"
+              >
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <Music className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                    <p className="font-medium truncate">
+                      {item.title || item.originalName}
+                    </p>
+                    {isNonMp3 && (
+                      <span className="text-xs px-2 py-0.5 rounded bg-blue-500/20 text-blue-300 uppercase">
+                        {ext}
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-sm text-muted-foreground truncate mt-1">
+                    {item.artist && (
+                      <span>{item.artist}</span>
+                    )}
+                    {item.artist && item.album && ' • '}
+                    {item.album && (
+                      <span>{item.album}</span>
+                    )}
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {formatBytes(item.size)} • Uploaded {formatTimeAgo(item.uploadedAt)}
                   </p>
                 </div>
-                <p className="text-sm text-muted-foreground truncate mt-1">
-                  {item.artist && (
-                    <span>{item.artist}</span>
-                  )}
-                  {item.artist && item.album && ' • '}
-                  {item.album && (
-                    <span>{item.album}</span>
-                  )}
-                </p>
-                <p className="text-xs text-muted-foreground mt-1">
-                  {formatBytes(item.size)} • Uploaded {formatTimeAgo(item.uploadedAt)}
-                </p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleEditClick(item)}
+                  disabled={isLoadingMetadata}
+                >
+                  <Edit className="w-4 h-4 mr-2" />
+                  Edit Tags
+                </Button>
               </div>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => handleEditClick(item)}
-                disabled={isLoadingMetadata}
-              >
-                <Edit className="w-4 h-4 mr-2" />
-                Edit Tags
-              </Button>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
 
