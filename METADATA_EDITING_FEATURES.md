@@ -29,6 +29,7 @@ The application now supports comprehensive metadata editing for music files thro
 - ✅ Fixed file path validation errors
 - ✅ Improved error messages for missing/moved files
 - ✅ Metadata saves correctly to backend
+- ✅ Smart file path resolution for absolute and relative paths
 
 ### 2. Album-Wide Metadata Editor
 
@@ -80,8 +81,22 @@ The application now supports comprehensive metadata editing for music files thro
 - `src/app/components/upload/UploadHistory.tsx` - Better error handling
 - `src/app/components/album/buttons.tsx` - Added album edit button
 - `src/app/components/song/menu-options.tsx` - Added edit tags menu item
+- `upload-service/src/index.js` - Improved file path resolution
 
 ## Technical Details
+
+### File Path Resolution
+
+The upload service now intelligently handles file paths from multiple sources:
+
+1. **Absolute paths** - Checks if file exists at the given path
+2. **Relative paths** - Joins with music library path
+3. **Fallback** - Searches for filename in music library
+
+This handles paths from:
+- Navidrome API (absolute paths)
+- Upload history (relative paths)
+- Manual input
 
 ### API Integration
 
@@ -109,6 +124,7 @@ After metadata updates, the application automatically:
 ### Error Handling
 
 - Clear error messages with file paths
+- Shows all attempted path resolutions
 - Warnings for files that were moved/renamed
 - Partial success reporting for bulk operations
 - Loading states during metadata operations
@@ -136,22 +152,29 @@ After metadata updates, the application automatically:
 - Verify the audio file actually contains embedded artwork
 - Try uploading a new cover image
 
-### "File Not Found" Errors
+### "File Not Found" Errors (FIXED)
 
-**Issue:** Cannot edit metadata for uploaded files
+**Issue:** Cannot edit metadata - "ENOENT: no such file or directory"
 
-**Solution:**
-- Verify files weren't moved/deleted in Navidrome
-- Check file paths are correct
-- Ensure upload service has proper file system access
+**Solution:** This has been fixed! The backend now:
+- Tries the path as provided (absolute or relative)
+- Joins path with music library directory
+- Searches for filename in music library
+- Shows all attempted paths in error message
+
+**If you still get errors:**
+1. Check the error message to see which paths were tried
+2. Verify your `MUSIC_LIBRARY_PATH` in `.env` matches Navidrome's music folder
+3. Ensure files are actually in the music library
+4. Check file permissions
 
 ### Metadata Not Saving
 
 **Issue:** Changes don't persist
 
 **Solution:**
-- Check upload service is running
-- Verify file permissions
+- Check upload service is running (`npm start` in upload-service folder)
+- Verify file permissions (upload service needs write access)
 - Look for errors in upload service logs
 - Ensure Navidrome has been configured to scan for changes
 
@@ -165,6 +188,24 @@ After metadata updates, the application automatically:
 - Try editing failed songs individually
 - Verify file format is supported
 
+### Music Library Path Mismatch
+
+**Issue:** Upload service can't find files from Navidrome
+
+**Solution:**
+1. Check your `upload-service/.env` file
+2. Ensure `MUSIC_LIBRARY_PATH` exactly matches Navidrome's music folder
+3. Use absolute paths (e.g., `/mnt/d/website_2.0/aonsoku-fork/music`)
+4. Restart upload service after changing `.env`
+
+**Example `.env`:**
+```env
+MUSIC_LIBRARY_PATH=/path/to/navidrome/music
+NAVIDROME_URL=http://localhost:4533
+NAVIDROME_USERNAME=admin
+NAVIDROME_PASSWORD=password
+```
+
 ## Best Practices
 
 1. **Before Bulk Editing:** Review album info first
@@ -172,6 +213,7 @@ After metadata updates, the application automatically:
 3. **Batch Uploads:** Use batch mode for full albums
 4. **After Editing:** Allow Navidrome time to rescan (usually automatic)
 5. **Backups:** Keep original files backed up before mass edits
+6. **Path Configuration:** Ensure music library paths match between services
 
 ## Future Enhancements
 
@@ -189,10 +231,11 @@ All metadata changes are handled by the upload service middleware. The Navidrome
 ### Workflow:
 1. User edits metadata in frontend
 2. Changes sent to upload service
-3. Upload service updates audio file tags
-4. Navidrome detects file changes
-5. Navidrome updates its database
-6. Frontend refreshes data from Navidrome
+3. Upload service resolves file path (handles absolute/relative)
+4. Upload service updates audio file tags
+5. Navidrome detects file changes
+6. Navidrome updates its database
+7. Frontend refreshes data from Navidrome
 
 ## Notes
 
@@ -200,3 +243,4 @@ All metadata changes are handled by the upload service middleware. The Navidrome
 - Backend Navidrome integration remains unchanged
 - Upload service must be running for editing features to work
 - Changes may take a few seconds to appear in Navidrome
+- File paths are now resolved intelligently from multiple sources
