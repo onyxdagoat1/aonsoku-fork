@@ -57,11 +57,11 @@ export default function UploadPage() {
     setIsEditorOpen(true);
   };
 
-  const handleSaveMetadata = (metadata: MusicMetadata) => {
+  const handleSaveMetadata = (metadata: MusicMetadata, coverArt?: File) => {
     if (editingFile) {
       setUploads((prev) =>
         prev.map((u) =>
-          u.id === editingFile.id ? { ...u, metadata } : u
+          u.id === editingFile.id ? { ...u, metadata, coverArtFile: coverArt } : u
         )
       );
       setIsEditorOpen(false);
@@ -122,9 +122,23 @@ export default function UploadPage() {
             )
           );
 
+          // Convert cover art to base64 if provided
+          let metadataWithCover = upload.metadata;
+          if (upload.coverArtFile) {
+            const reader = new FileReader();
+            const base64 = await new Promise<string>((resolve) => {
+              reader.onload = (e) => resolve(e.target?.result as string);
+              reader.readAsDataURL(upload.coverArtFile!);
+            });
+            metadataWithCover = {
+              ...upload.metadata,
+              coverArt: base64.split(',')[1], // Remove data:image/jpeg;base64, prefix
+            };
+          }
+
           await uploadService.uploadFile(
             upload.file,
-            upload.metadata,
+            metadataWithCover,
             (progress) => {
               setUploads((prev) =>
                 prev.map((u) =>
@@ -191,7 +205,7 @@ export default function UploadPage() {
               </div>
             </Label>
             <p className="text-sm text-muted-foreground mt-1">
-              Upload multiple files at once without individual metadata editing.
+              Upload multiple files at once. Files will be organized by Artist/Album from their existing metadata.
               Perfect for uploading full albums or folders.
             </p>
           </div>
@@ -243,6 +257,11 @@ export default function UploadPage() {
                               {upload.metadata.album && ` • ${upload.metadata.album}`}
                             </p>
                           )}
+                          {upload.coverArtFile && (
+                            <p className="text-xs text-green-600 mt-1">
+                              ✓ Cover art attached
+                            </p>
+                          )}
                         </div>
                         <Button
                           variant="outline"
@@ -266,7 +285,7 @@ export default function UploadPage() {
                     <h4 className="font-medium mb-1">Batch Mode Active</h4>
                     <p className="text-sm text-muted-foreground">
                       {pendingCount} file{pendingCount !== 1 ? 's' : ''} ready to upload.
-                      Files will be organized by their existing metadata.
+                      Files will be organized by their existing metadata into Artist/Album folders.
                       Click "Batch Upload" to upload all files at once.
                     </p>
                   </div>
