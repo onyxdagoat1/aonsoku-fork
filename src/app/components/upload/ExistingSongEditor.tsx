@@ -3,18 +3,20 @@ import { Input } from '@/app/components/ui/input';
 import { Button } from '@/app/components/ui/button';
 import { Card, CardContent } from '@/app/components/ui/card';
 import { Badge } from '@/app/components/ui/badge';
-import { MetadataEditorEnhanced } from './MetadataEditorEnhanced';
 import { songService, type Song } from '@/api/songService';
-import type { MusicMetadata } from '@/types/upload';
 import {
   Search,
   Music,
-  Edit,
+  Eye,
   Loader2,
   Clock,
-  CheckCircle,
   AlertCircle,
   X,
+  Download,
+  RefreshCw,
+  ExternalLink,
+  Info,
+  FolderOpen,
 } from 'lucide-react';
 import { toast } from 'react-toastify';
 import {
@@ -24,21 +26,22 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/app/components/ui/dialog';
-import { getCoverArtUrl } from '@/api/httpClient';
+import { getCoverArtUrl, getDownloadUrl } from '@/api/httpClient';
 import { cn } from '@/lib/utils';
+import { Label } from '@/app/components/ui/label';
 
 export function ExistingSongEditor() {
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearching, setIsSearching] = useState(false);
   const [searchResults, setSearchResults] = useState<Song[]>([]);
   const [recentSongs, setRecentSongs] = useState<Song[]>([]);
-  const [editingSong, setEditingSong] = useState<Song | null>(null);
-  const [isEditorOpen, setIsEditorOpen] = useState(false);
-  const [updatingSongs, setUpdatingSongs] = useState<Set<string>>(new Set());
+  const [viewingSong, setViewingSong] = useState<Song | null>(null);
+  const [isViewerOpen, setIsViewerOpen] = useState(false);
+  const [isScanning, setIsScanning] = useState(false);
 
   useEffect(() => {
-    // Load recent songs on mount
     loadRecentSongs();
+    checkScanStatus();
   }, []);
 
   const loadRecentSongs = async () => {
@@ -47,6 +50,15 @@ export function ExistingSongEditor() {
       setRecentSongs(songs);
     } catch (error) {
       console.error('Failed to load recent songs:', error);
+    }
+  };
+
+  const checkScanStatus = async () => {
+    try {
+      const status = await songService.getScanStatus();
+      setIsScanning(status.scanning);
+    } catch (error) {
+      console.error('Failed to check scan status:', error);
     }
   };
 
@@ -71,70 +83,54 @@ export function ExistingSongEditor() {
     }
   };
 
-  const handleEditSong = (song: Song) => {
-    setEditingSong(song);
-    setIsEditorOpen(true);
+  const handleViewSong = (song: Song) => {
+    setViewingSong(song);
+    setIsViewerOpen(true);
   };
 
-  const handleSaveMetadata = async (metadata: MusicMetadata, coverArt?: File) => {
-    if (!editingSong) return;
+  const handleDownloadSong = (song: Song) => {
+    const url = getDownloadUrl(song.id);
+    window.open(url, '_blank');
+    toast.info(
+      <div>
+        <strong>Download started</strong>
+        <p className="text-xs mt-1">
+          Edit with external tag editor, then trigger rescan
+        </p>
+      </div>
+    );
+  };
 
-    setUpdatingSongs((prev) => new Set(prev).add(editingSong.id));
-
+  const handleStartRescan = async () => {
     try {
-      // Update metadata
-      const metadataSuccess = await songService.updateSongMetadata(
-        editingSong.id,
-        metadata
+      setIsScanning(true);
+      await songService.startScan();
+      toast.success(
+        <div>
+          <strong>Library scan started</strong>
+          <p className="text-xs mt-1">
+            Navidrome will refresh metadata from your files
+          </p>
+        </div>
       );
-
-      // Update cover art if provided
-      if (coverArt) {
-        await songService.updateCoverArt(editingSong.id, coverArt);
-      }
-
-      if (metadataSuccess) {
-        toast.success(
-          <div>
-            <strong>Tags updated successfully!</strong>
-            <p className="text-xs mt-1">
-              Note: Changes will appear after library rescan
-            </p>
-          </div>
-        );
-
-        // Update the song in the lists
-        const updatedSong = {
-          ...editingSong,
-          title: metadata.title || editingSong.title,
-          artist: metadata.artist || editingSong.artist,
-          album: metadata.album || editingSong.album,
-          year: metadata.year || editingSong.year,
-          genre: metadata.genre || editingSong.genre,
-          track: metadata.track || editingSong.track,
-          discNumber: metadata.disc || editingSong.discNumber,
-        };
-
-        setSearchResults((prev) =>
-          prev.map((s) => (s.id === editingSong.id ? updatedSong : s))
-        );
-        setRecentSongs((prev) =>
-          prev.map((s) => (s.id === editingSong.id ? updatedSong : s))
-        );
-
-        setIsEditorOpen(false);
-        setEditingSong(null);
-      } else {
-        toast.error('Failed to update tags');
-      }
+      
+      // Poll scan status
+      const interval = setInterval(async () => {
+        const status = await songService.getScanStatus();
+        if (!status.scanning) {
+          setIsScanning(false);
+          clearInterval(interval);
+          toast.success('Library scan completed!');
+          // Refresh the lists
+          loadRecentSongs();
+          if (searchQuery.trim()) {
+            handleSearch();
+          }
+        }
+      }, 3000);
     } catch (error) {
-      toast.error('An error occurred while updating tags');
-    } finally {
-      setUpdatingSongs((prev) => {
-        const next = new Set(prev);
-        next.delete(editingSong.id);
-        return next;
-      });
+      setIsScanning(false);
+      toast.error('Failed to start library scan');
     }
   };
 
@@ -152,10 +148,8 @@ export function ExistingSongEditor() {
   };
 
   const SongCard = ({ song }: { song: Song }) => {
-    const isUpdating = updatingSongs.has(song.id);
-
     return (
-      <Card className={cn("transition-all", isUpdating && "opacity-50")}>
+      <Card>
         <CardContent className="p-4">
           <div className="flex items-start gap-3">
             {/* Cover Art */}
@@ -185,19 +179,24 @@ export function ExistingSongEditor() {
                     {song.album && ` • ${song.album}`}
                   </p>
                 </div>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => handleEditSong(song)}
-                  disabled={isUpdating}
-                >
-                  {isUpdating ? (
-                    <Loader2 className="w-3 h-3 mr-1 animate-spin" />
-                  ) : (
-                    <Edit className="w-3 h-3 mr-1" />
-                  )}
-                  Edit
-                </Button>
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => handleViewSong(song)}
+                  >
+                    <Eye className="w-3 h-3 mr-1" />
+                    View
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => handleDownloadSong(song)}
+                  >
+                    <Download className="w-3 h-3 mr-1" />
+                    Download
+                  </Button>
+                </div>
               </div>
 
               <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
@@ -214,11 +213,21 @@ export function ExistingSongEditor() {
                 {song.size && <span>{formatFileSize(song.size)}</span>}
               </div>
 
-              {song.track && (
-                <p className="text-xs text-muted-foreground mt-1">
-                  Track {song.track}
-                  {song.discNumber && ` • Disc ${song.discNumber}`}
-                </p>
+              {(song.track || song.path) && (
+                <div className="text-xs text-muted-foreground mt-1 space-y-1">
+                  {song.track && (
+                    <p>
+                      Track {song.track}
+                      {song.discNumber && ` • Disc ${song.discNumber}`}
+                    </p>
+                  )}
+                  {song.path && (
+                    <p className="truncate font-mono" title={song.path}>
+                      <FolderOpen className="w-3 h-3 inline mr-1" />
+                      {song.path}
+                    </p>
+                  )}
+                </div>
               )}
             </div>
           </div>
@@ -232,17 +241,57 @@ export function ExistingSongEditor() {
   return (
     <div className="space-y-6">
       {/* Info Banner */}
-      <div className="p-4 border rounded-lg bg-card">
+      <div className="p-4 border rounded-lg bg-blue-500/10 border-blue-500/20">
         <div className="flex items-start gap-3">
-          <AlertCircle className="w-5 h-5 text-blue-500 mt-0.5 flex-shrink-0" />
+          <Info className="w-5 h-5 text-blue-500 mt-0.5 flex-shrink-0" />
           <div className="flex-1">
-            <h4 className="font-medium mb-1">Edit Existing Song Tags</h4>
-            <p className="text-sm text-muted-foreground">
-              Search for songs in your library and edit their metadata tags.
-              Changes will be written to the audio files and require a library rescan to take effect.
-            </p>
+            <h4 className="font-medium mb-2">How to Edit Song Tags</h4>
+            <div className="text-sm text-muted-foreground space-y-2">
+              <p>
+                Navidrome reads metadata from your audio files but doesn't write changes back.
+                To edit tags, you need to use external tag editing tools.
+              </p>
+              <div className="mt-3">
+                <p className="font-medium text-foreground mb-1">Recommended workflow:</p>
+                <ol className="list-decimal list-inside space-y-1 ml-2">
+                  <li>Find the song you want to edit using search</li>
+                  <li>Download the file or note the file path</li>
+                  <li>Edit tags using tools like:
+                    <ul className="list-disc list-inside ml-6 mt-1">
+                      <li><strong>MusicBrainz Picard</strong> - Advanced auto-tagging</li>
+                      <li><strong>Mp3tag</strong> - Windows/Mac tag editor</li>
+                      <li><strong>Kid3</strong> - Cross-platform editor</li>
+                      <li><strong>Yate</strong> - macOS tag editor</li>
+                    </ul>
+                  </li>
+                  <li>Save the edited file back to your music library</li>
+                  <li>Click "Rescan Library" to refresh metadata in Navidrome</li>
+                </ol>
+              </div>
+            </div>
           </div>
         </div>
+      </div>
+
+      {/* Rescan Button */}
+      <div className="flex justify-end">
+        <Button
+          onClick={handleStartRescan}
+          disabled={isScanning}
+          variant="default"
+        >
+          {isScanning ? (
+            <>
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              Scanning Library...
+            </>
+          ) : (
+            <>
+              <RefreshCw className="w-4 h-4 mr-2" />
+              Rescan Library
+            </>
+          )}
+        </Button>
       </div>
 
       {/* Search Bar */}
@@ -326,27 +375,138 @@ export function ExistingSongEditor() {
           <div className="text-center py-12 text-muted-foreground">
             <Music className="w-12 h-12 mx-auto mb-3 opacity-50" />
             <p>No recent songs to display</p>
-            <p className="text-sm mt-1">Search for songs to edit their tags</p>
+            <p className="text-sm mt-1">Search for songs to view their metadata</p>
           </div>
         )}
       </div>
 
-      {/* Metadata Editor Dialog */}
-      <Dialog open={isEditorOpen} onOpenChange={setIsEditorOpen}>
-        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+      {/* Metadata Viewer Dialog */}
+      <Dialog open={isViewerOpen} onOpenChange={setIsViewerOpen}>
+        <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>Edit Song Tags</DialogTitle>
+            <DialogTitle>Song Metadata</DialogTitle>
             <DialogDescription>
-              {editingSong?.title} - {editingSong?.artist}
+              Read-only view of current metadata from Navidrome
             </DialogDescription>
           </DialogHeader>
-          {editingSong && (
-            <MetadataEditorEnhanced
-              initialMetadata={songService.songToMetadata(editingSong)}
-              onSave={handleSaveMetadata}
-              onCancel={() => setIsEditorOpen(false)}
-              fileName={editingSong.title}
-            />
+          {viewingSong && (
+            <div className="space-y-4">
+              {/* Cover Art Preview */}
+              {viewingSong.coverArt && (
+                <div className="flex justify-center">
+                  <img
+                    src={getCoverArtUrl(viewingSong.coverArt, 'album', '300')}
+                    alt="Cover art"
+                    className="w-48 h-48 rounded-lg object-cover"
+                  />
+                </div>
+              )}
+
+              {/* Metadata Fields */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Title</Label>
+                  <div className="p-2 border rounded bg-muted/50">
+                    {viewingSong.title}
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label>Artist</Label>
+                  <div className="p-2 border rounded bg-muted/50">
+                    {viewingSong.artist}
+                  </div>
+                </div>
+                {viewingSong.album && (
+                  <div className="space-y-2">
+                    <Label>Album</Label>
+                    <div className="p-2 border rounded bg-muted/50">
+                      {viewingSong.album}
+                    </div>
+                  </div>
+                )}
+                {viewingSong.albumArtist && (
+                  <div className="space-y-2">
+                    <Label>Album Artist</Label>
+                    <div className="p-2 border rounded bg-muted/50">
+                      {viewingSong.albumArtist}
+                    </div>
+                  </div>
+                )}
+                {viewingSong.year && (
+                  <div className="space-y-2">
+                    <Label>Year</Label>
+                    <div className="p-2 border rounded bg-muted/50">
+                      {viewingSong.year}
+                    </div>
+                  </div>
+                )}
+                {viewingSong.genre && (
+                  <div className="space-y-2">
+                    <Label>Genre</Label>
+                    <div className="p-2 border rounded bg-muted/50">
+                      {viewingSong.genre}
+                    </div>
+                  </div>
+                )}
+                {viewingSong.track && (
+                  <div className="space-y-2">
+                    <Label>Track #</Label>
+                    <div className="p-2 border rounded bg-muted/50">
+                      {viewingSong.track}
+                    </div>
+                  </div>
+                )}
+                {viewingSong.discNumber && (
+                  <div className="space-y-2">
+                    <Label>Disc #</Label>
+                    <div className="p-2 border rounded bg-muted/50">
+                      {viewingSong.discNumber}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* File Info */}
+              <div className="space-y-2 pt-4 border-t">
+                <Label>File Information</Label>
+                <div className="space-y-1 text-sm text-muted-foreground">
+                  {viewingSong.path && (
+                    <p className="font-mono text-xs break-all">
+                      <strong>Path:</strong> {viewingSong.path}
+                    </p>
+                  )}
+                  {viewingSong.duration && (
+                    <p><strong>Duration:</strong> {formatDuration(viewingSong.duration)}</p>
+                  )}
+                  {viewingSong.bitRate && (
+                    <p><strong>Bitrate:</strong> {Math.round(viewingSong.bitRate / 1000)} kbps</p>
+                  )}
+                  {viewingSong.size && (
+                    <p><strong>Size:</strong> {formatFileSize(viewingSong.size)}</p>
+                  )}
+                  {viewingSong.suffix && (
+                    <p><strong>Format:</strong> {viewingSong.suffix.toUpperCase()}</p>
+                  )}
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex gap-2 pt-4 border-t">
+                <Button
+                  onClick={() => handleDownloadSong(viewingSong)}
+                  className="flex-1"
+                >
+                  <Download className="w-4 h-4 mr-2" />
+                  Download to Edit
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => setIsViewerOpen(false)}
+                >
+                  Close
+                </Button>
+              </div>
+            </div>
           )}
         </DialogContent>
       </Dialog>
