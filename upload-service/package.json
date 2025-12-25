@@ -16,8 +16,7 @@
     "sanitize-filename": "^1.6.3",
     "music-metadata": "^8.1.4",
     "node-id3": "^0.2.6",
-    "axios": "^1.6.0",
-    "flac-metadata": "^1.1.2"
+    "axios": "^1.6.0"
   },
   "devDependencies": {
     "nodemon": "^3.0.1"
