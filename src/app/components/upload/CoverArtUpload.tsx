@@ -11,6 +11,7 @@ interface CoverArtUploadProps {
 export function CoverArtUpload({ onCoverArtSelected, currentCoverArt }: CoverArtUploadProps) {
   const [preview, setPreview] = useState<string | null>(null);
   const [hasExistingArt, setHasExistingArt] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
 
   // Initialize preview with current cover art
   useEffect(() => {
@@ -52,8 +53,7 @@ export function CoverArtUpload({ onCoverArtSelected, currentCoverArt }: CoverArt
     }
   }, [currentCoverArt]);
 
-  const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
+  const handleFile = useCallback((file: File) => {
     if (file && file.type.startsWith('image/')) {
       const reader = new FileReader();
       reader.onload = (e) => {
@@ -65,6 +65,38 @@ export function CoverArtUpload({ onCoverArtSelected, currentCoverArt }: CoverArt
       onCoverArtSelected(file);
     }
   }, [onCoverArtSelected]);
+
+  const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      handleFile(file);
+    }
+  }, [handleFile]);
+
+  const handleDragOver = useCallback((e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(true);
+  }, []);
+
+  const handleDragLeave = useCallback((e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+  }, []);
+
+  const handleDrop = useCallback((e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+
+    const files = Array.from(e.dataTransfer.files);
+    const imageFile = files.find(file => file.type.startsWith('image/'));
+    
+    if (imageFile) {
+      handleFile(imageFile);
+    }
+  }, [handleFile]);
 
   const handleRemove = useCallback(() => {
     setPreview(null);
@@ -80,18 +112,28 @@ export function CoverArtUpload({ onCoverArtSelected, currentCoverArt }: CoverArt
       <Label>Album Cover</Label>
       
       {preview ? (
-        <div className="relative inline-block">
-          <img 
-            src={preview} 
-            alt="Album cover" 
-            className="w-48 h-48 object-cover rounded-lg border"
-            onError={(e) => {
-              // If image fails to load, hide it and show upload button
-              console.error('Failed to load cover art image');
-              setPreview(null);
-              setHasExistingArt(false);
-            }}
-          />
+        <div 
+          className="relative inline-block"
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
+          onDrop={handleDrop}
+        >
+          <div className={`transition-all ${
+            isDragging 
+              ? 'ring-2 ring-primary ring-offset-2' 
+              : ''
+          }`}>
+            <img 
+              src={preview} 
+              alt="Album cover" 
+              className="w-48 h-48 object-cover rounded-lg border"
+              onError={(e) => {
+                console.error('Failed to load cover art image');
+                setPreview(null);
+                setHasExistingArt(false);
+              }}
+            />
+          </div>
           <Button
             type="button"
             variant="destructive"
@@ -103,21 +145,42 @@ export function CoverArtUpload({ onCoverArtSelected, currentCoverArt }: CoverArt
           </Button>
           {hasExistingArt && (
             <p className="text-xs text-muted-foreground mt-2">
-              Current cover art (upload a new one to replace)
+              Current cover art (upload or drag a new one to replace)
             </p>
+          )}
+          {isDragging && (
+            <div className="absolute inset-0 bg-primary/20 rounded-lg flex items-center justify-center pointer-events-none">
+              <div className="bg-background/90 px-4 py-2 rounded-md">
+                <Upload className="w-6 h-6 mx-auto mb-1" />
+                <p className="text-sm font-medium">Drop image here</p>
+              </div>
+            </div>
           )}
         </div>
       ) : (
-        <label className="flex flex-col items-center justify-center w-48 h-48 border-2 border-dashed rounded-lg cursor-pointer hover:border-primary transition-colors">
-          <input
-            type="file"
-            accept="image/*"
-            onChange={handleFileSelect}
-            className="hidden"
-          />
-          <Image className="w-8 h-8 text-muted-foreground mb-2" />
-          <span className="text-sm text-muted-foreground">Upload Cover</span>
-        </label>
+        <div
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
+          onDrop={handleDrop}
+          className={`transition-all ${
+            isDragging 
+              ? 'border-primary bg-primary/10 scale-105' 
+              : 'border-dashed hover:border-primary'
+          }`}
+        >
+          <label className="flex flex-col items-center justify-center w-48 h-48 border-2 rounded-lg cursor-pointer transition-colors">
+            <input
+              type="file"
+              accept="image/*"
+              onChange={handleFileSelect}
+              className="hidden"
+            />
+            <Image className="w-8 h-8 text-muted-foreground mb-2" />
+            <span className="text-sm text-muted-foreground text-center px-4">
+              {isDragging ? 'Drop image here' : 'Click or drag to upload'}
+            </span>
+          </label>
+        </div>
       )}
     </div>
   );
