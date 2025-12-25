@@ -15,15 +15,40 @@ export function CoverArtUpload({ onCoverArtSelected, currentCoverArt }: CoverArt
   // Initialize preview with current cover art
   useEffect(() => {
     if (currentCoverArt) {
-      // If it's base64 data, prepend the data URL prefix if not already there
-      if (currentCoverArt.startsWith('/9j/') || currentCoverArt.startsWith('iVBOR')) {
-        setPreview(`data:image/jpeg;base64,${currentCoverArt}`);
-      } else if (currentCoverArt.startsWith('data:')) {
+      // Check if it's already a complete data URL
+      if (currentCoverArt.startsWith('data:')) {
         setPreview(currentCoverArt);
-      } else {
-        setPreview(currentCoverArt);
+        setHasExistingArt(true);
       }
-      setHasExistingArt(true);
+      // Check if it's base64 data without prefix - try to detect image type
+      else if (!currentCoverArt.startsWith('http')) {
+        // Common base64 image prefixes
+        // JPEG: /9j/
+        // PNG: iVBOR
+        // WebP: UklGR
+        // GIF: R0lGO
+        let mimeType = 'image/jpeg'; // default
+        
+        if (currentCoverArt.startsWith('iVBOR')) {
+          mimeType = 'image/png';
+        } else if (currentCoverArt.startsWith('UklGR')) {
+          mimeType = 'image/webp';
+        } else if (currentCoverArt.startsWith('R0lGO')) {
+          mimeType = 'image/gif';
+        }
+        
+        setPreview(`data:${mimeType};base64,${currentCoverArt}`);
+        setHasExistingArt(true);
+      }
+      // It's a URL
+      else {
+        setPreview(currentCoverArt);
+        setHasExistingArt(true);
+      }
+    } else {
+      // No cover art provided, clear preview
+      setPreview(null);
+      setHasExistingArt(false);
     }
   }, [currentCoverArt]);
 
@@ -45,6 +70,9 @@ export function CoverArtUpload({ onCoverArtSelected, currentCoverArt }: CoverArt
     setPreview(null);
     setHasExistingArt(false);
     onCoverArtSelected(null);
+    // Reset file input
+    const fileInput = document.querySelector('input[type="file"][accept="image/*"]') as HTMLInputElement;
+    if (fileInput) fileInput.value = '';
   }, [onCoverArtSelected]);
 
   return (
@@ -57,6 +85,12 @@ export function CoverArtUpload({ onCoverArtSelected, currentCoverArt }: CoverArt
             src={preview} 
             alt="Album cover" 
             className="w-48 h-48 object-cover rounded-lg border"
+            onError={(e) => {
+              // If image fails to load, hide it and show upload button
+              console.error('Failed to load cover art image');
+              setPreview(null);
+              setHasExistingArt(false);
+            }}
           />
           <Button
             type="button"
