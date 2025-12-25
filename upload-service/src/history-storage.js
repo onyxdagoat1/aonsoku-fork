@@ -57,3 +57,24 @@ export async function addToHistory(history, item) {
   await saveHistory(history);
   return history;
 }
+
+/**
+ * Update a file path in history (when file is moved/renamed)
+ */
+export async function updateHistoryPath(history, oldPath, newPath) {
+  let updated = false;
+  
+  for (const item of history) {
+    if (item.path === oldPath) {
+      item.path = newPath;
+      updated = true;
+      console.log(`Updated history path: ${oldPath} -> ${newPath}`);
+    }
+  }
+  
+  if (updated) {
+    await saveHistory(history);
+  }
+  
+  return history;
+}
