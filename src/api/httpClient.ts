@@ -113,7 +113,7 @@ export function getCoverArtUrl(
   if (!id) {
     // everything except artists uses the same default cover art
     type = type === 'artist' ? 'artist' : 'album'
-    return `/default_${type}_art.png`
+    return `/default_${type}_art.webp`
   }
   return getUrl('getCoverArt', {
     id,
