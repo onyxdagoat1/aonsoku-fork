@@ -5,9 +5,9 @@ import { MiniPlayerButton } from '@/app/components/mini-player/button'
 import { RadioInfo } from '@/app/components/player/radio-info'
 import { TrackInfo } from '@/app/components/player/track-info'
 import { useAudioContext } from '@/app/hooks/use-audio-context'
-import { useAudioEqualizer } from '@/hooks/use-audio-equalizer'
-import { useAudioCrossfade } from '@/hooks/use-audio-crossfade'
-import { usePlaybackSpeed } from '@/hooks/use-playback-speed'
+import { useAudioEqualizer } from '@/app/hooks/use-audio-equalizer'
+import { useAudioCrossfade } from '@/app/hooks/use-audio-crossfade'
+import { usePlaybackSpeed } from '@/app/hooks/use-playback-speed'
 import { podcasts } from '@/service/podcasts'
 import {
   getVolume,
