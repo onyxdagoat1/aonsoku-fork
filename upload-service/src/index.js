@@ -41,6 +41,12 @@ async function moveFile(source, destination) {
   }
 }
 
+// Helper to remove extension from filename
+function removeExtension(filename) {
+  const ext = path.extname(filename);
+  return ext ? filename.slice(0, -ext.length) : filename;
+}
+
 // Configure multer storage
 const storage = multer.diskStorage({
   destination: async (req, file, cb) => {
@@ -216,7 +222,8 @@ app.post('/api/metadata/update', metadataUpload.single('coverart'), async (req, 
     // Move file if artist/album/title changed
     const newArtist = sanitize(metadata.artist || 'Unknown Artist');
     const newAlbum = sanitize(metadata.album || 'Unknown Album');
-    const newTitle = sanitize(metadata.title || path.parse(filePath).name);
+    // Remove extension from title before adding it back
+    const newTitle = sanitize(removeExtension(metadata.title || path.parse(filePath).name));
     
     const newDir = path.join(config.musicLibraryPath, newArtist, newAlbum);
     const newPath = path.join(newDir, `${newTitle}${ext}`);
@@ -336,7 +343,9 @@ app.post('/api/upload', upload.fields([{ name: 'file', maxCount: 1 }, { name: 'c
       }
     }
 
-    const finalFilename = sanitize(parsedMetadata?.title || audioFile.originalname);
+    // Remove extension from title/filename before adding it back
+    const baseFilename = parsedMetadata?.title || removeExtension(audioFile.originalname);
+    const finalFilename = sanitize(baseFilename);
     const artistFolder = sanitize(parsedMetadata?.artist || 'Unknown Artist');
     const albumFolder = sanitize(parsedMetadata?.album || 'Unknown Album');
     
@@ -448,7 +457,9 @@ app.post('/api/upload/batch', upload.array('files', 50), async (req, res) => {
 
         const artistFolder = sanitize(metadata?.artist || metadata?.albumArtist || 'Unknown Artist');
         const albumFolder = sanitize(metadata?.album || 'Unknown Album');
-        const trackTitle = sanitize(metadata?.title || path.parse(file.originalname).name);
+        // Remove extension from title/filename before adding it back
+        const baseTitle = metadata?.title || removeExtension(file.originalname);
+        const trackTitle = sanitize(baseTitle);
         
         const finalDir = path.join(config.musicLibraryPath, artistFolder, albumFolder);
         await fs.mkdir(finalDir, { recursive: true });
