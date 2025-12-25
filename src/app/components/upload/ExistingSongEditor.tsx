@@ -16,8 +16,8 @@ import {
   AlertCircle,
   X,
   CheckCircle,
-  RefreshCw,
-  Zap,
+  Server,
+  AlertTriangle,
 } from 'lucide-react';
 import { toast } from 'react-toastify';
 import {
@@ -38,20 +38,19 @@ export function ExistingSongEditor() {
   const [editingSong, setEditingSong] = useState<Song | null>(null);
   const [isEditorOpen, setIsEditorOpen] = useState(false);
   const [updatingSongs, setUpdatingSongs] = useState<Set<string>>(new Set());
-  const [isScanning, setIsScanning] = useState(false);
-  const [serviceAvailable, setServiceAvailable] = useState(false);
+  const [backendAvailable, setBackendAvailable] = useState<boolean | null>(null);
 
   useEffect(() => {
     loadRecentSongs();
-    checkScanStatus();
-    checkServiceHealth();
+    checkBackendHealth();
   }, []);
 
-  const checkServiceHealth = async () => {
-    const available = await tagWriterService.checkHealth();
-    setServiceAvailable(available);
-    if (!available) {
-      console.warn('Tag writer service not available at http://localhost:3001');
+  const checkBackendHealth = async () => {
+    try {
+      const healthy = await tagWriterService.checkHealth();
+      setBackendAvailable(healthy);
+    } catch (error) {
+      setBackendAvailable(false);
     }
   };
 
@@ -61,15 +60,6 @@ export function ExistingSongEditor() {
       setRecentSongs(songs);
     } catch (error) {
       console.error('Failed to load recent songs:', error);
-    }
-  };
-
-  const checkScanStatus = async () => {
-    try {
-      const status = await songService.getScanStatus();
-      setIsScanning(status.scanning);
-    } catch (error) {
-      console.error('Failed to check scan status:', error);
     }
   };
 
@@ -95,6 +85,10 @@ export function ExistingSongEditor() {
   };
 
   const handleEditSong = (song: Song) => {
+    if (backendAvailable === false) {
+      toast.error('Tag writer service is not available. Please start the backend service.');
+      return;
+    }
     setEditingSong(song);
     setIsEditorOpen(true);
   };
@@ -102,68 +96,63 @@ export function ExistingSongEditor() {
   const handleSaveMetadata = async (metadata: MusicMetadata, coverArt?: File) => {
     if (!editingSong) return;
 
-    if (!serviceAvailable) {
-      toast.error(
-        <div>
-          <strong>Tag Writer Service Not Available</strong>
-          <p className="text-xs mt-1">
-            Please start the tag-writer-service. See console for details.
-          </p>
-        </div>
-      );
-      return;
-    }
-
     setUpdatingSongs((prev) => new Set(prev).add(editingSong.id));
 
     try {
+      // Update metadata
       const result = await tagWriterService.updateSongTags(
         editingSong.id,
-        metadata,
-        coverArt
+        metadata
       );
 
-      if (result.success) {
-        toast.success(
-          <div>
-            <strong>Tags updated successfully!</strong>
-            <p className="text-xs mt-1">
-              Navidrome is rescanning your library...
-            </p>
-          </div>,
-          { autoClose: 3000 }
-        );
-
-        // Poll for scan completion
-        setIsScanning(true);
-        const pollInterval = setInterval(async () => {
-          const status = await songService.getScanStatus();
-          if (!status.scanning) {
-            clearInterval(pollInterval);
-            setIsScanning(false);
-            
-            // Refresh the song lists
-            await loadRecentSongs();
-            if (searchQuery.trim()) {
-              await handleSearch();
-            }
-            
-            toast.success('Library rescan complete! Metadata refreshed.');
-          }
-        }, 2000);
-
-        setIsEditorOpen(false);
-        setEditingSong(null);
-      } else {
-        toast.error(
-          <div>
-            <strong>Failed to update tags</strong>
-            <p className="text-xs mt-1">{result.message}</p>
-          </div>
-        );
+      // Update cover art if provided
+      if (coverArt) {
+        await tagWriterService.updateCoverArt(editingSong.id, coverArt);
       }
+
+      toast.success(
+        <div>
+          <strong>Tags updated successfully!</strong>
+          <p className="text-xs mt-1">
+            Navidrome is rescanning... Changes will appear shortly
+          </p>
+        </div>,
+        { autoClose: 5000 }
+      );
+
+      // Update the song in the lists
+      const updatedSong = {
+        ...editingSong,
+        title: metadata.title || editingSong.title,
+        artist: metadata.artist || editingSong.artist,
+        album: metadata.album || editingSong.album,
+        year: metadata.year || editingSong.year,
+        genre: metadata.genre || editingSong.genre,
+        track: metadata.track || editingSong.track,
+        discNumber: metadata.disc || editingSong.discNumber,
+      };
+
+      setSearchResults((prev) =>
+        prev.map((s) => (s.id === editingSong.id ? updatedSong : s))
+      );
+      setRecentSongs((prev) =>
+        prev.map((s) => (s.id === editingSong.id ? updatedSong : s))
+      );
+
+      setIsEditorOpen(false);
+      setEditingSong(null);
+
+      // Wait a bit then refresh to get rescanned data
+      setTimeout(() => {
+        loadRecentSongs();
+        if (searchQuery.trim()) {
+          handleSearch();
+        }
+      }, 3000);
     } catch (error) {
-      toast.error('An error occurred while updating tags');
+      toast.error(
+        error instanceof Error ? error.message : 'Failed to update tags'
+      );
     } finally {
       setUpdatingSongs((prev) => {
         const next = new Set(prev);
@@ -224,14 +213,14 @@ export function ExistingSongEditor() {
                   size="sm"
                   variant="outline"
                   onClick={() => handleEditSong(song)}
-                  disabled={isUpdating || !serviceAvailable}
+                  disabled={isUpdating || backendAvailable === false}
                 >
                   {isUpdating ? (
                     <Loader2 className="w-3 h-3 mr-1 animate-spin" />
                   ) : (
                     <Edit className="w-3 h-3 mr-1" />
                   )}
-                  Edit
+                  Edit Tags
                 </Button>
               </div>
 
@@ -266,53 +255,53 @@ export function ExistingSongEditor() {
 
   return (
     <div className="space-y-6">
-      {/* Service Status Banner */}
-      {!serviceAvailable && (
-        <div className="p-4 border rounded-lg bg-destructive/10 border-destructive/20">
+      {/* Backend Status Banner */}
+      {backendAvailable === false && (
+        <div className="p-4 border rounded-lg bg-orange-500/10 border-orange-500/20">
           <div className="flex items-start gap-3">
-            <AlertCircle className="w-5 h-5 text-destructive mt-0.5 flex-shrink-0" />
+            <AlertTriangle className="w-5 h-5 text-orange-500 mt-0.5 flex-shrink-0" />
             <div className="flex-1">
-              <h4 className="font-medium mb-1">Tag Writer Service Not Running</h4>
-              <p className="text-sm text-muted-foreground mb-2">
-                The tag writing service is required to edit metadata. Please start it:
-              </p>
-              <code className="block bg-black/10 p-2 rounded text-xs font-mono">
-                cd tag-writer-service && npm install && npm start
-              </code>
-              <p className="text-xs text-muted-foreground mt-2">
-                See tag-writer-service/README.md for setup instructions.
-              </p>
+              <h4 className="font-medium mb-2 text-orange-500">Tag Writer Service Not Available</h4>
+              <div className="text-sm text-muted-foreground space-y-2">
+                <p>
+                  The tag writing backend service is not running. Tag editing is disabled.
+                </p>
+                <div className="mt-3">
+                  <p className="font-medium text-foreground mb-1">To enable tag editing:</p>
+                  <ol className="list-decimal list-inside space-y-1 ml-2">
+                    <li>Navigate to <code className="bg-muted px-1 rounded">tag-writer-service/</code></li>
+                    <li>Run <code className="bg-muted px-1 rounded">npm install</code></li>
+                    <li>Configure <code className="bg-muted px-1 rounded">.env</code> file</li>
+                    <li>Start service: <code className="bg-muted px-1 rounded">npm start</code></li>
+                  </ol>
+                  <p className="mt-2">
+                    <a 
+                      href="https://github.com/onyxdagoat1/aonsoku-fork/blob/testing/tag-writer-service/README.md" 
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-primary hover:underline inline-flex items-center gap-1"
+                    >
+                      View setup instructions <Server className="w-3 h-3" />
+                    </a>
+                  </p>
+                </div>
+              </div>
             </div>
           </div>
         </div>
       )}
 
-      {/* Info Banner */}
-      <div className="p-4 border rounded-lg bg-card">
-        <div className="flex items-start gap-3">
-          <Zap className="w-5 h-5 text-primary mt-0.5 flex-shrink-0" />
-          <div className="flex-1">
-            <h4 className="font-medium mb-1">Edit Existing Song Tags</h4>
-            <p className="text-sm text-muted-foreground">
-              Search for songs and edit their metadata directly. Tags are written to the audio files
-              and Navidrome automatically rescans to reflect changes.
-            </p>
-            {serviceAvailable && (
-              <div className="flex items-center gap-2 mt-2">
-                <CheckCircle className="w-4 h-4 text-green-500" />
-                <span className="text-sm text-green-500 font-medium">Service Connected</span>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* Scan Status */}
-      {isScanning && (
-        <div className="p-3 border rounded-lg bg-blue-500/10 border-blue-500/20">
-          <div className="flex items-center gap-2">
-            <Loader2 className="w-4 h-4 text-blue-500 animate-spin" />
-            <span className="text-sm font-medium">Library scan in progress...</span>
+      {backendAvailable === true && (
+        <div className="p-4 border rounded-lg bg-green-500/10 border-green-500/20">
+          <div className="flex items-start gap-3">
+            <CheckCircle className="w-5 h-5 text-green-500 mt-0.5 flex-shrink-0" />
+            <div className="flex-1">
+              <h4 className="font-medium mb-1 text-green-500">Tag Editing Enabled</h4>
+              <p className="text-sm text-muted-foreground">
+                The tag writer service is running. You can now edit metadata directly and changes will be
+                written to your music files automatically.
+              </p>
+            </div>
           </div>
         </div>
       )}
