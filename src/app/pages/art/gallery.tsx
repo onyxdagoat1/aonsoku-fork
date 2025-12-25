@@ -15,7 +15,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/app/components/ui/ta
 import { ROUTES } from '@/routes/routesList'
 import { getAlbumList } from '@/queries/albums'
 import { IAlbum } from '@/types/responses/album'
-import { Disc, Disc3, User, Calendar, Download, Info, TrendingDown } from 'lucide-react'
+import { Disc, Disc3, User, Calendar, Download, Info, TrendingDown, Heart, Grid3x3, Grid2x2 } from 'lucide-react'
 import { useInfiniteQuery } from '@tanstack/react-query'
 import debounce from 'lodash/debounce'
 import { queryKeys } from '@/utils/queryKeys'
@@ -26,14 +26,23 @@ import { useArtworkStore, CustomArtwork, ArtworkType } from '@/store/artwork.sto
 import { ArtworkDetailModal } from '@/app/components/art/artwork-detail-modal'
 import { AlbumInfoModal } from '@/app/components/art/album-info-modal'
 import { useToast } from '@/hooks/use-toast'
+import { useFavorites } from '@/hooks/use-favorites'
+import { cn } from '@/lib/utils'
 
 type ArtType = 'all' | 'album' | 'single'
 type SortType = 'recent' | 'popular'
+type GridSize = 'small' | 'medium' | 'large'
 
 const typeLabels: Record<ArtworkType, string> = {
   [ArtworkType.SingleCover]: 'Single Cover',
   [ArtworkType.Artwork]: 'Artwork',
   [ArtworkType.AlbumCover]: 'Comp Cover',
+}
+
+const gridSizeClasses: Record<GridSize, string> = {
+  small: 'grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 xl:grid-cols-10 2xl:grid-cols-12',
+  medium: 'grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-8',
+  large: 'grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6',
 }
 
 export default function ArtGallery() {
@@ -48,9 +57,12 @@ export default function ArtGallery() {
   const [showAlbumModal, setShowAlbumModal] = useState(false)
   const [sortType, setSortType] = useState<SortType>('recent')
   const [albumSortType, setAlbumSortType] = useState<SortType>('recent')
+  const [gridSize, setGridSize] = useState<GridSize>('medium')
+  const [showFavoritesOnly, setShowFavoritesOnly] = useState(false)
   const scrollDivRef = useRef<HTMLDivElement | null>(null)
 
   const { artworks, loadArtworks, incrementDownload, incrementAlbumDownload, getAlbumDownloads } = useArtworkStore()
+  const { toggleFavorite, isFavorite, count: favoritesCount } = useFavorites()
 
   useEffect(() => {
     loadArtworks()
@@ -110,6 +122,10 @@ export default function ArtGallery() {
   // Filter and sort albums
   const filteredAlbums = useMemo(() => {
     let filtered = albums.filter((album) => {
+      if (showFavoritesOnly && !isFavorite(album.id, 'album')) {
+        return false
+      }
+
       if (selectedArtist !== 'all' && album.artistId !== selectedArtist) {
         return false
       }
@@ -137,11 +153,15 @@ export default function ArtGallery() {
     }
 
     return filtered
-  }, [albums, selectedArtist, selectedType, searchQuery, albumSortType, getAlbumDownloads])
+  }, [albums, selectedArtist, selectedType, searchQuery, albumSortType, getAlbumDownloads, showFavoritesOnly, isFavorite])
 
   // Filter and sort custom artworks
   const filteredCustomArtworks = useMemo(() => {
     let filtered = artworks.filter((artwork) => {
+      if (showFavoritesOnly && !isFavorite(artwork.id, 'custom')) {
+        return false
+      }
+
       if (selectedArtist !== 'all' && artwork.artistName !== selectedArtist) {
         return false
       }
@@ -170,7 +190,7 @@ export default function ArtGallery() {
     }
 
     return filtered
-  }, [artworks, selectedArtist, selectedCustomType, searchQuery, sortType])
+  }, [artworks, selectedArtist, selectedCustomType, searchQuery, sortType, showFavoritesOnly, isFavorite])
 
   useEffect(() => {
     const scrollElement = scrollDivRef.current
@@ -200,10 +220,42 @@ export default function ArtGallery() {
         <div>
           <h1 className="text-3xl font-bold mb-2">Art Gallery</h1>
           <p className="text-muted-foreground">
-            Explore artwork created by the community.
+            Explore artwork created by the community. {favoritesCount > 0 && `${favoritesCount} favorites`}
           </p>
         </div>
-        <UploadArtworkDialog />
+        <div className="flex items-center gap-2">
+          {/* Grid Size Toggle */}
+          <div className="flex items-center gap-1 border rounded-md p-1">
+            <Button
+              variant={gridSize === 'small' ? 'default' : 'ghost'}
+              size="sm"
+              onClick={() => setGridSize('small')}
+              className="h-8 w-8 p-0"
+              title="Small grid"
+            >
+              <Grid3x3 className="h-4 w-4" />
+            </Button>
+            <Button
+              variant={gridSize === 'medium' ? 'default' : 'ghost'}
+              size="sm"
+              onClick={() => setGridSize('medium')}
+              className="h-8 w-8 p-0"
+              title="Medium grid"
+            >
+              <Grid2x2 className="h-4 w-4" />
+            </Button>
+            <Button
+              variant={gridSize === 'large' ? 'default' : 'ghost'}
+              size="sm"
+              onClick={() => setGridSize('large')}
+              className="h-8 w-8 p-0"
+              title="Large grid"
+            >
+              <Grid2x2 className="h-3 w-3" />
+            </Button>
+          </div>
+          <UploadArtworkDialog />
+        </div>
       </div>
 
       <Tabs defaultValue="albums" className="w-full">
@@ -279,10 +331,20 @@ export default function ArtGallery() {
               />
             </div>
 
+            <Button
+              variant={showFavoritesOnly ? 'default' : 'outline'}
+              onClick={() => setShowFavoritesOnly(!showFavoritesOnly)}
+              className="flex items-center gap-2"
+            >
+              <Heart className={cn('h-4 w-4', showFavoritesOnly && 'fill-current')} />
+              Favorites
+            </Button>
+
             {(selectedArtist !== 'all' ||
               selectedType !== 'all' ||
               searchQuery ||
-              albumSortType !== 'recent') && (
+              albumSortType !== 'recent' ||
+              showFavoritesOnly) && (
               <Button
                 variant="outline"
                 onClick={() => {
@@ -290,6 +352,7 @@ export default function ArtGallery() {
                   setSelectedType('all')
                   setSearchQuery('')
                   setAlbumSortType('recent')
+                  setShowFavoritesOnly(false)
                 }}
               >
                 Clear Filters
@@ -304,12 +367,14 @@ export default function ArtGallery() {
           </div>
 
           {/* Art Grid */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-8 gap-4">
+          <div className={cn('grid gap-4', gridSizeClasses[gridSize])}>
             {filteredAlbums.map((album) => (
               <AlbumArtCard
                 key={album.id}
                 album={album}
                 downloads={getAlbumDownloads(album.id)}
+                isFavorite={isFavorite(album.id, 'album')}
+                onToggleFavorite={() => toggleFavorite(album.id, 'album')}
                 onInfoClick={(album) => {
                   setSelectedAlbum(album)
                   setShowAlbumModal(true)
@@ -397,10 +462,20 @@ export default function ArtGallery() {
               />
             </div>
 
+            <Button
+              variant={showFavoritesOnly ? 'default' : 'outline'}
+              onClick={() => setShowFavoritesOnly(!showFavoritesOnly)}
+              className="flex items-center gap-2"
+            >
+              <Heart className={cn('h-4 w-4', showFavoritesOnly && 'fill-current')} />
+              Favorites
+            </Button>
+
             {(selectedArtist !== 'all' ||
               selectedCustomType !== 'all' ||
               searchQuery ||
-              sortType !== 'recent') && (
+              sortType !== 'recent' ||
+              showFavoritesOnly) && (
               <Button
                 variant="outline"
                 onClick={() => {
@@ -408,6 +483,7 @@ export default function ArtGallery() {
                   setSelectedCustomType('all')
                   setSearchQuery('')
                   setSortType('recent')
+                  setShowFavoritesOnly(false)
                 }}
               >
                 Clear Filters
@@ -423,11 +499,13 @@ export default function ArtGallery() {
 
           {/* Custom Art Grid */}
           {filteredCustomArtworks.length > 0 ? (
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-8 gap-4">
+            <div className={cn('grid gap-4', gridSizeClasses[gridSize])}>
               {filteredCustomArtworks.map((artwork) => (
                 <CustomArtCard
                   key={artwork.id}
                   artwork={artwork}
+                  isFavorite={isFavorite(artwork.id, 'custom')}
+                  onToggleFavorite={() => toggleFavorite(artwork.id, 'custom')}
                   onClick={() => {
                     setSelectedArtwork(artwork)
                     setShowDetailModal(true)
@@ -467,11 +545,15 @@ export default function ArtGallery() {
 function AlbumArtCard({
   album,
   downloads,
+  isFavorite,
+  onToggleFavorite,
   onInfoClick,
   onDownload,
 }: {
   album: IAlbum
   downloads: number
+  isFavorite: boolean
+  onToggleFavorite: () => void
   onInfoClick: (album: IAlbum) => void
   onDownload: () => void
 }) {
@@ -507,6 +589,12 @@ function AlbumArtCard({
     onInfoClick(album)
   }
 
+  const handleFavoriteClick = (e: React.MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    onToggleFavorite()
+  }
+
   return (
     <Link
       to={ROUTES.ALBUM.PAGE(album.id)}
@@ -518,6 +606,15 @@ function AlbumArtCard({
         className="w-full h-full object-cover"
         effect="opacity"
       />
+
+      {/* Favorite icon (always visible) */}
+      <button
+        onClick={handleFavoriteClick}
+        className="absolute top-2 left-2 p-2 rounded-full bg-black/50 hover:bg-black/70 text-white transition-colors z-10"
+        title={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
+      >
+        <Heart className={cn('w-4 h-4', isFavorite && 'fill-red-500 text-red-500')} />
+      </button>
 
       <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity">
         <div className="absolute top-2 right-2 flex gap-2">
@@ -565,10 +662,14 @@ function AlbumArtCard({
 
 function CustomArtCard({
   artwork,
+  isFavorite,
+  onToggleFavorite,
   onClick,
   onDownload,
 }: {
   artwork: CustomArtwork
+  isFavorite: boolean
+  onToggleFavorite: () => void
   onClick: () => void
   onDownload: () => void
 }) {
@@ -591,6 +692,11 @@ function CustomArtCard({
     }
   }
 
+  const handleFavoriteClick = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    onToggleFavorite()
+  }
+
   return (
     <button
       onClick={onClick}
@@ -601,6 +707,15 @@ function CustomArtCard({
         alt={artwork.artworkName}
         className="w-full h-full object-cover"
       />
+
+      {/* Favorite icon (always visible) */}
+      <button
+        onClick={handleFavoriteClick}
+        className="absolute top-2 left-2 p-2 rounded-full bg-black/50 hover:bg-black/70 text-white transition-colors z-10"
+        title={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
+      >
+        <Heart className={cn('w-4 h-4', isFavorite && 'fill-red-500 text-red-500')} />
+      </button>
 
       <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity">
         <button
