@@ -7,7 +7,6 @@ import { usePlayerActions } from '@/store/player.store'
 import { SingleAlbum } from '@/types/responses/album'
 import { queryKeys } from '@/utils/queryKeys'
 import { AlbumOptions } from './options'
-import { EditAlbumButton } from './edit-album-button'
 
 interface AlbumButtonsProps {
   album: SingleAlbum
@@ -38,18 +37,6 @@ export function AlbumButtons({ album, showInfoButton }: AlbumButtonsProps) {
     starMutation.mutate({
       id: album.id,
       starred: isAlbumStarred,
-    })
-  }
-
-  function handleMetadataUpdated() {
-    // Invalidate and refetch album data after metadata updates
-    queryClient.invalidateQueries({
-      queryKey: [queryKeys.album.single, album.id],
-    })
-    
-    // Also invalidate album lists that might show this album
-    queryClient.invalidateQueries({
-      queryKey: [queryKeys.album.list],
     })
   }
 
@@ -101,11 +88,6 @@ export function AlbumButtons({ album, showInfoButton }: AlbumButtonsProps) {
           <Actions.InfoIcon />
         </Actions.Button>
       )}
-
-      <EditAlbumButton 
-        album={album} 
-        onMetadataUpdated={handleMetadataUpdated}
-      />
 
       <Actions.Dropdown
         tooltip={buttonsTooltips.options}
