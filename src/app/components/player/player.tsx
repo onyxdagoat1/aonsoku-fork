@@ -1,9 +1,13 @@
-import { memo, useCallback, useEffect, useRef } from 'react'
+import { memo, useCallback, useEffect, useRef, useState } from 'react'
 import { getSongStreamUrl } from '@/api/httpClient'
 import { getProxyURL } from '@/api/podcastClient'
 import { MiniPlayerButton } from '@/app/components/mini-player/button'
 import { RadioInfo } from '@/app/components/player/radio-info'
 import { TrackInfo } from '@/app/components/player/track-info'
+import { useAudioContext } from '@/app/hooks/use-audio-context'
+import { useAudioEqualizer } from '@/hooks/use-audio-equalizer'
+import { useAudioCrossfade } from '@/hooks/use-audio-crossfade'
+import { usePlaybackSpeed } from '@/hooks/use-playback-speed'
 import { podcasts } from '@/service/podcasts'
 import {
   getVolume,
@@ -30,6 +34,9 @@ import { PodcastPlaybackRate } from './podcast-playback-rate'
 import { PlayerProgress } from './progress'
 import { PlayerQueueButton } from './queue-button'
 import { PlayerVolume } from './volume'
+import { EqualizerControls } from './equalizer-controls'
+import { SpeedControls } from './speed-controls'
+import { CrossfadeControls } from './crossfade-controls'
 
 const MemoTrackInfo = memo(TrackInfo)
 const MemoRadioInfo = memo(RadioInfo)
@@ -44,11 +51,17 @@ const MemoPodcastPlaybackRate = memo(PodcastPlaybackRate)
 const MemoLyricsButton = memo(PlayerLyricsButton)
 const MemoMiniPlayerButton = memo(MiniPlayerButton)
 const MemoAudioPlayer = memo(AudioPlayer)
+const MemoEqualizerControls = memo(EqualizerControls)
+const MemoSpeedControls = memo(SpeedControls)
+const MemoCrossfadeControls = memo(CrossfadeControls)
 
 export function Player() {
   const audioRef = useRef<HTMLAudioElement>(null)
   const radioRef = useRef<HTMLAudioElement>(null)
   const podcastRef = useRef<HTMLAudioElement>(null)
+  const [crossfadeDuration, setCrossfadeDuration] = useState(2)
+  const [crossfadeEnabled, setCrossfadeEnabled] = useState(false)
+  
   const {
     setAudioPlayerRef,
     setCurrentDuration,
@@ -78,6 +91,36 @@ export function Player() {
 
     return audioRef
   }, [isPodcast, isRadio])
+
+  // Audio context for Web Audio API features
+  const { audioContextRef } = useAudioContext(audioRef.current)
+
+  // Equalizer hook
+  const {
+    enabled: eqEnabled,
+    toggleEnabled: toggleEqualizer,
+    gains,
+    setGain,
+    activePreset,
+    applyPreset,
+    resetEqualizer,
+  } = useAudioEqualizer(audioRef.current, audioContextRef.current)
+
+  // Speed control hook (for songs and podcasts)
+  const {
+    speed,
+    changeSpeed,
+    resetSpeed,
+    preservePitch,
+    togglePreservePitch,
+  } = usePlaybackSpeed(getAudioRef().current)
+
+  // Crossfade hook
+  const { fadeOut, fadeIn } = useAudioCrossfade(
+    audioRef.current,
+    audioContextRef.current,
+    { duration: crossfadeDuration, enabled: crossfadeEnabled },
+  )
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: audioRef needed
   useEffect(() => {
@@ -160,6 +203,17 @@ export function Player() {
       })
   }, [isPodcast, podcast])
 
+  // Handle crossfade on song end
+  const handleSongEndedWithCrossfade = useCallback(async () => {
+    if (crossfadeEnabled && isSong) {
+      await fadeOut(crossfadeDuration)
+      handleSongEnded()
+      await fadeIn(1, crossfadeDuration)
+    } else {
+      handleSongEnded()
+    }
+  }, [crossfadeEnabled, crossfadeDuration, fadeOut, fadeIn, handleSongEnded, isSong])
+
   function getTrackReplayGain(): ReplayGainParams {
     const preAmp = replayGainPreAmp
     const defaultGain = replayGainDefaultGain
@@ -206,6 +260,33 @@ export function Player() {
               <>
                 <MemoPlayerLikeButton disabled={!song} />
                 <MemoLyricsButton disabled={!song} />
+                
+                {/* New Audio Enhancement Controls */}
+                <MemoEqualizerControls
+                  enabled={eqEnabled}
+                  onToggleEnabled={toggleEqualizer}
+                  gains={gains}
+                  onGainChange={setGain}
+                  activePreset={activePreset}
+                  onPresetChange={applyPreset}
+                  onReset={resetEqualizer}
+                />
+                
+                <MemoSpeedControls
+                  speed={speed}
+                  onSpeedChange={changeSpeed}
+                  preservePitch={preservePitch}
+                  onTogglePreservePitch={togglePreservePitch}
+                  onReset={resetSpeed}
+                />
+                
+                <MemoCrossfadeControls
+                  enabled={crossfadeEnabled}
+                  onToggleEnabled={() => setCrossfadeEnabled(prev => !prev)}
+                  duration={crossfadeDuration}
+                  onDurationChange={setCrossfadeDuration}
+                />
+                
                 <MemoPlayerQueueButton disabled={!song} />
               </>
             )}
@@ -235,7 +316,7 @@ export function Player() {
           onPause={() => setPlayingState(false)}
           onLoadedMetadata={setupDuration}
           onTimeUpdate={setupProgress}
-          onEnded={handleSongEnded}
+          onEnded={handleSongEndedWithCrossfade}
           onLoadStart={setupInitialVolume}
           data-testid="player-song-audio"
         />
