@@ -58,7 +58,7 @@ const upload = multer({
     fileSize: config.maxFileSize, // 100MB default
   },
   fileFilter: (req, file, cb) => {
-    const allowedExtensions = ['.mp3', '.flac', '.m4a', '.ogg', '.opus', '.wav', '.aac'];
+    const allowedExtensions = ['.mp3', '.flac', '.m4a', '.ogg', '.opus', '.wav', '.aac', '.jpg', '.jpeg', '.png', '.webp'];
     const ext = path.extname(file.originalname).toLowerCase();
     
     if (allowedExtensions.includes(ext)) {
@@ -219,7 +219,7 @@ async function triggerNavidromeScan() {
   return response.data;
 }
 
-// Batch upload endpoint
+// Batch upload endpoint - NOW WITH METADATA EXTRACTION
 app.post('/api/upload/batch', upload.array('files', 50), async (req, res) => {
   try {
     if (!req.files || req.files.length === 0) {
@@ -232,25 +232,59 @@ app.post('/api/upload/batch', upload.array('files', 50), async (req, res) => {
     for (const file of req.files) {
       try {
         const ext = path.extname(file.originalname).toLowerCase();
-        const artistFolder = 'Uploaded';
-        const albumFolder = new Date().toISOString().split('T')[0];
+        const isImage = ['.jpg', '.jpeg', '.png', '.webp'].includes(ext);
+        
+        // Handle image files (cover art)
+        if (isImage) {
+          // For now, skip images in batch mode
+          // TODO: Associate with albums
+          await fs.unlink(file.path);
+          continue;
+        }
+
+        // Extract metadata from audio file
+        let metadata = null;
+        try {
+          const fileMetadata = await parseFile(file.path);
+          metadata = fileMetadata.common;
+        } catch (error) {
+          console.warn(`Could not extract metadata from ${file.originalname}:`, error.message);
+        }
+
+        // Use metadata for folder structure
+        const artistFolder = sanitize(metadata?.artist || metadata?.albumArtist || 'Unknown Artist');
+        const albumFolder = sanitize(metadata?.album || 'Unknown Album');
+        const trackTitle = sanitize(metadata?.title || path.parse(file.originalname).name);
         
         const finalDir = path.join(config.musicLibraryPath, artistFolder, albumFolder);
         await fs.mkdir(finalDir, { recursive: true });
         
-        const finalPath = path.join(finalDir, sanitize(file.originalname));
+        const finalPath = path.join(finalDir, `${trackTitle}${ext}`);
         await moveFile(file.path, finalPath);
 
         results.push({
           originalName: file.originalname,
           path: finalPath,
-          size: file.size
+          size: file.size,
+          artist: metadata?.artist,
+          album: metadata?.album,
+          title: metadata?.title
         });
+
+        console.log(`Uploaded: ${artistFolder}/${albumFolder}/${trackTitle}${ext}`);
       } catch (error) {
+        console.error(`Error uploading ${file.originalname}:`, error);
         errors.push({
           file: file.originalname,
           error: error.message
         });
+        
+        // Clean up on error
+        try {
+          await fs.unlink(file.path);
+        } catch (e) {
+          // Ignore cleanup errors
+        }
       }
     }
 
@@ -258,6 +292,7 @@ app.post('/api/upload/batch', upload.array('files', 50), async (req, res) => {
     if (config.navidromeUrl && results.length > 0) {
       try {
         await triggerNavidromeScan();
+        console.log('Triggered Navidrome library scan');
       } catch (error) {
         console.error('Failed to trigger scan:', error.message);
       }
