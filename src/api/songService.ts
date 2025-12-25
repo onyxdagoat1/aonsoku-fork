@@ -2,7 +2,7 @@ import { httpClient } from './httpClient';
 import type { MusicMetadata } from '@/types/upload';
 import axios from 'axios';
 
-const TAG_SERVICE_URL = process.env.REACT_APP_TAG_SERVICE_URL || 'http://localhost:3001';
+const TAG_SERVICE_URL = import.meta.env.VITE_TAG_SERVICE_URL || 'http://localhost:3001';
 
 export interface Song {
   id: string;
