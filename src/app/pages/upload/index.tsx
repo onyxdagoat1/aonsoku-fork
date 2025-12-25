@@ -113,7 +113,7 @@ export default function UploadPage() {
         toast.error('Batch upload failed');
       }
     } else {
-      // Individual upload mode - upload with metadata
+      // Individual upload mode - upload with metadata and cover art
       for (const upload of pendingUploads) {
         try {
           setUploads((prev) =>
@@ -122,23 +122,11 @@ export default function UploadPage() {
             )
           );
 
-          // Convert cover art to base64 if provided
-          let metadataWithCover = upload.metadata;
-          if (upload.coverArtFile) {
-            const reader = new FileReader();
-            const base64 = await new Promise<string>((resolve) => {
-              reader.onload = (e) => resolve(e.target?.result as string);
-              reader.readAsDataURL(upload.coverArtFile!);
-            });
-            metadataWithCover = {
-              ...upload.metadata,
-              coverArt: base64.split(',')[1], // Remove data:image/jpeg;base64, prefix
-            };
-          }
-
+          // Upload with cover art as separate file (not base64)
           await uploadService.uploadFile(
             upload.file,
-            metadataWithCover,
+            upload.metadata,
+            upload.coverArtFile,
             (progress) => {
               setUploads((prev) =>
                 prev.map((u) =>

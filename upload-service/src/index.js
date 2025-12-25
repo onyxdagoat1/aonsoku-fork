@@ -18,7 +18,7 @@ const app = express();
 
 // Middleware
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '10mb' })); // Increased for base64 images
 
 // Ensure upload directory exists
 await fs.mkdir(config.uploadDir, { recursive: true });
@@ -55,7 +55,8 @@ const storage = multer.diskStorage({
 const upload = multer({
   storage,
   limits: {
-    fileSize: config.maxFileSize, // 100MB default
+    fileSize: config.maxFileSize, // 100MB default for audio files
+    fieldSize: 10 * 1024 * 1024, // 10MB for metadata fields (covers base64 images)
   },
   fileFilter: (req, file, cb) => {
     const allowedExtensions = ['.mp3', '.flac', '.m4a', '.ogg', '.opus', '.wav', '.aac', '.jpg', '.jpeg', '.png', '.webp'];
@@ -98,13 +99,15 @@ app.post('/api/upload/metadata', upload.single('file'), async (req, res) => {
   }
 });
 
-// Upload file with metadata
-app.post('/api/upload', upload.single('file'), async (req, res) => {
+// Upload file with metadata - support both single file and file + coverart
+app.post('/api/upload', upload.fields([{ name: 'file', maxCount: 1 }, { name: 'coverart', maxCount: 1 }]), async (req, res) => {
   try {
-    if (!req.file) {
+    if (!req.files || !req.files['file']) {
       return res.status(400).json({ error: 'No file uploaded' });
     }
 
+    const audioFile = req.files['file'][0];
+    const coverArtFile = req.files['coverart'] ? req.files['coverart'][0] : null;
     const { metadata } = req.body;
     let parsedMetadata = null;
 
@@ -116,8 +119,8 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
       }
     }
 
-    const filePath = req.file.path;
-    const ext = path.extname(req.file.originalname).toLowerCase();
+    const filePath = audioFile.path;
+    const ext = path.extname(audioFile.originalname).toLowerCase();
 
     // Write ID3 tags if metadata provided and file is MP3
     if (parsedMetadata && ext === '.mp3') {
@@ -133,8 +136,16 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
           albumArtist: parsedMetadata.albumArtist,
         };
 
-        // Add album art if provided
-        if (parsedMetadata.coverArt) {
+        // Add album art from file or base64
+        if (coverArtFile) {
+          const imageBuffer = await fs.readFile(coverArtFile.path);
+          tags.image = {
+            mime: coverArtFile.mimetype,
+            type: { id: 3, name: 'front cover' },
+            description: 'Cover',
+            imageBuffer: imageBuffer
+          };
+        } else if (parsedMetadata.coverArt) {
           tags.image = {
             mime: 'image/jpeg',
             type: { id: 3, name: 'front cover' },
@@ -149,8 +160,13 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
       }
     }
 
+    // Clean up cover art temp file
+    if (coverArtFile) {
+      await fs.unlink(coverArtFile.path);
+    }
+
     // Move file to final destination
-    const finalFilename = sanitize(parsedMetadata?.title || req.file.originalname);
+    const finalFilename = sanitize(parsedMetadata?.title || audioFile.originalname);
     const artistFolder = sanitize(parsedMetadata?.artist || 'Unknown Artist');
     const albumFolder = sanitize(parsedMetadata?.album || 'Unknown Album');
     
@@ -173,20 +189,24 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
       success: true,
       message: 'File uploaded successfully',
       file: {
-        originalName: req.file.originalname,
+        originalName: audioFile.originalname,
         path: finalPath,
-        size: req.file.size
+        size: audioFile.size
       }
     });
   } catch (error) {
     console.error('Upload error:', error);
     
-    // Clean up file on error
-    if (req.file && req.file.path) {
-      try {
-        await fs.unlink(req.file.path);
-      } catch (e) {
-        console.error('Failed to clean up file:', e);
+    // Clean up files on error
+    if (req.files) {
+      for (const fieldFiles of Object.values(req.files)) {
+        for (const file of fieldFiles) {
+          try {
+            await fs.unlink(file.path);
+          } catch (e) {
+            console.error('Failed to clean up file:', e);
+          }
+        }
       }
     }
     

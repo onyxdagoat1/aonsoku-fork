@@ -1,6 +1,6 @@
 import type { MusicMetadata, UploadResponse, MetadataResponse } from '@/types/upload';
 
-const UPLOAD_SERVICE_URL = import.meta.env.VITE_UPLOAD_SERVICE_URL || 'http://localhost:3001';
+const UPLOAD_SERVICE_URL = import.meta.env.VITE_UPLOAD_SERVICE_URL || 'http://localhost:3002';
 
 export const uploadService = {
   /**
@@ -24,11 +24,12 @@ export const uploadService = {
   },
 
   /**
-   * Upload a single file with metadata
+   * Upload a single file with metadata and optional cover art
    */
   async uploadFile(
     file: File,
     metadata?: MusicMetadata,
+    coverArt?: File,
     onProgress?: (progress: number) => void
   ): Promise<UploadResponse> {
     const formData = new FormData();
@@ -36,6 +37,10 @@ export const uploadService = {
     
     if (metadata) {
       formData.append('metadata', JSON.stringify(metadata));
+    }
+
+    if (coverArt) {
+      formData.append('coverart', coverArt);
     }
 
     return new Promise((resolve, reject) => {
