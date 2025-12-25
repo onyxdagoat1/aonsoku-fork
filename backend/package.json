@@ -1,0 +1,26 @@
+{
+  "name": "aonsoku-tag-service",
+  "version": "1.0.0",
+  "description": "Backend service for writing audio file tags and triggering Navidrome rescans",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "nodemon server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "cors": "^2.8.5",
+    "multer": "^1.4.5-lts.1",
+    "node-id3": "^0.2.9",
+    "music-metadata": "^8.1.4",
+    "axios": "^1.6.0",
+    "dotenv": "^16.3.1",
+    "flac-metadata": "^1.0.4"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  }
+}
