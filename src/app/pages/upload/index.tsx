@@ -3,10 +3,12 @@ import { FileUploader } from '@/app/components/upload/FileUploader';
 import { MetadataEditor } from '@/app/components/upload/MetadataEditor';
 import { UploadProgress } from '@/app/components/upload/UploadProgress';
 import { Button } from '@/app/components/ui/button';
+import { Checkbox } from '@/app/components/ui/checkbox';
+import { Label } from '@/app/components/ui/label';
 import { uploadService } from '@/api/uploadService';
 import type { UploadFile, MusicMetadata } from '@/types/upload';
 import { toast } from 'react-toastify';
-import { Upload, Settings } from 'lucide-react';
+import { Upload, Settings, FolderTree } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -19,6 +21,7 @@ export default function UploadPage() {
   const [uploads, setUploads] = useState<UploadFile[]>([]);
   const [editingFile, setEditingFile] = useState<UploadFile | null>(null);
   const [isEditorOpen, setIsEditorOpen] = useState(false);
+  const [useBatchMode, setUseBatchMode] = useState(false);
 
   const handleFilesSelected = async (files: File[]) => {
     const newUploads: UploadFile[] = files.map((file) => ({
@@ -30,19 +33,21 @@ export default function UploadPage() {
 
     setUploads((prev) => [...prev, ...newUploads]);
 
-    // Auto-extract metadata for each file
-    for (const upload of newUploads) {
-      try {
-        const metadataResponse = await uploadService.extractMetadata(upload.file);
-        setUploads((prev) =>
-          prev.map((u) =>
-            u.id === upload.id
-              ? { ...u, metadata: metadataResponse.common }
-              : u
-          )
-        );
-      } catch (error) {
-        console.error('Failed to extract metadata:', error);
+    // Auto-extract metadata for each file (unless in batch mode with many files)
+    if (!useBatchMode || files.length <= 5) {
+      for (const upload of newUploads) {
+        try {
+          const metadataResponse = await uploadService.extractMetadata(upload.file);
+          setUploads((prev) =>
+            prev.map((u) =>
+              u.id === upload.id
+                ? { ...u, metadata: metadataResponse.common }
+                : u
+            )
+          );
+        } catch (error) {
+          console.error('Failed to extract metadata:', error);
+        }
       }
     }
   };
@@ -68,41 +73,35 @@ export default function UploadPage() {
   const handleUploadAll = async () => {
     const pendingUploads = uploads.filter((u) => u.status === 'pending');
 
-    for (const upload of pendingUploads) {
+    if (useBatchMode && pendingUploads.length > 1) {
+      // Batch upload mode - upload all at once
       try {
-        // Update status to uploading
         setUploads((prev) =>
           prev.map((u) =>
-            u.id === upload.id ? { ...u, status: 'uploading', progress: 0 } : u
+            u.status === 'pending' ? { ...u, status: 'uploading', progress: 0 } : u
           )
         );
 
-        // Upload file
-        await uploadService.uploadFile(
-          upload.file,
-          upload.metadata,
-          (progress) => {
-            setUploads((prev) =>
-              prev.map((u) =>
-                u.id === upload.id ? { ...u, progress } : u
-              )
-            );
-          }
-        );
+        const files = pendingUploads.map(u => u.file);
+        await uploadService.uploadBatch(files, (progress) => {
+          setUploads((prev) =>
+            prev.map((u) =>
+              u.status === 'uploading' ? { ...u, progress } : u
+            )
+          );
+        });
 
-        // Mark as success
         setUploads((prev) =>
           prev.map((u) =>
-            u.id === upload.id ? { ...u, status: 'success', progress: 100 } : u
+            u.status === 'uploading' ? { ...u, status: 'success', progress: 100 } : u
           )
         );
 
-        toast.success(`${upload.file.name} uploaded successfully`);
+        toast.success(`Successfully uploaded ${pendingUploads.length} files`);
       } catch (error) {
-        // Mark as error
         setUploads((prev) =>
           prev.map((u) =>
-            u.id === upload.id
+            u.status === 'uploading'
               ? {
                   ...u,
                   status: 'error',
@@ -111,8 +110,52 @@ export default function UploadPage() {
               : u
           )
         );
+        toast.error('Batch upload failed');
+      }
+    } else {
+      // Individual upload mode - upload with metadata
+      for (const upload of pendingUploads) {
+        try {
+          setUploads((prev) =>
+            prev.map((u) =>
+              u.id === upload.id ? { ...u, status: 'uploading', progress: 0 } : u
+            )
+          );
 
-        toast.error(`Failed to upload ${upload.file.name}`);
+          await uploadService.uploadFile(
+            upload.file,
+            upload.metadata,
+            (progress) => {
+              setUploads((prev) =>
+                prev.map((u) =>
+                  u.id === upload.id ? { ...u, progress } : u
+                )
+              );
+            }
+          );
+
+          setUploads((prev) =>
+            prev.map((u) =>
+              u.id === upload.id ? { ...u, status: 'success', progress: 100 } : u
+            )
+          );
+
+          toast.success(`${upload.file.name} uploaded successfully`);
+        } catch (error) {
+          setUploads((prev) =>
+            prev.map((u) =>
+              u.id === upload.id
+                ? {
+                    ...u,
+                    status: 'error',
+                    error: error instanceof Error ? error.message : 'Upload failed',
+                  }
+                : u
+            )
+          );
+
+          toast.error(`Failed to upload ${upload.file.name}`);
+        }
       }
     }
   };
@@ -134,6 +177,26 @@ export default function UploadPage() {
       </div>
 
       <div className="space-y-6">
+        <div className="flex items-center gap-4 p-4 border rounded-lg bg-card">
+          <Checkbox
+            id="batch-mode"
+            checked={useBatchMode}
+            onCheckedChange={(checked) => setUseBatchMode(checked === true)}
+          />
+          <div className="flex-1">
+            <Label htmlFor="batch-mode" className="cursor-pointer font-medium">
+              <div className="flex items-center gap-2">
+                <FolderTree className="w-4 h-4" />
+                Batch Upload Mode
+              </div>
+            </Label>
+            <p className="text-sm text-muted-foreground mt-1">
+              Upload multiple files at once without individual metadata editing.
+              Perfect for uploading full albums or folders.
+            </p>
+          </div>
+        </div>
+
         <FileUploader onFilesSelected={handleFilesSelected} />
 
         {uploads.length > 0 && (
@@ -151,15 +214,19 @@ export default function UploadPage() {
                 disabled={pendingCount === 0 || uploadingCount > 0}
               >
                 <Upload className="w-4 h-4 mr-2" />
-                Upload {pendingCount} {pendingCount === 1 ? 'File' : 'Files'}
+                {useBatchMode ? 'Batch Upload' : 'Upload'} {pendingCount}{' '}
+                {pendingCount === 1 ? 'File' : 'Files'}
               </Button>
             </div>
 
             <UploadProgress uploads={uploads} />
 
-            {uploads.some((u) => u.status === 'pending') && (
+            {!useBatchMode && uploads.some((u) => u.status === 'pending') && (
               <div className="space-y-2">
                 <h3 className="text-lg font-semibold">Pending Files</h3>
+                <p className="text-sm text-muted-foreground">
+                  Review and edit metadata before uploading
+                </p>
                 <div className="space-y-2">
                   {uploads
                     .filter((u) => u.status === 'pending')
@@ -168,11 +235,12 @@ export default function UploadPage() {
                         key={upload.id}
                         className="p-3 border rounded-lg bg-card flex items-center justify-between"
                       >
-                        <div className="flex-1">
-                          <p className="font-medium">{upload.file.name}</p>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium truncate">{upload.file.name}</p>
                           {upload.metadata && (
-                            <p className="text-sm text-muted-foreground">
+                            <p className="text-sm text-muted-foreground truncate">
                               {upload.metadata.artist} - {upload.metadata.title || 'Unknown'}
+                              {upload.metadata.album && ` • ${upload.metadata.album}`}
                             </p>
                           )}
                         </div>
@@ -186,6 +254,22 @@ export default function UploadPage() {
                         </Button>
                       </div>
                     ))}
+                </div>
+              </div>
+            )}
+
+            {useBatchMode && pendingCount > 0 && (
+              <div className="p-4 border rounded-lg bg-card">
+                <div className="flex items-start gap-3">
+                  <FolderTree className="w-5 h-5 text-primary mt-0.5" />
+                  <div>
+                    <h4 className="font-medium mb-1">Batch Mode Active</h4>
+                    <p className="text-sm text-muted-foreground">
+                      {pendingCount} file{pendingCount !== 1 ? 's' : ''} ready to upload.
+                      Files will be organized by their existing metadata.
+                      Click "Batch Upload" to upload all files at once.
+                    </p>
+                  </div>
                 </div>
               </div>
             )}

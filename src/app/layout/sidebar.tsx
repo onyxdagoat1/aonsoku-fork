@@ -7,24 +7,26 @@ import {
   PaletteIcon,
   PodcastIcon,
   RadioIcon,
-} from 'lucide-react'
-import { ElementType, memo } from 'react'
-import { ROUTES } from '@/routes/routesList'
+  UploadIcon,
+} from 'lucide-react';
+import { ElementType, memo } from 'react';
+import { ROUTES } from '@/routes/routesList';
 
-const ListMusic = memo(ListMusicIcon)
-const Mic2 = memo(Mic2Icon)
-const Music2 = memo(Music2Icon)
-const Radio = memo(RadioIcon)
-const Home = memo(HomeIcon)
-const Library = memo(LibraryIcon)
-const Podcast = memo(PodcastIcon)
-const Palette = memo(PaletteIcon)
+const ListMusic = memo(ListMusicIcon);
+const Mic2 = memo(Mic2Icon);
+const Music2 = memo(Music2Icon);
+const Radio = memo(RadioIcon);
+const Home = memo(HomeIcon);
+const Library = memo(LibraryIcon);
+const Podcast = memo(PodcastIcon);
+const Palette = memo(PaletteIcon);
+const Upload = memo(UploadIcon);
 
 export interface ISidebarItem {
-  id: string
-  title: string
-  route: string
-  icon: ElementType
+  id: string;
+  title: string;
+  route: string;
+  icon: ElementType;
 }
 
 export enum SidebarItems {
@@ -36,6 +38,7 @@ export enum SidebarItems {
   Podcasts = 'podcasts',
   Radios = 'radios',
   Art = 'art',
+  Upload = 'upload',
   PodcastAll = 'podcast-all',
   PodcastLatest = 'podcast-latest',
 }
@@ -47,7 +50,7 @@ export const mainNavItems = [
     route: ROUTES.LIBRARY.HOME,
     icon: Home,
   },
-]
+];
 
 export const libraryItems = [
   {
@@ -92,7 +95,13 @@ export const libraryItems = [
     route: ROUTES.LIBRARY.ART,
     icon: Palette,
   },
-]
+  {
+    id: SidebarItems.Upload,
+    title: 'sidebar.upload',
+    route: ROUTES.UPLOAD,
+    icon: Upload,
+  },
+];
 
 export const podcastItems = [
   {
@@ -107,4 +116,4 @@ export const podcastItems = [
     route: ROUTES.EPISODES.LATEST,
     icon: () => null,
   },
-]
+];
