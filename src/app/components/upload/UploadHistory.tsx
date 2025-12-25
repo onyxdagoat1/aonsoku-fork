@@ -6,7 +6,19 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { toast } from 'react-toastify';
 import { Edit, Music, RefreshCw } from 'lucide-react';
 import { formatBytes } from '@/utils/formatBytes';
-import { formatDistanceToNow } from 'date-fns';
+
+// Simple time formatter
+function formatTimeAgo(dateString: string): string {
+  const now = new Date();
+  const past = new Date(dateString);
+  const seconds = Math.floor((now.getTime() - past.getTime()) / 1000);
+
+  if (seconds < 60) return 'just now';
+  if (seconds < 3600) return `${Math.floor(seconds / 60)} minutes ago`;
+  if (seconds < 86400) return `${Math.floor(seconds / 3600)} hours ago`;
+  if (seconds < 604800) return `${Math.floor(seconds / 86400)} days ago`;
+  return past.toLocaleDateString();
+}
 
 export function UploadHistory() {
   const [history, setHistory] = useState<UploadHistoryItem[]>([]);
@@ -122,7 +134,7 @@ export function UploadHistory() {
                   )}
                 </p>
                 <p className="text-xs text-muted-foreground mt-1">
-                  {formatBytes(item.size)} • Uploaded {formatDistanceToNow(new Date(item.uploadedAt), { addSuffix: true })}
+                  {formatBytes(item.size)} • Uploaded {formatTimeAgo(item.uploadedAt)}
                 </p>
               </div>
               <Button
