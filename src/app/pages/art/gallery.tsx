@@ -15,7 +15,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/app/components/ui/ta
 import { ROUTES } from '@/routes/routesList'
 import { getAlbumList } from '@/queries/albums'
 import { IAlbum } from '@/types/responses/album'
-import { Disc, Disc3, User, Calendar, Download, Info, TrendingDown, Heart, Grid3x3, Grid2x2 } from 'lucide-react'
+import { Disc, Disc3, User, Calendar, Download, Info, TrendingDown, Heart, Grid3x3, Grid2x2, Link as LinkIcon, History, Download as DownloadIcon } from 'lucide-react'
 import { useInfiniteQuery } from '@tanstack/react-query'
 import debounce from 'lodash/debounce'
 import { queryKeys } from '@/utils/queryKeys'
@@ -27,7 +27,11 @@ import { ArtworkDetailModal } from '@/app/components/art/artwork-detail-modal'
 import { AlbumInfoModal } from '@/app/components/art/album-info-modal'
 import { useToast } from '@/hooks/use-toast'
 import { useFavorites } from '@/hooks/use-favorites'
+import { useViewHistory } from '@/hooks/use-view-history'
+import { useDownloadHistory } from '@/hooks/use-download-history'
+import { useBulkDownload } from '@/hooks/use-bulk-download'
 import { cn } from '@/lib/utils'
+import { Progress } from '@/app/components/ui/progress'
 
 type ArtType = 'all' | 'album' | 'single'
 type SortType = 'recent' | 'popular'
@@ -59,10 +63,16 @@ export default function ArtGallery() {
   const [albumSortType, setAlbumSortType] = useState<SortType>('recent')
   const [gridSize, setGridSize] = useState<GridSize>('medium')
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false)
+  const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set())
+  const [selectionMode, setSelectionMode] = useState(false)
   const scrollDivRef = useRef<HTMLDivElement | null>(null)
+  const { toast, success, error } = useToast()
 
   const { artworks, loadArtworks, incrementDownload, incrementAlbumDownload, getAlbumDownloads } = useArtworkStore()
   const { toggleFavorite, isFavorite, count: favoritesCount } = useFavorites()
+  const { addToHistory, count: historyCount } = useViewHistory()
+  const { recordDownload, getDownloadCount, getTotalDownloads } = useDownloadHistory()
+  const { progress, downloadAlbums, downloadCustomArtworks, isDownloading } = useBulkDownload()
 
   useEffect(() => {
     loadArtworks()
@@ -100,7 +110,6 @@ export default function ArtGallery() {
     return data.pages.flatMap((page) => page.albums)
   }, [data])
 
-  // Get unique artists from albums
   const albumArtists = useMemo(() => {
     const artistMap = new Map<string, string>()
     albums.forEach((album) => {
@@ -113,13 +122,11 @@ export default function ArtGallery() {
     )
   }, [albums])
 
-  // Get unique artists from custom artwork
   const customArtists = useMemo(() => {
     const artistSet = new Set(artworks.map((art) => art.artistName))
     return Array.from(artistSet).sort()
   }, [artworks])
 
-  // Filter and sort albums
   const filteredAlbums = useMemo(() => {
     let filtered = albums.filter((album) => {
       if (showFavoritesOnly && !isFavorite(album.id, 'album')) {
@@ -147,7 +154,6 @@ export default function ArtGallery() {
       return true
     })
 
-    // Sort by popularity (downloads) or recent
     if (albumSortType === 'popular') {
       filtered = filtered.sort((a, b) => getAlbumDownloads(b.id) - getAlbumDownloads(a.id))
     }
@@ -155,7 +161,6 @@ export default function ArtGallery() {
     return filtered
   }, [albums, selectedArtist, selectedType, searchQuery, albumSortType, getAlbumDownloads, showFavoritesOnly, isFavorite])
 
-  // Filter and sort custom artworks
   const filteredCustomArtworks = useMemo(() => {
     let filtered = artworks.filter((artwork) => {
       if (showFavoritesOnly && !isFavorite(artwork.id, 'custom')) {
@@ -182,7 +187,6 @@ export default function ArtGallery() {
       return true
     })
 
-    // Sort by popularity (downloads) or recent
     if (sortType === 'popular') {
       filtered = filtered.sort((a, b) => (b.downloads || 0) - (a.downloads || 0))
     } else {
@@ -191,6 +195,31 @@ export default function ArtGallery() {
 
     return filtered
   }, [artworks, selectedArtist, selectedCustomType, searchQuery, sortType, showFavoritesOnly, isFavorite])
+
+  const handleBulkDownload = useCallback(async () => {
+    const selectedAlbums = filteredAlbums.filter(album => selectedItems.has(`album-${album.id}`))
+    const selectedCustom = filteredCustomArtworks.filter(art => selectedItems.has(`custom-${art.id}`))
+    
+    if (selectedAlbums.length > 0) {
+      await downloadAlbums(selectedAlbums)
+      selectedAlbums.forEach(album => {
+        recordDownload(album.id, 'album', album.name, album.artist)
+        incrementAlbumDownload(album.id)
+      })
+    }
+    
+    if (selectedCustom.length > 0) {
+      await downloadCustomArtworks(selectedCustom)
+      selectedCustom.forEach(art => {
+        recordDownload(art.id, 'custom', art.artworkName, art.artistName)
+        incrementDownload(art.id)
+      })
+    }
+    
+    setSelectedItems(new Set())
+    setSelectionMode(false)
+    success('Download complete', `Downloaded ${selectedAlbums.length + selectedCustom.length} items`)
+  }, [selectedItems, filteredAlbums, filteredCustomArtworks, downloadAlbums, downloadCustomArtworks, recordDownload, incrementAlbumDownload, incrementDownload, success])
 
   useEffect(() => {
     const scrollElement = scrollDivRef.current
@@ -220,10 +249,47 @@ export default function ArtGallery() {
         <div>
           <h1 className="text-3xl font-bold mb-2">Art Gallery</h1>
           <p className="text-muted-foreground">
-            Explore artwork created by the community. {favoritesCount > 0 && `${favoritesCount} favorites`}
+            {favoritesCount > 0 && `${favoritesCount} favorites • `}
+            {historyCount > 0 && `${historyCount} viewed • `}
+            {getTotalDownloads()} total downloads
           </p>
         </div>
         <div className="flex items-center gap-2">
+          {/* Selection mode controls */}
+          {selectionMode && (
+            <>
+              <span className="text-sm text-muted-foreground">
+                {selectedItems.size} selected
+              </span>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                  setSelectedItems(new Set())
+                  setSelectionMode(false)
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                size="sm"
+                onClick={handleBulkDownload}
+                disabled={selectedItems.size === 0 || isDownloading}
+              >
+                <DownloadIcon className="h-4 w-4 mr-2" />
+                Download Selected
+              </Button>
+            </>
+          )}
+          {!selectionMode && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setSelectionMode(true)}
+            >
+              Select Multiple
+            </Button>
+          )}
           {/* Grid Size Toggle */}
           <div className="flex items-center gap-1 border rounded-md p-1">
             <Button
@@ -257,6 +323,23 @@ export default function ArtGallery() {
           <UploadArtworkDialog />
         </div>
       </div>
+
+      {/* Bulk download progress */}
+      {isDownloading && (
+        <div className="mb-4 p-4 border rounded-lg bg-muted">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-sm font-medium">
+              {progress.status === 'downloading' && `Downloading ${progress.current}/${progress.total}...`}
+              {progress.status === 'zipping' && 'Creating ZIP file...'}
+              {progress.status === 'complete' && 'Complete!'}
+            </span>
+            <span className="text-sm text-muted-foreground">
+              {Math.round((progress.current / progress.total) * 100)}%
+            </span>
+          </div>
+          <Progress value={(progress.current / progress.total) * 100} />
+        </div>
+      )}
 
       <Tabs defaultValue="albums" className="w-full">
         <TabsList className="mb-6">
@@ -373,18 +456,42 @@ export default function ArtGallery() {
                 key={album.id}
                 album={album}
                 downloads={getAlbumDownloads(album.id)}
+                personalDownloads={getDownloadCount(album.id, 'album')}
                 isFavorite={isFavorite(album.id, 'album')}
+                isSelected={selectedItems.has(`album-${album.id}`)}
+                selectionMode={selectionMode}
+                onToggleSelection={() => {
+                  const key = `album-${album.id}`
+                  setSelectedItems(prev => {
+                    const next = new Set(prev)
+                    if (next.has(key)) next.delete(key)
+                    else next.add(key)
+                    return next
+                  })
+                }}
                 onToggleFavorite={() => toggleFavorite(album.id, 'album')}
                 onInfoClick={(album) => {
                   setSelectedAlbum(album)
                   setShowAlbumModal(true)
+                  addToHistory({
+                    id: album.id,
+                    type: 'album',
+                    name: album.name,
+                    artist: album.artist,
+                  })
                 }}
-                onDownload={() => incrementAlbumDownload(album.id)}
+                onDownload={() => {
+                  incrementAlbumDownload(album.id)
+                  recordDownload(album.id, 'album', album.name, album.artist)
+                }}
+                onCopyUrl={(url) => {
+                  navigator.clipboard.writeText(url)
+                  success('Copied!', 'Cover URL copied to clipboard')
+                }}
               />
             ))}
           </div>
 
-          {/* Loading indicator */}
           {isFetchingNextPage && (
             <div className="text-center py-8 text-muted-foreground">
               Loading more...
@@ -504,13 +611,39 @@ export default function ArtGallery() {
                 <CustomArtCard
                   key={artwork.id}
                   artwork={artwork}
+                  personalDownloads={getDownloadCount(artwork.id, 'custom')}
                   isFavorite={isFavorite(artwork.id, 'custom')}
+                  isSelected={selectedItems.has(`custom-${artwork.id}`)}
+                  selectionMode={selectionMode}
+                  onToggleSelection={() => {
+                    const key = `custom-${artwork.id}`
+                    setSelectedItems(prev => {
+                      const next = new Set(prev)
+                      if (next.has(key)) next.delete(key)
+                      else next.add(key)
+                      return next
+                    })
+                  }}
                   onToggleFavorite={() => toggleFavorite(artwork.id, 'custom')}
                   onClick={() => {
                     setSelectedArtwork(artwork)
                     setShowDetailModal(true)
+                    addToHistory({
+                      id: artwork.id,
+                      type: 'custom',
+                      name: artwork.artworkName,
+                      artist: artwork.artistName,
+                      imageUrl: artwork.imageData,
+                    })
                   }}
-                  onDownload={() => incrementDownload(artwork.id)}
+                  onDownload={() => {
+                    incrementDownload(artwork.id)
+                    recordDownload(artwork.id, 'custom', artwork.artworkName, artwork.artistName)
+                  }}
+                  onCopyUrl={(url) => {
+                    navigator.clipboard.writeText(url)
+                    success('Copied!', 'Artwork URL copied to clipboard')
+                  }}
                 />
               ))}
             </div>
@@ -545,17 +678,27 @@ export default function ArtGallery() {
 function AlbumArtCard({
   album,
   downloads,
+  personalDownloads,
   isFavorite,
+  isSelected,
+  selectionMode,
+  onToggleSelection,
   onToggleFavorite,
   onInfoClick,
   onDownload,
+  onCopyUrl,
 }: {
   album: IAlbum
   downloads: number
+  personalDownloads: number
   isFavorite: boolean
+  isSelected: boolean
+  selectionMode: boolean
+  onToggleSelection: () => void
   onToggleFavorite: () => void
   onInfoClick: (album: IAlbum) => void
   onDownload: () => void
+  onCopyUrl: (url: string) => void
 }) {
   const isSingle = album.songCount === 1
   const { success, error } = useToast()
@@ -595,10 +738,28 @@ function AlbumArtCard({
     onToggleFavorite()
   }
 
+  const handleCopyUrl = (e: React.MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    const url = getCoverArtUrl(album.coverArt, 'album', '800')
+    onCopyUrl(url)
+  }
+
+  const handleClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
+    if (selectionMode) {
+      e.preventDefault()
+      onToggleSelection()
+    }
+  }
+
   return (
     <Link
       to={ROUTES.ALBUM.PAGE(album.id)}
-      className="group relative aspect-square rounded-lg overflow-hidden bg-muted hover:ring-2 hover:ring-primary transition-all"
+      onClick={handleClick}
+      className={cn(
+        'group relative aspect-square rounded-lg overflow-hidden bg-muted hover:ring-2 hover:ring-primary transition-all',
+        isSelected && 'ring-2 ring-primary'
+      )}
     >
       <LazyLoadImage
         src={getCoverArtUrl(album.coverArt, 'album', '400')}
@@ -607,17 +768,39 @@ function AlbumArtCard({
         effect="opacity"
       />
 
-      {/* Favorite icon (always visible) */}
-      <button
-        onClick={handleFavoriteClick}
-        className="absolute top-2 left-2 p-2 rounded-full bg-black/50 hover:bg-black/70 text-white transition-colors z-10"
-        title={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
-      >
-        <Heart className={cn('w-4 h-4', isFavorite && 'fill-red-500 text-red-500')} />
-      </button>
+      {/* Selection checkbox */}
+      {selectionMode && (
+        <div className="absolute top-2 left-2 z-20">
+          <input
+            type="checkbox"
+            checked={isSelected}
+            onChange={onToggleSelection}
+            className="h-5 w-5 rounded border-2 border-white"
+            onClick={(e) => e.stopPropagation()}
+          />
+        </div>
+      )}
+
+      {/* Favorite icon */}
+      {!selectionMode && (
+        <button
+          onClick={handleFavoriteClick}
+          className="absolute top-2 left-2 p-2 rounded-full bg-black/50 hover:bg-black/70 text-white transition-colors z-10"
+          title={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
+        >
+          <Heart className={cn('w-4 h-4', isFavorite && 'fill-red-500 text-red-500')} />
+        </button>
+      )}
 
       <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity">
         <div className="absolute top-2 right-2 flex gap-2">
+          <button
+            onClick={handleCopyUrl}
+            className="p-2 rounded-full bg-black/50 hover:bg-black/70 text-white transition-colors"
+            title="Copy URL"
+          >
+            <LinkIcon className="w-4 h-4" />
+          </button>
           <button
             onClick={handleInfoClick}
             className="p-2 rounded-full bg-black/50 hover:bg-black/70 text-white transition-colors"
@@ -637,7 +820,7 @@ function AlbumArtCard({
           <div className="flex items-center gap-1 mb-1">
             <TrendingDown className="w-3 h-3 text-white/80" />
             <span className="text-xs text-white/80">
-              {downloads} {downloads === 1 ? 'download' : 'downloads'}
+              {downloads} community • {personalDownloads} you
             </span>
           </div>
           <div className="flex items-center gap-1 mb-1">
@@ -662,16 +845,26 @@ function AlbumArtCard({
 
 function CustomArtCard({
   artwork,
+  personalDownloads,
   isFavorite,
+  isSelected,
+  selectionMode,
+  onToggleSelection,
   onToggleFavorite,
   onClick,
   onDownload,
+  onCopyUrl,
 }: {
   artwork: CustomArtwork
+  personalDownloads: number
   isFavorite: boolean
+  isSelected: boolean
+  selectionMode: boolean
+  onToggleSelection: () => void
   onToggleFavorite: () => void
   onClick: () => void
   onDownload: () => void
+  onCopyUrl: (url: string) => void
 }) {
   const { success, error } = useToast()
 
@@ -684,7 +877,7 @@ function CustomArtCard({
       document.body.appendChild(link)
       link.click()
       document.body.removeChild(link)
-      onDownload() // Increment download counter
+      onDownload()
       success('Downloaded', `${artwork.artworkName} saved to downloads`)
     } catch (err) {
       error('Download failed', 'Failed to download artwork')
@@ -697,10 +890,26 @@ function CustomArtCard({
     onToggleFavorite()
   }
 
+  const handleCopyUrl = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    onCopyUrl(artwork.imageData)
+  }
+
+  const handleClick = () => {
+    if (selectionMode) {
+      onToggleSelection()
+    } else {
+      onClick()
+    }
+  }
+
   return (
     <button
-      onClick={onClick}
-      className="group relative aspect-square rounded-lg overflow-hidden bg-muted hover:ring-2 hover:ring-primary transition-all text-left"
+      onClick={handleClick}
+      className={cn(
+        'group relative aspect-square rounded-lg overflow-hidden bg-muted hover:ring-2 hover:ring-primary transition-all text-left',
+        isSelected && 'ring-2 ring-primary'
+      )}
     >
       <img
         src={artwork.imageData}
@@ -708,23 +917,47 @@ function CustomArtCard({
         className="w-full h-full object-cover"
       />
 
-      {/* Favorite icon (always visible) */}
-      <button
-        onClick={handleFavoriteClick}
-        className="absolute top-2 left-2 p-2 rounded-full bg-black/50 hover:bg-black/70 text-white transition-colors z-10"
-        title={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
-      >
-        <Heart className={cn('w-4 h-4', isFavorite && 'fill-red-500 text-red-500')} />
-      </button>
+      {/* Selection checkbox */}
+      {selectionMode && (
+        <div className="absolute top-2 left-2 z-20">
+          <input
+            type="checkbox"
+            checked={isSelected}
+            onChange={onToggleSelection}
+            className="h-5 w-5 rounded border-2 border-white"
+            onClick={(e) => e.stopPropagation()}
+          />
+        </div>
+      )}
+
+      {/* Favorite icon */}
+      {!selectionMode && (
+        <button
+          onClick={handleFavoriteClick}
+          className="absolute top-2 left-2 p-2 rounded-full bg-black/50 hover:bg-black/70 text-white transition-colors z-10"
+          title={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
+        >
+          <Heart className={cn('w-4 h-4', isFavorite && 'fill-red-500 text-red-500')} />
+        </button>
+      )}
 
       <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity">
-        <button
-          onClick={handleDownload}
-          className="absolute top-2 right-2 p-2 rounded-full bg-black/50 hover:bg-black/70 text-white transition-colors"
-          title="Download"
-        >
-          <Download className="w-4 h-4" />
-        </button>
+        <div className="absolute top-2 right-2 flex gap-2">
+          <button
+            onClick={handleCopyUrl}
+            className="p-2 rounded-full bg-black/50 hover:bg-black/70 text-white transition-colors"
+            title="Copy URL"
+          >
+            <LinkIcon className="w-4 h-4" />
+          </button>
+          <button
+            onClick={handleDownload}
+            className="p-2 rounded-full bg-black/50 hover:bg-black/70 text-white transition-colors"
+            title="Download"
+          >
+            <Download className="w-4 h-4" />
+          </button>
+        </div>
         <div className="absolute bottom-0 left-0 right-0 p-3 space-y-1">
           <div className="flex items-center gap-1">
             <User className="w-3 h-3 text-white/80" />
@@ -735,7 +968,7 @@ function CustomArtCard({
           <div className="flex items-center gap-1">
             <TrendingDown className="w-3 h-3 text-white/80" />
             <span className="text-xs text-white/80">
-              {artwork.downloads || 0} downloads
+              {artwork.downloads || 0} community • {personalDownloads} you
             </span>
           </div>
           <div className="flex items-center gap-1">
