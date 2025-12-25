@@ -5,7 +5,6 @@ import { MiniPlayerButton } from '@/app/components/mini-player/button'
 import { RadioInfo } from '@/app/components/player/radio-info'
 import { TrackInfo } from '@/app/components/player/track-info'
 import { useAudioContext } from '@/app/hooks/use-audio-context'
-import { useAudioEqualizer } from '@/app/hooks/use-audio-equalizer'
 import { useAudioCrossfade } from '@/app/hooks/use-audio-crossfade'
 import { usePlaybackSpeed } from '@/app/hooks/use-playback-speed'
 import { podcasts } from '@/service/podcasts'
@@ -34,7 +33,6 @@ import { PodcastPlaybackRate } from './podcast-playback-rate'
 import { PlayerProgress } from './progress'
 import { PlayerQueueButton } from './queue-button'
 import { PlayerVolume } from './volume'
-import { EqualizerControls } from './equalizer-controls'
 import { SpeedControls } from './speed-controls'
 import { CrossfadeControls } from './crossfade-controls'
 
@@ -51,7 +49,6 @@ const MemoPodcastPlaybackRate = memo(PodcastPlaybackRate)
 const MemoLyricsButton = memo(PlayerLyricsButton)
 const MemoMiniPlayerButton = memo(MiniPlayerButton)
 const MemoAudioPlayer = memo(AudioPlayer)
-const MemoEqualizerControls = memo(EqualizerControls)
 const MemoSpeedControls = memo(SpeedControls)
 const MemoCrossfadeControls = memo(CrossfadeControls)
 
@@ -94,17 +91,6 @@ export function Player() {
 
   // Audio context for Web Audio API features
   const { audioContextRef } = useAudioContext(audioRef.current)
-
-  // Equalizer hook
-  const {
-    enabled: eqEnabled,
-    toggleEnabled: toggleEqualizer,
-    gains,
-    setGain,
-    activePreset,
-    applyPreset,
-    resetEqualizer,
-  } = useAudioEqualizer(audioRef.current, audioContextRef.current)
 
   // Speed control hook (for songs and podcasts)
   const {
@@ -261,17 +247,7 @@ export function Player() {
                 <MemoPlayerLikeButton disabled={!song} />
                 <MemoLyricsButton disabled={!song} />
                 
-                {/* New Audio Enhancement Controls */}
-                <MemoEqualizerControls
-                  enabled={eqEnabled}
-                  onToggleEnabled={toggleEqualizer}
-                  gains={gains}
-                  onGainChange={setGain}
-                  activePreset={activePreset}
-                  onPresetChange={applyPreset}
-                  onReset={resetEqualizer}
-                />
-                
+                {/* Audio Enhancement Controls */}
                 <MemoSpeedControls
                   speed={speed}
                   onSpeedChange={changeSpeed}
