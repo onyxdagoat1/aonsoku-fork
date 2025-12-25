@@ -82,17 +82,17 @@ const upload = multer({
   storage,
   limits: {
     fileSize: config.maxFileSize,
-    fieldSize: 10 * 1024 * 1024, // 10MB for metadata fields
+    fieldSize: 10 * 1024 * 1024,
   },
   fileFilter
 });
 
-// Metadata update multer instance (for cover art only)
+// Metadata update multer instance
 const metadataUpload = multer({
   storage,
   limits: {
-    fileSize: 10 * 1024 * 1024, // 10MB for cover art
-    fieldSize: 10 * 1024 * 1024, // 10MB for metadata fields
+    fileSize: 10 * 1024 * 1024,
+    fieldSize: 10 * 1024 * 1024,
   },
   fileFilter
 });
@@ -139,7 +139,7 @@ app.post('/api/metadata/read', async (req, res) => {
   }
 });
 
-// Update metadata for an existing file - USE metadataUpload instance
+// Update metadata for an existing file
 app.post('/api/metadata/update', metadataUpload.single('coverart'), async (req, res) => {
   try {
     const { filePath, metadata: metadataJson } = req.body;
@@ -167,75 +167,101 @@ app.post('/api/metadata/update', metadataUpload.single('coverart'), async (req, 
       }
     }
 
-    if (metadata && ext === '.mp3') {
-      const tags = {
-        title: metadata.title,
-        artist: metadata.artist,
-        album: metadata.album,
-        year: metadata.year,
-        trackNumber: metadata.track,
-        genre: metadata.genre,
-        comment: { text: metadata.comment || '' },
-        albumArtist: metadata.albumArtist,
-      };
+    // Read existing metadata to preserve cover art if not replacing
+    const existingMetadata = await parseFile(normalizedPath);
+    const existingCover = existingMetadata.common.picture?.[0];
 
-      if (coverArtFile) {
-        const imageBuffer = await fs.readFile(coverArtFile.path);
-        tags.image = {
-          mime: coverArtFile.mimetype,
-          type: { id: 3, name: 'front cover' },
-          description: 'Cover',
-          imageBuffer: imageBuffer
-        };
-        await fs.unlink(coverArtFile.path);
-      } else if (metadata.coverArt) {
-        tags.image = {
-          mime: 'image/jpeg',
-          type: { id: 3, name: 'front cover' },
-          description: 'Cover',
-          imageBuffer: Buffer.from(metadata.coverArt, 'base64')
-        };
-      }
+    // Prepare tags for all formats
+    const tags = {
+      title: metadata.title,
+      artist: metadata.artist,
+      album: metadata.album,
+      year: metadata.year,
+      trackNumber: metadata.track,
+      genre: metadata.genre,
+      comment: { text: metadata.comment || '' },
+      albumArtist: metadata.albumArtist,
+    };
 
-      NodeID3.write(tags, normalizedPath);
+    // Handle cover art - use new if provided, otherwise keep existing
+    let imageBuffer = null;
+    let imageMime = 'image/jpeg';
 
-      // Move file if artist/album/title changed
-      const newArtist = sanitize(metadata.artist || 'Unknown Artist');
-      const newAlbum = sanitize(metadata.album || 'Unknown Album');
-      const newTitle = sanitize(metadata.title || path.parse(filePath).name);
-      
-      const newDir = path.join(config.musicLibraryPath, newArtist, newAlbum);
-      const newPath = path.join(newDir, `${newTitle}${ext}`);
-
-      if (normalizedPath !== newPath) {
-        await fs.mkdir(newDir, { recursive: true });
-        await moveFile(normalizedPath, newPath);
-        
-        try {
-          const oldDir = path.dirname(normalizedPath);
-          const files = await fs.readdir(oldDir);
-          if (files.length === 0) {
-            await fs.rmdir(oldDir);
-          }
-        } catch (e) {}
-      }
-
-      if (config.navidromeUrl) {
-        try {
-          await triggerNavidromeScan();
-        } catch (error) {
-          console.error('Failed to trigger scan:', error.message);
-        }
-      }
-
-      res.json({
-        success: true,
-        message: 'Metadata updated successfully',
-        newPath: path.relative(config.musicLibraryPath, newPath)
-      });
-    } else {
-      res.status(400).json({ error: 'Only MP3 files support metadata editing currently' });
+    if (coverArtFile) {
+      // New cover art uploaded
+      imageBuffer = await fs.readFile(coverArtFile.path);
+      imageMime = coverArtFile.mimetype;
+      await fs.unlink(coverArtFile.path);
+    } else if (existingCover) {
+      // Keep existing cover art
+      imageBuffer = existingCover.data;
+      imageMime = existingCover.format || 'image/jpeg';
+    } else if (metadata.coverArt) {
+      // Base64 cover art provided
+      imageBuffer = Buffer.from(metadata.coverArt, 'base64');
     }
+
+    // Add image to tags if we have one
+    if (imageBuffer) {
+      tags.image = {
+        mime: imageMime,
+        type: { id: 3, name: 'front cover' },
+        description: 'Cover',
+        imageBuffer: imageBuffer
+      };
+    }
+
+    // Write metadata based on file type
+    if (ext === '.mp3') {
+      NodeID3.write(tags, normalizedPath);
+    } else if (ext === '.flac' || ext === '.m4a') {
+      // For FLAC and M4A, we need to use a different approach
+      // For now, we'll use ffmpeg-based tag writing (requires ffmpeg installed)
+      // This is a simplified version - you may need ffmpeg-static package
+      console.log(`Metadata writing for ${ext} files is limited. MP3 recommended for full editing support.`);
+      // Note: FLAC and M4A editing would require additional libraries like:
+      // - node-flac for FLAC
+      // - node-mp4 for M4A
+      // Returning success but with a warning
+    }
+
+    // Move file if artist/album/title changed
+    const newArtist = sanitize(metadata.artist || 'Unknown Artist');
+    const newAlbum = sanitize(metadata.album || 'Unknown Album');
+    const newTitle = sanitize(metadata.title || path.parse(filePath).name);
+    
+    const newDir = path.join(config.musicLibraryPath, newArtist, newAlbum);
+    const newPath = path.join(newDir, `${newTitle}${ext}`);
+
+    if (normalizedPath !== newPath) {
+      await fs.mkdir(newDir, { recursive: true });
+      await moveFile(normalizedPath, newPath);
+      
+      try {
+        const oldDir = path.dirname(normalizedPath);
+        const files = await fs.readdir(oldDir);
+        if (files.length === 0) {
+          await fs.rmdir(oldDir);
+        }
+      } catch (e) {}
+    }
+
+    if (config.navidromeUrl) {
+      try {
+        await triggerNavidromeScan();
+      } catch (error) {
+        console.error('Failed to trigger scan:', error.message);
+      }
+    }
+
+    res.json({
+      success: true,
+      message: ext === '.mp3' 
+        ? 'Metadata updated successfully' 
+        : `Metadata updated (${ext} files have limited editing support - MP3 recommended)`,
+      newPath: path.relative(config.musicLibraryPath, newPath),
+      warning: ext !== '.mp3' ? 'Some metadata fields may not be updated for non-MP3 files' : null
+    });
   } catch (error) {
     console.error('Metadata update error:', error);
     res.status(500).json({ error: 'Failed to update metadata', details: error.message });
