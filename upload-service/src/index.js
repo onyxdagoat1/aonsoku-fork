@@ -18,12 +18,12 @@ const app = express();
 
 // Middleware
 app.use(cors());
-app.use(express.json({ limit: '10mb' })); // Increased for base64 images
+app.use(express.json({ limit: '10mb' }));
 
 // Ensure upload directory exists
 await fs.mkdir(config.uploadDir, { recursive: true });
 
-// Upload history storage (in-memory for now, could use SQLite)
+// Upload history storage
 const uploadHistory = [];
 
 // Helper function to move files across filesystems
@@ -48,13 +48,12 @@ function addToHistory(fileInfo) {
     uploadedAt: new Date().toISOString()
   });
   
-  // Keep only last 500 uploads
   if (uploadHistory.length > 500) {
     uploadHistory.pop();
   }
 }
 
-// Configure multer for file uploads
+// Configure multer storage
 const storage = multer.diskStorage({
   destination: async (req, file, cb) => {
     const uploadPath = config.uploadDir;
@@ -67,22 +66,35 @@ const storage = multer.diskStorage({
   }
 });
 
+const fileFilter = (req, file, cb) => {
+  const allowedExtensions = ['.mp3', '.flac', '.m4a', '.ogg', '.opus', '.wav', '.aac', '.jpg', '.jpeg', '.png', '.webp'];
+  const ext = path.extname(file.originalname).toLowerCase();
+  
+  if (allowedExtensions.includes(ext)) {
+    cb(null, true);
+  } else {
+    cb(new Error(`Invalid file type. Allowed: ${allowedExtensions.join(', ')}`));
+  }
+};
+
+// Main upload multer instance
 const upload = multer({
   storage,
   limits: {
     fileSize: config.maxFileSize,
-    fieldSize: 10 * 1024 * 1024,
+    fieldSize: 10 * 1024 * 1024, // 10MB for metadata fields
   },
-  fileFilter: (req, file, cb) => {
-    const allowedExtensions = ['.mp3', '.flac', '.m4a', '.ogg', '.opus', '.wav', '.aac', '.jpg', '.jpeg', '.png', '.webp'];
-    const ext = path.extname(file.originalname).toLowerCase();
-    
-    if (allowedExtensions.includes(ext)) {
-      cb(null, true);
-    } else {
-      cb(new Error(`Invalid file type. Allowed: ${allowedExtensions.join(', ')}`));
-    }
-  }
+  fileFilter
+});
+
+// Metadata update multer instance (for cover art only)
+const metadataUpload = multer({
+  storage,
+  limits: {
+    fileSize: 10 * 1024 * 1024, // 10MB for cover art
+    fieldSize: 10 * 1024 * 1024, // 10MB for metadata fields
+  },
+  fileFilter
 });
 
 // Health check
@@ -107,7 +119,6 @@ app.post('/api/metadata/read', async (req, res) => {
       return res.status(400).json({ error: 'File path required' });
     }
 
-    // Security: ensure file is within music library
     const fullPath = path.join(config.musicLibraryPath, filePath);
     const normalizedPath = path.normalize(fullPath);
     
@@ -128,8 +139,8 @@ app.post('/api/metadata/read', async (req, res) => {
   }
 });
 
-// Update metadata for an existing file
-app.post('/api/metadata/update', upload.single('coverart'), async (req, res) => {
+// Update metadata for an existing file - USE metadataUpload instance
+app.post('/api/metadata/update', metadataUpload.single('coverart'), async (req, res) => {
   try {
     const { filePath, metadata: metadataJson } = req.body;
     const coverArtFile = req.file;
@@ -138,7 +149,6 @@ app.post('/api/metadata/update', upload.single('coverart'), async (req, res) => 
       return res.status(400).json({ error: 'File path required' });
     }
 
-    // Security: ensure file is within music library
     const fullPath = path.join(config.musicLibraryPath, filePath);
     const normalizedPath = path.normalize(fullPath);
     
@@ -157,7 +167,6 @@ app.post('/api/metadata/update', upload.single('coverart'), async (req, res) => 
       }
     }
 
-    // Update ID3 tags for MP3
     if (metadata && ext === '.mp3') {
       const tags = {
         title: metadata.title,
@@ -202,19 +211,15 @@ app.post('/api/metadata/update', upload.single('coverart'), async (req, res) => 
         await fs.mkdir(newDir, { recursive: true });
         await moveFile(normalizedPath, newPath);
         
-        // Try to clean up old empty directories
         try {
           const oldDir = path.dirname(normalizedPath);
           const files = await fs.readdir(oldDir);
           if (files.length === 0) {
             await fs.rmdir(oldDir);
           }
-        } catch (e) {
-          // Ignore cleanup errors
-        }
+        } catch (e) {}
       }
 
-      // Trigger Navidrome scan
       if (config.navidromeUrl) {
         try {
           await triggerNavidromeScan();
@@ -333,7 +338,6 @@ app.post('/api/upload', upload.fields([{ name: 'file', maxCount: 1 }, { name: 'c
     const finalPath = path.join(finalDir, `${finalFilename}${ext}`);
     await moveFile(filePath, finalPath);
 
-    // Add to history
     addToHistory({
       originalName: audioFile.originalname,
       path: path.relative(config.musicLibraryPath, finalPath),
