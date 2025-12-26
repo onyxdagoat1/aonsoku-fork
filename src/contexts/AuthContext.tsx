@@ -12,7 +12,7 @@ interface AuthContextType {
   session: Session | null
   loading: boolean
   signIn: (email: string, password: string) => Promise<void>
-  signInWithProvider: (provider: 'google' | 'discord' | 'github') => Promise<void>
+  signInWithProvider: (provider: 'google' | 'discord') => Promise<void>
   signInWithGoogle: () => Promise<void>
   signInWithDiscord: () => Promise<void>
   signInWithEmail: (email: string, password: string) => Promise<{ error: Error | null }>
@@ -31,13 +31,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true)
   const isConfigured = isSupabaseConfigured()
 
+  // Auto-login to Navidrome with stored credentials
+  const autoLoginToNavidrome = async (username: string, password: string) => {
+    try {
+      // Store credentials in localStorage for auto-login
+      localStorage.setItem('navidrome_username', username)
+      localStorage.setItem('navidrome_password', password)
+      
+      // Trigger a page reload to let Navidrome context pick up credentials
+      window.location.href = '/#/'
+    } catch (error) {
+      console.error('⚠️ Failed to auto-login to Navidrome:', error)
+    }
+  }
+
   // Create Navidrome user for new Supabase user
   const createNavidromeUser = async (userId: string, username: string, email: string) => {
     try {
       const authServiceUrl = import.meta.env.VITE_ACCOUNT_API_URL || 'http://localhost:3005/api'
       
-      // Generate a random password for Navidrome
-      const navidromePassword = `${username}_${Math.random().toString(36).slice(2, 12)}`
+      // Generate a secure random password for Navidrome
+      const navidromePassword = `${username}_${Math.random().toString(36).slice(2, 15)}${Math.random().toString(36).slice(2, 15)}`
+      
+      console.log('🔄 Creating Navidrome account for:', username)
       
       // Create Navidrome user via auth service
       const response = await axios.post(`${authServiceUrl}/auth/register`, {
@@ -47,7 +63,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       })
 
       if (response.data.success) {
-        // Update Supabase profile with Navidrome username
+        console.log('✅ Navidrome user created:', username)
+        
+        // Update Supabase profile with Navidrome username and encrypted password
         await supabase
           .from('profiles')
           .update({
@@ -56,11 +74,34 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           })
           .eq('id', userId)
 
-        console.log('✅ Navidrome user created and linked:', username)
+        console.log('✅ Profile updated with Navidrome credentials')
+        
+        // Auto-login to Navidrome
+        await autoLoginToNavidrome(username, navidromePassword)
+        
+        return true
       }
-    } catch (error) {
-      console.error('⚠️ Failed to create Navidrome user (non-critical):', error)
-      // Don't throw - user can still use the app without Navidrome
+      
+      return false
+    } catch (error: any) {
+      console.error('⚠️ Failed to create Navidrome user:', error)
+      
+      // If user already exists, try to use existing username
+      if (error?.response?.data?.message?.includes('already exists')) {
+        console.log('ℹ️ Navidrome user already exists, attempting to link...')
+        
+        // Update profile with existing username
+        await supabase
+          .from('profiles')
+          .update({
+            navidrome_username: username,
+          })
+          .eq('id', userId)
+          
+        return false // User exists but we don't have password
+      }
+      
+      return false
     }
   }
 
@@ -81,8 +122,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (data && !data.navidrome_username) {
         const user = (await supabase.auth.getUser()).data.user
         if (user?.email) {
+          console.log('📝 No Navidrome account found, creating one...')
           await createNavidromeUser(userId, data.username, user.email)
         }
+      } else if (data?.navidrome_username) {
+        console.log('✅ Navidrome account already linked:', data.navidrome_username)
       }
     } catch (error) {
       console.error('Error fetching profile:', error)
@@ -110,6 +154,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      console.log('🔐 Auth state changed:', _event)
+      
       setSession(session)
       setUser(session?.user ?? null)
       
@@ -125,10 +171,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => subscription.unsubscribe()
   }, [isConfigured])
 
-  // Sign in with OAuth provider (Google, Discord, GitHub)
-  const signInWithProvider = async (provider: 'google' | 'discord' | 'github') => {
-    // Use regular URL without hash - Supabase handles the callback
-    // After OAuth, we manually redirect to hash route
+  // Sign in with OAuth provider (Google, Discord)
+  const signInWithProvider = async (provider: 'google' | 'discord') => {
     const { error } = await supabase.auth.signInWithOAuth({
       provider,
       options: {
@@ -211,6 +255,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // Sign out
   const signOut = async () => {
+    // Clear Navidrome credentials
+    localStorage.removeItem('navidrome_username')
+    localStorage.removeItem('navidrome_password')
+    
     const { error } = await supabase.auth.signOut()
     if (error) {
       console.error('Error signing out:', error)
