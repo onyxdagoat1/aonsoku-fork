@@ -46,7 +46,7 @@ async function createUser(db, { email, username, password, google_id, discord_id
 function findUserById(db, id) {
   if (db.type === 'sqlite') {
     return db.get(
-      `SELECT u.*, p.display_name, p.bio, p.avatar_url as profile_avatar
+      `SELECT u.*, p.display_name, p.bio
        FROM users u
        LEFT JOIN user_profiles p ON u.id = p.user_id
        WHERE u.id = ? AND u.is_active = 1`,
@@ -55,7 +55,7 @@ function findUserById(db, id) {
   }
   
   return db.query(
-    `SELECT u.*, p.display_name, p.bio, p.avatar_url as profile_avatar
+    `SELECT u.*, p.display_name, p.bio
      FROM users u
      LEFT JOIN user_profiles p ON u.id = p.user_id
      WHERE u.id = $1 AND u.is_active = true`,
@@ -184,7 +184,7 @@ async function findOrCreateOAuthUser(db, provider, userData) {
  * Update user profile
  */
 async function updateUserProfile(db, userId, profileData) {
-  const { display_name, bio, location, website, favorite_genres, banner_url, theme_preference } = profileData;
+  const { display_name, bio, location, website_url, favorite_genres } = profileData;
   
   const now = new Date().toISOString();
   
@@ -204,21 +204,13 @@ async function updateUserProfile(db, userId, profileData) {
       updates.push('location = ?');
       values.push(location);
     }
-    if (website !== undefined) {
-      updates.push('website = ?');
-      values.push(website);
+    if (website_url !== undefined) {
+      updates.push('website_url = ?');
+      values.push(website_url);
     }
     if (favorite_genres !== undefined) {
       updates.push('favorite_genres = ?');
       values.push(favorite_genres);
-    }
-    if (banner_url !== undefined) {
-      updates.push('banner_url = ?');
-      values.push(banner_url);
-    }
-    if (theme_preference !== undefined) {
-      updates.push('theme_preference = ?');
-      values.push(theme_preference);
     }
     
     updates.push('updated_at = ?');
@@ -246,21 +238,13 @@ async function updateUserProfile(db, userId, profileData) {
       updates.push(`location = $${paramIndex++}`);
       values.push(location);
     }
-    if (website !== undefined) {
-      updates.push(`website = $${paramIndex++}`);
-      values.push(website);
+    if (website_url !== undefined) {
+      updates.push(`website_url = $${paramIndex++}`);
+      values.push(website_url);
     }
     if (favorite_genres !== undefined) {
       updates.push(`favorite_genres = $${paramIndex++}`);
       values.push(favorite_genres);
-    }
-    if (banner_url !== undefined) {
-      updates.push(`banner_url = $${paramIndex++}`);
-      values.push(banner_url);
-    }
-    if (theme_preference !== undefined) {
-      updates.push(`theme_preference = $${paramIndex++}`);
-      values.push(theme_preference);
     }
     
     values.push(userId);
