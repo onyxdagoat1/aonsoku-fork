@@ -6,7 +6,9 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Label } from '@/app/components/ui/label';
 import { ROUTES } from '@/routes/routesList';
 
-const REGISTRATION_API = 'http://localhost:3001/api/register';
+// Use environment variable for auth service URL
+const AUTH_API_URL = import.meta.env.VITE_ACCOUNT_API_URL || 'http://localhost:3005/api';
+const REGISTRATION_API = `${AUTH_API_URL}/auth/register`;
 
 interface FormData {
   username: string;
@@ -76,6 +78,8 @@ export default function RegisterPage() {
     setLoading(true);
 
     try {
+      console.log('[Registration] Attempting registration to:', REGISTRATION_API);
+      
       const response = await fetch(REGISTRATION_API, {
         method: 'POST',
         headers: {
@@ -88,7 +92,14 @@ export default function RegisterPage() {
         })
       });
 
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('[Registration] HTTP error:', response.status, errorText);
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
       const data = await response.json();
+      console.log('[Registration] Response:', data);
 
       if (data.success) {
         setSuccess(true);
@@ -96,11 +107,21 @@ export default function RegisterPage() {
           navigate(ROUTES.SERVER_CONFIG);
         }, 2000);
       } else {
-        setApiError(data.error || 'Registration failed');
+        setApiError(data.error || data.message || 'Registration failed');
       }
     } catch (err) {
-      console.error('Registration error:', err);
-      setApiError('Network error. Please try again.');
+      console.error('[Registration] Network error:', err);
+      
+      // Check if auth service is running
+      if (err instanceof TypeError && err.message.includes('fetch')) {
+        setApiError(
+          `Cannot connect to auth service at ${AUTH_API_URL}. ` +
+          'Please ensure the auth service is running on port 3005. ' +
+          'Check the console for details.'
+        );
+      } else {
+        setApiError('Network error. Please check the console and try again.');
+      }
     } finally {
       setLoading(false);
     }
