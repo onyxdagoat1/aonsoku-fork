@@ -12,7 +12,7 @@ import { useToast } from '@/hooks/use-toast';
 import { 
   X, Eye, ThumbsUp, MessageSquare, ChevronDown, ChevronRight, 
   Share2, ExternalLink, Clock, ThumbsDown, Download, Hash,
-  PanelRightClose, PanelRightOpen, Loader2
+  PanelRightClose, PanelRightOpen, Loader2, Calendar
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -84,16 +84,17 @@ export function YouTubeVideoView({ video, onClose }: VideoViewProps) {
 
   const handleDownload = async () => {
     setIsDownloading(true);
-    toast({
-      title: 'Downloading...',
-      description: 'Preparing your video download',
-    });
-
+    
     try {
       const videoUrl = `https://www.youtube.com/watch?v=${video.id}`;
       
-      // Call Cobalt API
-      const response = await fetch('https://cobalt-backend.canine.tools/', {
+      toast({
+        title: 'Starting download...',
+        description: 'Contacting download service',
+      });
+
+      // Call Cobalt API with proper headers
+      const response = await fetch('https://cobalt-backend.canine.tools/api/json', {
         method: 'POST',
         headers: {
           'Accept': 'application/json',
@@ -101,55 +102,50 @@ export function YouTubeVideoView({ video, onClose }: VideoViewProps) {
         },
         body: JSON.stringify({
           url: videoUrl,
-          videoQuality: '1080',
-          filenameStyle: 'pretty',
-          downloadMode: 'auto'
+          vQuality: '1080',
         }),
       });
 
       if (!response.ok) {
-        throw new Error('Download failed');
+        throw new Error(`HTTP error! status: ${response.status}`);
       }
 
       const data = await response.json();
       
-      if (data.status === 'success' || data.status === 'redirect') {
-        const downloadUrl = data.url;
-        
-        // Create download link
-        const link = document.createElement('a');
-        link.href = downloadUrl;
-        link.download = `${video.title}.mp4`;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
+      console.log('Cobalt response:', data);
+
+      if (data.status === 'redirect' && data.url) {
+        // Direct download link
+        window.open(data.url, '_blank');
         
         toast({
           title: 'Download started!',
-          description: 'Your video is being downloaded',
+          description: 'Video download has begun',
         });
-      } else if (data.status === 'picker') {
-        // Multiple quality options available
-        const bestQuality = data.picker[0];
-        const link = document.createElement('a');
-        link.href = bestQuality.url;
-        link.download = `${video.title}.mp4`;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
+      } else if (data.status === 'picker' && data.picker?.length > 0) {
+        // Multiple quality options - pick first
+        window.open(data.picker[0].url, '_blank');
         
         toast({
           title: 'Download started!',
-          description: 'Your video is being downloaded',
+          description: 'Video download has begun',
+        });
+      } else if (data.status === 'stream' && data.url) {
+        // Stream URL
+        window.open(data.url, '_blank');
+        
+        toast({
+          title: 'Opening video...',
+          description: 'Video stream is loading',
         });
       } else {
-        throw new Error(data.text || 'Download failed');
+        throw new Error(data.text || 'Download service returned an error');
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Download error:', err);
       toast({
         title: 'Download failed',
-        description: 'Could not download video. Try opening in YouTube instead.',
+        description: err.message || 'Could not download video. Try opening in YouTube instead.',
         variant: 'destructive',
       });
     } finally {
@@ -232,57 +228,70 @@ export function YouTubeVideoView({ video, onClose }: VideoViewProps) {
               {/* Title */}
               <h1 className="text-2xl font-bold leading-tight">{video.title}</h1>
               
-              {/* Action Buttons */}
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  className={cn(isLiked && 'bg-primary text-primary-foreground')}
-                  onClick={() => {
-                    setIsLiked(!isLiked);
-                    if (isDisliked) setIsDisliked(false);
-                  }}
-                >
-                  <ThumbsUp className="w-4 h-4 mr-2" />
-                  {formatNumber(video.likeCount)}
-                </Button>
+              {/* Stats and Actions Bar */}
+              <div className="flex items-center justify-between gap-4">
+                {/* Left: Stats */}
+                <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                  <span className="flex items-center gap-1.5">
+                    <Eye className="w-4 h-4" />
+                    {formatNumber(video.viewCount)} views
+                  </span>
+                  <span>•</span>
+                  <span>{formatDate(video.publishedAt)}</span>
+                </div>
                 
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  className={cn(isDisliked && 'bg-primary text-primary-foreground')}
-                  onClick={() => {
-                    setIsDisliked(!isDisliked);
-                    if (isLiked) setIsLiked(false);
-                  }}
-                >
-                  <ThumbsDown className="w-4 h-4" />
-                </Button>
-                
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={handleShare}
-                  className="gap-2"
-                >
-                  <Share2 className="w-4 h-4" />
-                  Share
-                </Button>
+                {/* Right: Action Buttons */}
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    className={cn(isLiked && 'bg-primary text-primary-foreground')}
+                    onClick={() => {
+                      setIsLiked(!isLiked);
+                      if (isDisliked) setIsDisliked(false);
+                    }}
+                  >
+                    <ThumbsUp className="w-4 h-4 mr-2" />
+                    {formatNumber(video.likeCount)}
+                  </Button>
+                  
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    className={cn(isDisliked && 'bg-primary text-primary-foreground')}
+                    onClick={() => {
+                      setIsDisliked(!isDisliked);
+                      if (isLiked) setIsLiked(false);
+                    }}
+                  >
+                    <ThumbsDown className="w-4 h-4" />
+                  </Button>
+                  
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={handleShare}
+                    className="gap-2"
+                  >
+                    <Share2 className="w-4 h-4" />
+                    Share
+                  </Button>
 
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={handleDownload}
-                  disabled={isDownloading}
-                  className="gap-2"
-                >
-                  {isDownloading ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <Download className="w-4 h-4" />
-                  )}
-                  {isDownloading ? 'Downloading...' : 'Download'}
-                </Button>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={handleDownload}
+                    disabled={isDownloading}
+                    className="gap-2"
+                  >
+                    {isDownloading ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Download className="w-4 h-4" />
+                    )}
+                    {isDownloading ? 'Downloading...' : 'Download'}
+                  </Button>
+                </div>
               </div>
 
               {/* Tags */}
@@ -298,52 +307,14 @@ export function YouTubeVideoView({ video, onClose }: VideoViewProps) {
               )}
             </div>
 
-            {/* Video Details Card */}
+            {/* Description Card */}
             <Card>
               <CardContent className="pt-6">
-                <div className="space-y-4">
-                  {/* Stats Row */}
-                  <div className="grid grid-cols-4 gap-4 text-sm">
-                    <div>
-                      <div className="text-muted-foreground mb-1">Duration</div>
-                      <div className="font-medium flex items-center gap-1.5">
-                        <Clock className="w-4 h-4" />
-                        {video.duration}
-                      </div>
-                    </div>
-                    <div>
-                      <div className="text-muted-foreground mb-1">Views</div>
-                      <div className="font-medium flex items-center gap-1.5">
-                        <Eye className="w-4 h-4" />
-                        {formatNumber(video.viewCount)}
-                      </div>
-                    </div>
-                    <div>
-                      <div className="text-muted-foreground mb-1">Likes</div>
-                      <div className="font-medium flex items-center gap-1.5">
-                        <ThumbsUp className="w-4 h-4" />
-                        {formatNumber(video.likeCount)}
-                      </div>
-                    </div>
-                    <div>
-                      <div className="text-muted-foreground mb-1">Published</div>
-                      <div className="font-medium text-sm">
-                        {formatDate(video.publishedAt)}
-                      </div>
-                    </div>
-                  </div>
-
-                  <Separator />
-
-                  {/* Description */}
-                  <div>
-                    <h3 className="font-semibold mb-3">Description</h3>
-                    <div className="prose prose-sm dark:prose-invert max-w-none">
-                      <p className="whitespace-pre-wrap text-sm leading-relaxed text-muted-foreground">
-                        {video.description || 'No description available.'}
-                      </p>
-                    </div>
-                  </div>
+                <h3 className="font-semibold mb-3">Description</h3>
+                <div className="prose prose-sm dark:prose-invert max-w-none">
+                  <p className="whitespace-pre-wrap text-sm leading-relaxed text-muted-foreground">
+                    {video.description || 'No description available.'}
+                  </p>
                 </div>
               </CardContent>
             </Card>
