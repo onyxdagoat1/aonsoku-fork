@@ -1,261 +1,176 @@
-# Aonsoku Authentication Service
+# Aonsoku Auth Service
 
-Comprehensive authentication and user management service for Aonsoku with OAuth support, user profiles, comments, and social features.
+Authentication and user management service for Aonsoku with OAuth support.
 
 ## Features
 
-- ✅ **User Authentication**
-  - Email/password registration and login
-  - JWT token-based authentication
-  - Refresh tokens for extended sessions
-  - Password reset functionality
+- ✅ JWT-based authentication
+- ✅ Email/password registration and login
+- ✅ Google OAuth 2.0 (for YouTube integration)
+- ✅ Discord OAuth 2.0
+- ✅ User profiles with avatars
+- ✅ Editor credits system
+- ✅ Comments on songs/albums
+- ✅ Playlist sharing
+- ✅ User activity tracking
+- ✅ Rate limiting and security
 
-- ✅ **OAuth Integration**
-  - Google OAuth 2.0 (for YouTube integration)
-  - Discord OAuth 2.0
-  - Account linking (connect multiple OAuth providers)
+## Quick Start
 
-- ✅ **User Profiles**
-  - Customizable profiles with bio, location, avatar
-  - Editor credits and roles
-  - Personal statistics and listening history
-
-- ✅ **Social Features**
-  - Comments on songs and albums
-  - Reply threads
-  - Like/unlike comments
-  - Follow/unfollow users
-
-- ✅ **Playlist Sharing**
-  - Share Navidrome playlists publicly
-  - Generate unique share links
-  - Track playlist views and shares
-
-- ✅ **Activity Tracking**
-  - Play count tracking
-  - Listening time statistics
-  - User wrapped/stats generation
-
-## Prerequisites
-
-- Node.js 18 or higher
-- PostgreSQL 14+ (production) or SQLite (development)
-- Navidrome instance running
-
-## Installation
+### 1. Install Dependencies
 
 ```bash
 cd auth-service
 npm install
 ```
 
-## Configuration
-
-1. Copy `.env.example` to `.env`:
+### 2. Configure Environment
 
 ```bash
 cp .env.example .env
+# Edit .env with your settings
 ```
 
-2. Update `.env` with your configuration:
-
-### Required Settings
-
-- `JWT_SECRET`: Strong random string for JWT signing
-- `SESSION_SECRET`: Strong random string for session encryption
-- `NAVIDROME_URL`: Your Navidrome server URL
-- `NAVIDROME_USERNAME/PASSWORD`: Navidrome credentials
-
-### OAuth Setup
-
-#### Google OAuth (for YouTube Integration)
-
-1. Go to [Google Cloud Console](https://console.cloud.google.com/)
-2. Create a new project or select existing
-3. Enable Google+ API
-4. Create OAuth 2.0 credentials
-5. Add authorized redirect URI: `http://localhost:3002/api/v1/auth/google/callback`
-6. Copy Client ID and Secret to `.env`
-
-#### Discord OAuth
-
-1. Go to [Discord Developer Portal](https://discord.com/developers/applications)
-2. Create a new application
-3. Go to OAuth2 settings
-4. Add redirect URI: `http://localhost:3002/api/v1/auth/discord/callback`
-5. Copy Client ID and Secret to `.env`
-
-## Database Setup
-
-### Development (SQLite)
+### 3. Initialize Database
 
 ```bash
 npm run migrate
 ```
 
-### Production (PostgreSQL)
+### 4. Start Server
 
-1. Create database:
-
-```sql
-CREATE DATABASE aonsoku_auth;
-```
-
-2. Update `.env` with PostgreSQL credentials
-
-3. Run migrations:
-
-```bash
-npm run migrate
-```
-
-## Usage
-
-### Development
-
+**Development:**
 ```bash
 npm run dev
 ```
 
-### Production
-
+**Production:**
 ```bash
 npm start
 ```
 
 The service will start on `http://localhost:3002`
 
+## OAuth Setup
+
+### Google OAuth (for YouTube integration)
+
+1. Go to [Google Cloud Console](https://console.cloud.google.com/)
+2. Create a new project or select existing
+3. Enable Google+ API
+4. Create OAuth 2.0 credentials
+5. Add authorized redirect URI: `http://localhost:3002/api/auth/google/callback`
+6. Copy Client ID and Secret to `.env`
+
+### Discord OAuth
+
+1. Go to [Discord Developer Portal](https://discord.com/developers/applications)
+2. Create a new application
+3. Go to OAuth2 section
+4. Add redirect URI: `http://localhost:3002/api/auth/discord/callback`
+5. Copy Client ID and Secret to `.env`
+
 ## API Endpoints
 
 ### Authentication
 
-- `POST /api/v1/auth/register` - Register new user
-- `POST /api/v1/auth/login` - Login with email/password
-- `POST /api/v1/auth/refresh` - Refresh JWT token
-- `POST /api/v1/auth/logout` - Logout user
-- `GET /api/v1/auth/google` - Initiate Google OAuth
-- `GET /api/v1/auth/google/callback` - Google OAuth callback
-- `GET /api/v1/auth/discord` - Initiate Discord OAuth
-- `GET /api/v1/auth/discord/callback` - Discord OAuth callback
+- `POST /api/auth/register` - Register new user
+- `POST /api/auth/login` - Login with email/password
+- `POST /api/auth/logout` - Logout user
+- `POST /api/auth/refresh` - Refresh JWT token
+- `GET /api/auth/me` - Get current user
+- `GET /api/auth/google` - Start Google OAuth flow
+- `GET /api/auth/google/callback` - Google OAuth callback
+- `GET /api/auth/discord` - Start Discord OAuth flow
+- `GET /api/auth/discord/callback` - Discord OAuth callback
 
-### User Profile
+### User Profiles
 
-- `GET /api/v1/users/me` - Get current user profile
-- `PUT /api/v1/users/me` - Update profile
-- `GET /api/v1/users/:id` - Get user by ID
-- `GET /api/v1/users/:id/stats` - Get user statistics
+- `GET /api/users/:id` - Get user profile
+- `PUT /api/users/profile` - Update own profile
+- `GET /api/users/:id/stats` - Get user statistics
 
 ### Comments
 
-- `POST /api/v1/comments` - Create comment
-- `GET /api/v1/comments/song/:songId` - Get song comments
-- `GET /api/v1/comments/album/:albumId` - Get album comments
-- `PUT /api/v1/comments/:id` - Update comment
-- `DELETE /api/v1/comments/:id` - Delete comment
-- `POST /api/v1/comments/:id/like` - Like comment
+- `GET /api/comments/song/:songId` - Get comments for song
+- `GET /api/comments/album/:albumId` - Get comments for album
+- `POST /api/comments` - Create comment
+- `PUT /api/comments/:id` - Update comment
+- `DELETE /api/comments/:id` - Delete comment
 
 ### Editor Credits
 
-- `POST /api/v1/credits` - Add editor credit
-- `GET /api/v1/credits/song/:songId` - Get song credits
-- `GET /api/v1/credits/user/:userId` - Get user credits
+- `GET /api/credits/song/:songId` - Get credits for song
+- `POST /api/credits` - Add credit
+- `PUT /api/credits/:id` - Update credit
+- `DELETE /api/credits/:id` - Delete credit
 
 ### Playlist Sharing
 
-- `POST /api/v1/playlists/share` - Share playlist
-- `GET /api/v1/playlists/shared/:token` - Get shared playlist
-- `GET /api/v1/playlists/user/:userId` - Get user playlists
+- `GET /api/playlists/shared` - Get public playlists
+- `POST /api/playlists/share` - Share playlist
+- `GET /api/playlists/share/:token` - Get shared playlist
+- `DELETE /api/playlists/share/:id` - Unshare playlist
 
-### Activity Tracking
+## Database Schema
 
-- `POST /api/v1/activity/play` - Record song play
-- `GET /api/v1/activity/stats` - Get user stats
-- `GET /api/v1/activity/wrapped/:year` - Get yearly wrapped
+See `db/schema.sql` for complete database structure.
 
 ## Security Features
 
-- Password hashing with bcrypt (10 rounds)
-- JWT tokens with httpOnly cookies
-- CSRF protection
-- Rate limiting (100 requests per 15 minutes)
+- Password hashing with bcrypt
+- JWT tokens with refresh mechanism
+- HTTP-only secure cookies
+- Rate limiting on auth endpoints
+- CORS protection
 - Helmet.js security headers
 - SQL injection prevention
 - XSS protection
 
-## Integration with Frontend
+## Development
 
-### Authentication Flow
+### Database Migrations
 
-```javascript
-// 1. Register/Login
-const response = await fetch('http://localhost:3002/api/v1/auth/login', {
-  method: 'POST',
-  credentials: 'include',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({ email, password })
-});
-
-// JWT token is automatically stored in httpOnly cookie
-
-// 2. Make authenticated requests
-const profile = await fetch('http://localhost:3002/api/v1/users/me', {
-  credentials: 'include'
-});
-
-// 3. OAuth Login
-window.location.href = 'http://localhost:3002/api/v1/auth/google';
-// User is redirected back with authentication cookie
+```bash
+npm run migrate
 ```
 
-## Docker Deployment
+### Seed Test Data
 
-Create `Dockerfile`:
-
-```dockerfile
-FROM node:18-alpine
-
-WORKDIR /app
-
-COPY package*.json ./
-RUN npm ci --only=production
-
-COPY . .
-
-EXPOSE 3002
-
-CMD ["npm", "start"]
+```bash
+npm run seed
 ```
 
-Build and run:
+## Production Deployment
+
+### Using PostgreSQL
+
+1. Update `.env`:
+```env
+DATABASE_TYPE=postgres
+DATABASE_URL=postgresql://user:pass@host:5432/dbname
+```
+
+2. Run migrations:
+```bash
+npm run migrate
+```
+
+### Using Docker
 
 ```bash
 docker build -t aonsoku-auth .
 docker run -d \
   -p 3002:3002 \
-  --env-file .env \
+  -e DATABASE_TYPE=postgres \
+  -e DATABASE_URL=postgresql://... \
   --name aonsoku-auth \
   aonsoku-auth
 ```
 
-## Troubleshooting
+## Environment Variables
 
-### OAuth Errors
-
-- Ensure redirect URIs match exactly in OAuth provider settings
-- Check client ID and secret are correct
-- Verify callback URLs are accessible
-
-### Database Errors
-
-- Run migrations: `npm run migrate`
-- Check database connection settings
-- Ensure database exists (PostgreSQL)
-
-### JWT Errors
-
-- Verify JWT_SECRET is set and consistent
-- Check token expiry settings
-- Clear cookies if getting invalid token errors
+See `.env.example` for all available configuration options.
 
 ## License
 

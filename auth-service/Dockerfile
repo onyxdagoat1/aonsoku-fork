@@ -2,20 +2,22 @@ FROM node:18-alpine
 
 WORKDIR /app
 
-# Copy package files
-COPY package*.json ./
-
 # Install dependencies
+COPY package*.json ./
 RUN npm ci --only=production
 
 # Copy application files
 COPY . .
 
-# Create database directory
-RUN mkdir -p database
+# Create data directory for SQLite
+RUN mkdir -p /app/data && chmod 755 /app/data
 
 # Expose port
 EXPOSE 3002
 
-# Run migrations and start server
-CMD ["sh", "-c", "npm run migrate && npm start"]
+# Health check
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+  CMD node -e "require('http').get('http://localhost:3002/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"
+
+# Start server
+CMD ["node", "server.js"]
