@@ -50,42 +50,49 @@ const colorPresets = [
     name: 'Blue',
     primary: '200 98% 39%',
     background: '220 13% 9%',
+    backgroundForeground: '215 25% 15%',
     accent: '210 40% 25%',
   },
   {
     name: 'Green',
     primary: '142 71% 45%',
     background: '140 10% 10%',
+    backgroundForeground: '145 20% 16%',
     accent: '145 30% 20%',
   },
   {
     name: 'Orange',
     primary: '25 95% 53%',
     background: '20 14% 10%',
+    backgroundForeground: '25 25% 16%',
     accent: '30 40% 22%',
   },
   {
     name: 'Purple',
     primary: '270 70% 50%',
     background: '265 15% 10%',
+    backgroundForeground: '270 25% 16%',
     accent: '270 35% 22%',
   },
   {
     name: 'Pink',
     primary: '330 81% 60%',
     background: '325 12% 10%',
+    backgroundForeground: '330 22% 16%',
     accent: '330 35% 22%',
   },
   {
     name: 'Cyan',
     primary: '180 100% 50%',
     background: '200 15% 8%',
+    backgroundForeground: '185 25% 14%',
     accent: '185 40% 20%',
   },
 ]
 
 const baseColors: Array<{ key: keyof ThemeColors; label: string; description: string }> = [
-  { key: 'background', label: 'Background', description: 'Main background color' },
+  { key: 'background', label: 'Background', description: 'Main app background' },
+  { key: 'backgroundForeground', label: 'Content Background', description: 'Content area (blue background)' },
   { key: 'foreground', label: 'Text', description: 'Primary text color' },
   { key: 'primary', label: 'Primary', description: 'Main accent color' },
   { key: 'secondary', label: 'Secondary', description: 'Secondary color' },
@@ -123,6 +130,9 @@ export function ThemeCreatorDialog({ editThemeId, onEditComplete }: ThemeCreator
         setStep('customize')
         setIsEditing(true)
       }
+    } else if (!open) {
+      // Reset when dialog closes
+      resetForm()
     }
   }, [editThemeId, open, getCustomTheme])
 
@@ -135,6 +145,7 @@ export function ThemeCreatorDialog({ editThemeId, onEditComplete }: ThemeCreator
       ...prev,
       primary: preset.primary,
       background: preset.background,
+      backgroundForeground: preset.backgroundForeground,
       accent: preset.accent,
       card: preset.background,
       popover: preset.background,
@@ -243,7 +254,7 @@ export function ThemeCreatorDialog({ editThemeId, onEditComplete }: ThemeCreator
                           />
                           <div
                             className="w-10 h-4 lg:w-12 lg:h-5 rounded-sm"
-                            style={{ backgroundColor: hslToHex(preset.accent) }}
+                            style={{ backgroundColor: hslToHex(preset.backgroundForeground) }}
                           />
                         </div>
                       </div>
