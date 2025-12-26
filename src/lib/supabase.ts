@@ -6,7 +6,7 @@ const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
 
 // Check if Supabase is configured
-export const isSupabaseConfigured = () => {
+export const isSupabaseConfigured = (): boolean => {
   return Boolean(supabaseUrl && supabaseAnonKey)
 }
 
@@ -21,6 +21,7 @@ const createPlaceholderClient = () => {
       signInWithPassword: async () => ({ data: null, error: new Error('Supabase not configured') }),
       signInWithOAuth: async () => ({ data: null, error: new Error('Supabase not configured') }),
       signOut: async () => ({ error: null }),
+      getUser: async () => ({ data: { user: null }, error: new Error('Supabase not configured') }),
     },
     from: () => ({
       select: () => ({
