@@ -21,23 +21,23 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/app/components/ui/alert-dialog'
-
-// Themes to hide (default dark/light themes)
-const hiddenThemes: Theme[] = ['black-and-white', 'noctis-lilac']
+import { Plus } from 'lucide-react'
 
 // Theme name mappings for better display names
 const themeDisplayNames: Record<string, string> = {
+  'black-and-white': 'Dark Mode',
+  'night-owl-light': 'White Mode',
   'github-dark': 'GitHub Dark',
   'discord': 'Discord',
   'one-dark': 'One Dark',
-  'night-owl-light': 'Night Owl Light',
-  'marmalade-beaver': 'Marmalade Beaver',
-  'bearded-seafoam': 'Bearded Seafoam',
-  'shades-of-purple': 'Shades of Purple',
-  'catppuccin-mocha': 'Catppuccin Mocha',
-  'nuclear-dark': 'Nuclear Dark',
+  'marmalade-beaver': 'Dark Purple & Yellow',
+  'bearded-solarized': 'Forest Blue',
+  'shades-of-purple': 'Purple & Yellow',
+  'catppuccin-mocha': 'Purple',
+  'nuclear-dark': 'Cyberpunk',
   'achiever': 'White & Orange',
-  'dracula': 'Dracula',
+  'dracula': 'Amethyst',
+  'tenacious-design': 'White & Pink',
 }
 
 export function ThemeSettingsPicker() {
@@ -46,11 +46,8 @@ export function ThemeSettingsPicker() {
   const { customThemes, deleteCustomTheme, activeCustomTheme, setActiveCustomTheme, exportTheme, importTheme } = useCustomTheme()
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
   const [editingTheme, setEditingTheme] = useState<string | null>(null)
-  const [isCreating, setIsCreating] = useState(false)
+  const [dialogOpen, setDialogOpen] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
-
-  // Filter out hidden themes
-  const visibleThemes = appThemes.filter(theme => !hiddenThemes.includes(theme))
 
   // Clear custom theme CSS variables
   const clearCustomThemeVars = () => {
@@ -139,17 +136,17 @@ export function ThemeSettingsPicker() {
 
   const handleEditClick = (themeId: string) => {
     setEditingTheme(themeId)
-    setIsCreating(false)
+    setDialogOpen(true)
   }
 
   const handleCreateClick = () => {
     setEditingTheme(null)
-    setIsCreating(true)
+    setDialogOpen(true)
   }
 
   const handleDialogClose = () => {
+    setDialogOpen(false)
     setEditingTheme(null)
-    setIsCreating(false)
   }
 
   return (
@@ -162,7 +159,7 @@ export function ThemeSettingsPicker() {
             Import
           </Button>
           <Button variant="default" onClick={handleCreateClick} size="sm" className="gap-2">
-            <span className="text-lg leading-none">+</span>
+            <Plus className="h-4 w-4" />
             Create Theme
           </Button>
         </div>
@@ -180,7 +177,7 @@ export function ThemeSettingsPicker() {
       <div>
         <h3 className="text-sm font-semibold mb-4">Built-in Themes</h3>
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-          {visibleThemes.map((theme) => {
+          {appThemes.map((theme) => {
             const isActive = theme === currentTheme && !activeCustomTheme
 
             return (
@@ -258,12 +255,12 @@ export function ThemeSettingsPicker() {
       )}
 
       {/* Theme Creator Dialog */}
-      {(isCreating || editingTheme) && (
-        <ThemeCreatorDialog 
-          editThemeId={editingTheme}
-          onEditComplete={handleDialogClose}
-        />
-      )}
+      <ThemeCreatorDialog 
+        editThemeId={editingTheme}
+        onEditComplete={handleDialogClose}
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+      />
 
       {/* Delete Confirmation Dialog */}
       <AlertDialog open={!!deleteConfirm} onOpenChange={(open) => !open && setDeleteConfirm(null)}>
