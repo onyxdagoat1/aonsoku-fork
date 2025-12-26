@@ -2,7 +2,16 @@ import { YouTubeVideo, YouTubePlaylist, YouTubeComment, YouTubeChannelInfo } fro
 
 // YouTube Data API v3 key - Users should add their own API key
 const API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY || '';
-const CHANNEL_ID = 'UCqR_2vVvvvvvvvvvvvvvvvv'; // YeditsCommunity channel ID
+
+// YeditsCommunity Channel Configuration
+// To get the channel ID from @YeditsCommunity:
+// 1. Visit: https://www.youtube.com/@YeditsCommunity
+// 2. View page source (Ctrl+U or Cmd+U)
+// 3. Search for "channelId" or "externalId"
+// Alternative: Use the forUsername parameter with "YeditsCommunity"
+const CHANNEL_HANDLE = 'YeditsCommunity';
+const CHANNEL_ID = ''; // Leave empty to use handle-based lookup
+
 const BASE_URL = 'https://www.googleapis.com/youtube/v3';
 
 // Helper function to parse duration from ISO 8601 format
@@ -22,6 +31,7 @@ function parseDuration(duration: string): string {
 
 export class YouTubeService {
   private static instance: YouTubeService;
+  private cachedChannelId: string | null = null;
 
   private constructor() {}
 
@@ -32,15 +42,67 @@ export class YouTubeService {
     return YouTubeService.instance;
   }
 
-  async getChannelInfo(): Promise<YouTubeChannelInfo | null> {
+  private async getChannelId(): Promise<string | null> {
+    // Return cached channel ID if available
+    if (this.cachedChannelId) {
+      return this.cachedChannelId;
+    }
+
+    // Return hardcoded channel ID if provided
+    if (CHANNEL_ID) {
+      this.cachedChannelId = CHANNEL_ID;
+      return CHANNEL_ID;
+    }
+
+    // Look up channel by handle
     if (!API_KEY) {
       console.warn('YouTube API key not configured');
       return null;
     }
 
     try {
+      // Try to get channel by handle/username
       const response = await fetch(
-        `${BASE_URL}/channels?part=snippet,statistics&id=${CHANNEL_ID}&key=${API_KEY}`
+        `${BASE_URL}/channels?part=id&forHandle=${CHANNEL_HANDLE}&key=${API_KEY}`
+      );
+      const data = await response.json();
+      
+      if (data.items && data.items.length > 0) {
+        this.cachedChannelId = data.items[0].id;
+        return this.cachedChannelId;
+      }
+
+      // Fallback: Try forUsername parameter
+      const response2 = await fetch(
+        `${BASE_URL}/channels?part=id&forUsername=${CHANNEL_HANDLE}&key=${API_KEY}`
+      );
+      const data2 = await response2.json();
+      
+      if (data2.items && data2.items.length > 0) {
+        this.cachedChannelId = data2.items[0].id;
+        return this.cachedChannelId;
+      }
+
+      console.error('Could not find channel ID for:', CHANNEL_HANDLE);
+      return null;
+    } catch (error) {
+      console.error('Error fetching channel ID:', error);
+      return null;
+    }
+  }
+
+  async getChannelInfo(): Promise<YouTubeChannelInfo | null> {
+    if (!API_KEY) {
+      console.warn('YouTube API key not configured');
+      return null;
+    }
+
+    const channelId = await this.getChannelId();
+    if (!channelId) return null;
+
+    try {
+      const response = await fetch(
+        `${BASE_URL}/channels?part=snippet,statistics&id=${channelId}&key=${API_KEY}`
       );
       const data = await response.json();
       
@@ -67,10 +129,13 @@ export class YouTubeService {
       return [];
     }
 
+    const channelId = await this.getChannelId();
+    if (!channelId) return [];
+
     try {
       // Get video IDs from channel
       const searchResponse = await fetch(
-        `${BASE_URL}/search?part=snippet&channelId=${CHANNEL_ID}&maxResults=${maxResults}&order=date&type=video&key=${API_KEY}`
+        `${BASE_URL}/search?part=snippet&channelId=${channelId}&maxResults=${maxResults}&order=date&type=video&key=${API_KEY}`
       );
       const searchData = await searchResponse.json();
       
@@ -107,9 +172,12 @@ export class YouTubeService {
       return [];
     }
 
+    const channelId = await this.getChannelId();
+    if (!channelId) return [];
+
     try {
       const response = await fetch(
-        `${BASE_URL}/playlists?part=snippet,contentDetails&channelId=${CHANNEL_ID}&maxResults=${maxResults}&key=${API_KEY}`
+        `${BASE_URL}/playlists?part=snippet,contentDetails&channelId=${channelId}&maxResults=${maxResults}&key=${API_KEY}`
       );
       const data = await response.json();
       
