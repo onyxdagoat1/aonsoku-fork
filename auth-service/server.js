@@ -11,8 +11,8 @@ const { createUserRoutes } = require('./routes/users');
 const { createCommentRoutes } = require('./routes/comments');
 const { generalLimiter } = require('./middleware/rateLimit');
 
-const PORT = process.env.PORT || 3002;
-const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:3000';
+const PORT = process.env.PORT || 3005;
+const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173';
 
 // Initialize Express app
 const app = express();
@@ -104,6 +104,7 @@ app.listen(PORT, () => {
   console.log('🎵 Aonsoku Auth Service');
   console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
   console.log(`🚀 Server running on port ${PORT}`);
+  console.log(`🌐 API: http://localhost:${PORT}`);
   console.log(`🌐 Frontend URL: ${FRONTEND_URL}`);
   console.log(`💾 Database: ${db.type}`);
   console.log(`📝 Environment: ${process.env.NODE_ENV || 'development'}`);
