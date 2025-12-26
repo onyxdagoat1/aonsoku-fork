@@ -4,7 +4,7 @@ import { useAuth } from '@/contexts/AuthContext'
 
 export function Register() {
   const navigate = useNavigate()
-  const { signUp, isConfigured } = useAuth()
+  const { signUpWithEmail, isConfigured } = useAuth()
   const [formData, setFormData] = useState({
     username: '',
     email: '',
@@ -66,8 +66,13 @@ export function Register() {
     setErrors({})
 
     try {
-      await signUp(formData.email, formData.password, formData.username)
-      navigate('/auth/login')
+      const { error } = await signUpWithEmail(formData.email, formData.password, formData.username)
+      
+      if (error) {
+        setErrors({ general: error.message || 'Failed to create account' })
+      } else {
+        navigate('/auth/login')
+      }
     } catch (err: any) {
       setErrors({ general: err.message || 'Failed to create account' })
     } finally {
@@ -206,8 +211,9 @@ export function Register() {
               color: 'white',
               border: 'none',
               borderRadius: '0.375rem',
-              cursor: 'pointer',
-              fontWeight: '500'
+              cursor: loading ? 'not-allowed' : 'pointer',
+              fontWeight: '500',
+              opacity: loading ? 0.5 : 1
             }}
           >
             {loading ? 'Creating Account...' : 'Create Account'}
