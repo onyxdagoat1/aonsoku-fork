@@ -121,12 +121,12 @@ export function LoginForm() {
           <form onSubmit={form.handleSubmit((data) => onSubmit(data))}>
             <CardHeader className="flex">
               <CardTitle className="flex flex-row justify-between items-center">
-                {t('login.form.server')}
+                Login
                 <div className="flex gap-2 items-center">
                   <LangToggle />
                 </div>
               </CardTitle>
-              <CardDescription>{t('login.form.description')}</CardDescription>
+              <CardDescription>Enter your credentials twin.</CardDescription>
             </CardHeader>
 
             <CardContent className="space-y-2">
@@ -163,7 +163,7 @@ export function LoginForm() {
                 render={({ field }) => (
                   <FormItem className={clsx(shouldHideUrlInput && '!mt-0')}>
                     <FormLabel className="required">
-                      {t('login.form.username')}
+                      Username
                     </FormLabel>
                     <FormControl>
                       <Input
@@ -171,7 +171,7 @@ export function LoginForm() {
                         value={field.value ?? ''}
                         id="username"
                         type="text"
-                        placeholder={t('login.form.usernamePlaceholder')}
+                        placeholder="Your username"
                         autoCorrect="false"
                         autoCapitalize="false"
                         spellCheck="false"
@@ -188,7 +188,7 @@ export function LoginForm() {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel className="required">
-                      {t('login.form.password')}
+                      Password
                     </FormLabel>
                     <FormControl>
                       <Password {...field} value={field.value ?? ''} />
@@ -207,7 +207,7 @@ export function LoginForm() {
                     {t('login.form.connecting')}
                   </>
                 ) : (
-                  <>{t('login.form.connect')}</>
+                  <>Login</>
                 )}
               </Button>
 
