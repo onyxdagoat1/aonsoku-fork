@@ -31,20 +31,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true)
   const isConfigured = isSupabaseConfigured()
 
-  // Auto-login to Navidrome with stored credentials
-  const autoLoginToNavidrome = async (username: string, password: string) => {
-    try {
-      // Store credentials in localStorage for auto-login
-      localStorage.setItem('navidrome_username', username)
-      localStorage.setItem('navidrome_password', password)
-      
-      // Trigger a page reload to let Navidrome context pick up credentials
-      window.location.href = '/#/'
-    } catch (error) {
-      console.error('⚠️ Failed to auto-login to Navidrome:', error)
-    }
-  }
-
   // Create Navidrome user for new Supabase user
   const createNavidromeUser = async (userId: string, username: string, email: string) => {
     try {
@@ -65,7 +51,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (response.data.success) {
         console.log('✅ Navidrome user created:', username)
         
-        // Update Supabase profile with Navidrome username and encrypted password
+        // Update Supabase profile with Navidrome username
         await supabase
           .from('profiles')
           .update({
@@ -76,8 +62,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         console.log('✅ Profile updated with Navidrome credentials')
         
-        // Auto-login to Navidrome
-        await autoLoginToNavidrome(username, navidromePassword)
+        // Store credentials in localStorage for auto-login
+        localStorage.setItem('navidrome_username', username)
+        localStorage.setItem('navidrome_password', navidromePassword)
+        localStorage.setItem('navidrome_auto_created', 'true')
+        
+        console.log('✅ Navidrome credentials stored in localStorage')
+        console.log('🔐 Username:', username)
+        console.log('🔐 Password stored')
         
         return true
       }
@@ -98,7 +90,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           })
           .eq('id', userId)
           
-        return false // User exists but we don't have password
+        // Don't store password as we don't know it for existing users
+        return false
       }
       
       return false
@@ -258,6 +251,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Clear Navidrome credentials
     localStorage.removeItem('navidrome_username')
     localStorage.removeItem('navidrome_password')
+    localStorage.removeItem('navidrome_auto_created')
     
     const { error } = await supabase.auth.signOut()
     if (error) {
