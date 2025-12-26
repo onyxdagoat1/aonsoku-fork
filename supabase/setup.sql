@@ -84,6 +84,32 @@ ALTER TABLE public.playlist_collaborators ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.favorites ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.listening_history ENABLE ROW LEVEL SECURITY;
 
+-- Drop existing policies if they exist (to allow re-running script)
+DROP POLICY IF EXISTS "Public profiles are viewable by everyone" ON public.profiles;
+DROP POLICY IF EXISTS "Users can insert their own profile" ON public.profiles;
+DROP POLICY IF EXISTS "Users can update their own profile" ON public.profiles;
+
+DROP POLICY IF EXISTS "Comments are viewable by everyone" ON public.comments;
+DROP POLICY IF EXISTS "Authenticated users can create comments" ON public.comments;
+DROP POLICY IF EXISTS "Users can update their own comments" ON public.comments;
+DROP POLICY IF EXISTS "Users can delete their own comments" ON public.comments;
+
+DROP POLICY IF EXISTS "Public playlists are viewable by everyone" ON public.playlists;
+DROP POLICY IF EXISTS "Users can create their own playlists" ON public.playlists;
+DROP POLICY IF EXISTS "Users can update their own playlists" ON public.playlists;
+DROP POLICY IF EXISTS "Users can delete their own playlists" ON public.playlists;
+
+DROP POLICY IF EXISTS "Playlist songs viewable if playlist is accessible" ON public.playlist_songs;
+DROP POLICY IF EXISTS "Users can add songs to their playlists" ON public.playlist_songs;
+DROP POLICY IF EXISTS "Users can remove songs from their playlists" ON public.playlist_songs;
+
+DROP POLICY IF EXISTS "Users can view their own favorites" ON public.favorites;
+DROP POLICY IF EXISTS "Users can add their own favorites" ON public.favorites;
+DROP POLICY IF EXISTS "Users can remove their own favorites" ON public.favorites;
+
+DROP POLICY IF EXISTS "Users can view their own listening history" ON public.listening_history;
+DROP POLICY IF EXISTS "Users can add to their own listening history" ON public.listening_history;
+
 -- Profiles policies
 CREATE POLICY "Public profiles are viewable by everyone"
   ON public.profiles FOR SELECT
@@ -193,6 +219,11 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+-- Drop existing triggers if they exist
+DROP TRIGGER IF EXISTS set_updated_at ON public.profiles;
+DROP TRIGGER IF EXISTS set_updated_at ON public.comments;
+DROP TRIGGER IF EXISTS set_updated_at ON public.playlists;
+
 -- Triggers for updated_at
 CREATE TRIGGER set_updated_at
   BEFORE UPDATE ON public.profiles
@@ -260,7 +291,7 @@ CREATE TRIGGER on_auth_user_created
   FOR EACH ROW
   EXECUTE FUNCTION public.handle_new_user();
 
--- Indexes for performance
+-- Indexes for performance (CREATE INDEX IF NOT EXISTS is safe to re-run)
 CREATE INDEX IF NOT EXISTS idx_comments_song_id ON public.comments(song_id);
 CREATE INDEX IF NOT EXISTS idx_comments_user_id ON public.comments(user_id);
 CREATE INDEX IF NOT EXISTS idx_comments_parent_id ON public.comments(parent_id);
