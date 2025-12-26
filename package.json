@@ -11,11 +11,10 @@
   "productName": "Aonsoku",
   "scripts": {
     "dev": "npm run dev:all",
-    "dev:all": "concurrently --kill-others --names \"APP,TAG,UPLOAD,AUTH\" --prefix-colors \"blue,yellow,green,magenta\" \"npm run dev:frontend\" \"npm run dev:tag-writer\" \"npm run dev:upload\" \"npm run dev:auth\"",
+    "dev:all": "concurrently --kill-others --names \"APP,TAG,UPLOAD\" --prefix-colors \"blue,yellow,green\" \"npm run dev:frontend\" \"npm run dev:tag-writer\" \"npm run dev:upload\"",
     "dev:frontend": "vite --port 3000",
     "dev:tag-writer": "cd tag-writer-service && node -r ./.env.loader.cjs server.js",
     "dev:upload": "cd upload-service && node -r ./.env.loader.cjs src/index.js",
-    "dev:auth": "cd auth-service && node -r ./.env.loader.cjs src/server.js",
     "build": "tsc && vite build",
     "preview": "vite preview",
     "lint": "biome lint",
