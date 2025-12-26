@@ -44,6 +44,7 @@ const LatestEpisodes = lazy(
 const ArtGallery = lazy(() => import('@/app/pages/art/gallery'));
 const UploadPage = lazy(() => import('@/app/pages/upload'));
 const YouTubePage = lazy(() => import('@/app/pages/youtube'));
+const YouTubeCallback = lazy(() => import('@/app/pages/youtube/YouTubeCallback').then(m => ({ default: m.YouTubeCallback })));
 
 // Supabase Auth Pages
 const SupabaseLogin = lazy(() => import('@/app/pages/auth/Login').then(m => ({ default: m.Login })));
@@ -277,6 +278,16 @@ export const router = createHashRouter([
     element: (
       <Suspense fallback={<div>Loading...</div>}>
         <AuthCallback />
+      </Suspense>
+    ),
+  },
+  // YouTube OAuth Callback
+  {
+    id: 'youtube-callback',
+    path: '/youtube/callback',
+    element: (
+      <Suspense fallback={<div>Loading...</div>}>
+        <YouTubeCallback />
       </Suspense>
     ),
   },
