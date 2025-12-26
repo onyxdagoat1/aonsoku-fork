@@ -7,11 +7,14 @@ import { YouTubeChannelHeader } from '@/app/pages/youtube/components/ChannelHead
 import { YouTubeFilters } from '@/app/pages/youtube/components/Filters';
 import { YouTubeStats } from '@/app/pages/youtube/components/Stats';
 import { YouTubeVideoView } from '@/app/pages/youtube/components/VideoView';
+import { YouTubeAuthButton } from '@/app/pages/youtube/components/YouTubeAuthButton';
+import { PlaylistImport } from '@/app/pages/youtube/components/PlaylistImport';
+import { useYouTubeAuthStore } from '@/store/youtubeAuth.store';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/app/components/ui/tabs';
 import { Input } from '@/app/components/ui/input';
 import { Card, CardContent } from '@/app/components/ui/card';
 import { Button } from '@/app/components/ui/button';
-import { Search, AlertCircle, Grid3x3, List } from 'lucide-react';
+import { Search, AlertCircle, Grid3x3, List, Youtube } from 'lucide-react';
 
 type SortOption = 'date' | 'views' | 'likes' | 'title' | 'duration' | 'comments';
 type FilterOption = 'all' | 'recent' | 'popular' | 'thisMonth' | 'thisYear';
@@ -19,6 +22,7 @@ type DurationFilter = 'all' | 'short' | 'medium' | 'long';
 type ViewMode = 'grid' | 'list';
 
 export default function YouTubePage() {
+  const { isAuthenticated } = useYouTubeAuthStore();
   const [channelInfo, setChannelInfo] = useState<YouTubeChannelInfo | null>(null);
   const [videos, setVideos] = useState<YouTubeVideo[]>([]);
   const [playlists, setPlaylists] = useState<YouTubePlaylist[]>([]);
@@ -201,14 +205,21 @@ export default function YouTubePage() {
     <div className="w-full px-6 py-6 space-y-6">
       {channelInfo && <YouTubeChannelHeader channel={channelInfo} />}
       
-      <YouTubeStats 
-        videos={videos} 
-        playlists={playlists}
-        onRefresh={clearCache}
-      />
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <div className="lg:col-span-2">
+          <YouTubeStats 
+            videos={videos} 
+            playlists={playlists}
+            onRefresh={clearCache}
+          />
+        </div>
+        <div>
+          <YouTubeAuthButton />
+        </div>
+      </div>
       
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center justify-between mb-4 flex-wrap gap-4">
           <TabsList>
             <TabsTrigger value="videos">
               Videos ({filteredAndSortedVideos.length})
@@ -216,9 +227,18 @@ export default function YouTubePage() {
             <TabsTrigger value="playlists">
               Playlists ({playlists.length})
             </TabsTrigger>
+            {isAuthenticated && (
+              <TabsTrigger value="myaccount">
+                <Youtube className="w-4 h-4 mr-1" />
+                My Account
+              </TabsTrigger>
+            )}
           </TabsList>
           
           <div className="flex gap-2">
+            {isAuthenticated && activeTab === 'playlists' && (
+              <PlaylistImport onImportComplete={(ids) => console.log('Imported:', ids)} />
+            )}
             <Button
               variant={viewMode === 'grid' ? 'default' : 'outline'}
               size="sm"
@@ -293,6 +313,32 @@ export default function YouTubePage() {
             </div>
           )}
         </TabsContent>
+
+        {isAuthenticated && (
+          <TabsContent value="myaccount" className="mt-0">
+            <div className="space-y-4">
+              <Card>
+                <CardContent className="pt-6">
+                  <h3 className="text-lg font-semibold mb-4">YouTube Account Features</h3>
+                  <div className="space-y-3 text-sm text-muted-foreground">
+                    <p>With your YouTube account connected, you can:</p>
+                    <ul className="list-disc list-inside space-y-2 ml-2">
+                      <li>Like and dislike videos directly from yedits.net</li>
+                      <li>Comment on videos and engage with the community</li>
+                      <li>Import your YouTube playlists</li>
+                      <li>Add videos to your YouTube playlists</li>
+                      <li>Create new playlists on YouTube</li>
+                      <li>Subscribe to channels</li>
+                    </ul>
+                    <p className="mt-4 text-xs">
+                      Click on any video to watch it and access interactive features like liking, commenting, and saving to playlists.
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+        )}
       </Tabs>
     </div>
   );
