@@ -265,8 +265,8 @@ export function ThemeCreatorDialog({ editThemeId, onEditComplete, open, onOpenCh
 
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
-      <DialogContent className="max-w-[95vw] lg:max-w-5xl max-h-[90vh] p-0 flex flex-col">
-        <DialogHeader className="px-4 lg:px-6 pt-4 lg:pt-6 pb-3 lg:pb-4">
+      <DialogContent className="max-w-[95vw] lg:max-w-5xl h-[85vh] p-0 flex flex-col">
+        <DialogHeader className="px-4 lg:px-6 pt-4 lg:pt-6 pb-3 lg:pb-4 flex-shrink-0">
           <DialogTitle className="flex items-center gap-2 text-xl lg:text-2xl">
             <Sparkles className="h-5 w-5 lg:h-6 lg:w-6 text-primary" />
             {isEditing ? 'Edit Your Theme' : 'Create Your Perfect Theme'}
@@ -276,9 +276,9 @@ export function ThemeCreatorDialog({ editThemeId, onEditComplete, open, onOpenCh
           </DialogDescription>
         </DialogHeader>
 
-        <ScrollArea className="flex-1 px-4 lg:px-6">
+        <div className="flex-1 overflow-y-auto px-4 lg:px-6 min-h-0">
           {step === 'preset' && !isEditing ? (
-            <div className="pb-4 lg:pb-6 space-y-6">
+            <div className="pb-6 space-y-6">
               {/* Color Presets */}
               <div>
                 <h3 className="text-base lg:text-lg font-semibold mb-3 lg:mb-4">Color Presets</h3>
@@ -337,7 +337,7 @@ export function ThemeCreatorDialog({ editThemeId, onEditComplete, open, onOpenCh
               </div>
 
               {/* Start from Scratch */}
-              <div className="pt-3 lg:pt-4 border-t">
+              <div className="pt-3 lg:pt-4 border-t pb-4">
                 <Button
                   variant="outline"
                   onClick={startFromScratch}
@@ -349,7 +349,7 @@ export function ThemeCreatorDialog({ editThemeId, onEditComplete, open, onOpenCh
               </div>
             </div>
           ) : (
-            <div className="flex flex-col lg:flex-row gap-4 lg:gap-6 pb-4 lg:pb-6">
+            <div className="flex flex-col lg:flex-row gap-4 lg:gap-6 pb-6">
               {/* Color Controls */}
               <div className="flex-1 min-w-0">
                 <div className="mb-4">
@@ -371,7 +371,7 @@ export function ThemeCreatorDialog({ editThemeId, onEditComplete, open, onOpenCh
                     <TabsTrigger value="ui">UI Elements</TabsTrigger>
                   </TabsList>
                   <TabsContent value="base" className="mt-4">
-                    <div className="max-h-[400px] overflow-y-auto pr-2 space-y-6">
+                    <div className="space-y-6">
                       {baseColors.map(({ key, label, description }) => (
                         <div key={key} className="space-y-2">
                           <div>
@@ -388,7 +388,7 @@ export function ThemeCreatorDialog({ editThemeId, onEditComplete, open, onOpenCh
                     </div>
                   </TabsContent>
                   <TabsContent value="ui" className="mt-4">
-                    <div className="max-h-[400px] overflow-y-auto pr-2 space-y-6">
+                    <div className="space-y-6">
                       {uiColors.map(({ key, label, description }) => (
                         <div key={key} className="space-y-2">
                           <div>
@@ -419,10 +419,10 @@ export function ThemeCreatorDialog({ editThemeId, onEditComplete, open, onOpenCh
               </div>
             </div>
           )}
-        </ScrollArea>
+        </div>
 
         {/* Footer */}
-        <div className="flex flex-col sm:flex-row justify-between items-center gap-2 px-4 lg:px-6 py-3 lg:py-4 border-t bg-muted/30">
+        <div className="flex flex-col sm:flex-row justify-between items-center gap-2 px-4 lg:px-6 py-3 lg:py-4 border-t bg-muted/30 flex-shrink-0">
           <div className="w-full sm:w-auto">
             {step === 'customize' && !isEditing && (
               <Button
