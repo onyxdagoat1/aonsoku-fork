@@ -5,12 +5,13 @@ import { Loader2 } from 'lucide-react'
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Link } from 'react-router-dom'
 
 import { toast } from 'react-toastify'
 import { z } from 'zod'
 import { queryServerInfo } from '@/api/queryServerInfo'
 import { LangToggle } from '@/app/components/login/lang-toggle'
+import { OAuthButtons } from '@/app/components/login/oauth-buttons'
 import { Button } from '@/app/components/ui/button'
 import {
   Card,
@@ -42,6 +43,7 @@ import { ROUTES } from '@/routes/routesList'
 import { useAppActions, useAppData } from '@/store/app.store'
 import { isDesktop } from '@/utils/desktop'
 import { removeSlashFromUrl } from '@/utils/removeSlashFromUrl'
+import { supabase } from '@/lib/supabase'
 
 const loginSchema = z.object({
   url: z
@@ -87,10 +89,8 @@ export function LoginForm() {
   async function onSubmit(data: FormData, forceCompatible?: boolean) {
     setLoading(true)
 
-    // Check if server is compatible
     const serverInfo = await queryServerInfo(removeSlashFromUrl(data.url))
 
-    // If server version is lower than 1.15.0
     if (serverInfo.protocolVersionNumber < 1150 && forceCompatible !== true) {
       setServerIsIncompatible(true)
       setLoading(false)
@@ -199,7 +199,7 @@ export function LoginForm() {
               />
             </CardContent>
 
-            <CardFooter className="flex">
+            <CardFooter className="flex flex-col gap-3">
               <Button type="submit" className="w-full" disabled={loading}>
                 {loading ? (
                   <>
@@ -210,6 +210,15 @@ export function LoginForm() {
                   <>{t('login.form.connect')}</>
                 )}
               </Button>
+
+              {supabase && <OAuthButtons />}
+
+              <div className="text-center text-sm text-muted-foreground w-full">
+                Don't have an account?{' '}
+                <Link to={ROUTES.REGISTER} className="text-primary hover:underline">
+                  Create one
+                </Link>
+              </div>
             </CardFooter>
           </form>
         </Form>
