@@ -25,8 +25,10 @@ import { Plus } from 'lucide-react'
 
 // Theme name mappings for better display names
 const themeDisplayNames: Record<string, string> = {
+  'black': 'Dark Mode',
   'black-and-white': 'Dark Mode',
   'night-owl-light': 'White Mode',
+  'noctis-lilac': 'Lilac',
   'github-dark': 'GitHub Dark',
   'discord': 'Discord',
   'one-dark': 'One Dark',
@@ -37,7 +39,7 @@ const themeDisplayNames: Record<string, string> = {
   'nuclear-dark': 'Cyberpunk',
   'achiever': 'White & Orange',
   'dracula': 'Amethyst',
-  'tenacious-design': 'White & Pink',
+  'tinacious-design': 'White & Pink',
 }
 
 export function ThemeSettingsPicker() {
