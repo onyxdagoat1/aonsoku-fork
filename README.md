@@ -2,15 +2,74 @@
 
 A modern desktop and web client for Navidrome/Subsonic music servers with advanced features including music upload, YouTube integration, and comprehensive media management.
 
+## Quick Start - One Command Development
+
+### 1. Install Everything
+
+```bash
+# Main app
+npm install
+
+# All services
+cd tag-writer-service && npm install && cd ..
+cd upload-service && npm install && cd ..
+cd auth-service && npm install && cd ..
+```
+
+### 2. Create Your Configuration
+
+**IMPORTANT:** You only need ONE .env file at the root:
+
+```bash
+cp .env.example .env
+```
+
+Edit `.env` and set these required values:
+```env
+NAVIDROME_USERNAME=your_username
+NAVIDROME_PASSWORD=your_password
+TAG_WRITER_MUSIC_PATH=/your/music/path
+UPLOAD_MUSIC_PATH=/your/music/path
+```
+
+### 3. Run Everything
+
+```bash
+npm run dev
+```
+
+That's it! One command starts all 4 services:
+- Main App: http://localhost:3000 (Blue)
+- Tag Writer: http://localhost:3001 (Yellow)
+- Upload Service: http://localhost:3002 (Green)
+- Auth Service: http://localhost:3005 (Magenta)
+
+Stop everything with `Ctrl+C`.
+
+### File Structure - Only ONE .env
+
+```
+aonsoku-fork/
+  .env                    <-- ONLY configure this file
+  .env.example            <-- Template (safe to commit)
+  tag-writer-service/
+    .env.loader.js        <-- Reads from parent .env
+  upload-service/
+    .env.loader.js        <-- Reads from parent .env
+  auth-service/
+    .env.loader.js        <-- Reads from parent .env
+```
+
+**Delete any other .env files** in service directories - they're not needed.
+
+---
+
 ## Table of Contents
 
 - [Features](#features)
 - [Installation](#installation)
 - [Configuration](#configuration)
-- [Running the Application](#running-the-application)
 - [Feature Guides](#feature-guides)
-  - [Music Upload System](#music-upload-system)
-  - [YouTube Integration](#youtube-integration)
 - [Development](#development)
 - [Docker Deployment](#docker-deployment)
 - [macOS Users](#macos-users)
@@ -65,12 +124,15 @@ git clone https://github.com/onyxdagoat1/aonsoku-fork.git
 cd aonsoku-fork
 ```
 
-2. Install dependencies:
+2. Install all dependencies:
 ```bash
 npm install
+cd tag-writer-service && npm install && cd ..
+cd upload-service && npm install && cd ..
+cd auth-service && npm install && cd ..
 ```
 
-3. Configure environment variables (see [Configuration](#configuration)):
+3. Configure environment:
 ```bash
 cp .env.example .env
 # Edit .env with your settings
@@ -78,98 +140,54 @@ cp .env.example .env
 
 ## Configuration
 
-Copy `.env.example` to `.env` and configure the following variables:
+### Single .env File Configuration
 
-### Core Application Settings
+All services read from ONE `.env` file at the root. Copy `.env.example` to `.env` and configure:
 
-| Variable | Default | Description | Required |
-|----------|---------|-------------|----------|
-| `PORT` | `8080` | Application port | No |
-| `VITE_API_URL` | - | Navidrome/Subsonic server URL (e.g., `http://localhost:4533`) | Yes |
-| `SERVER_URL` | - | Predefined server URL for automatic login | No |
-| `HIDE_SERVER` | `false` | Hide server URL field on login page | No |
-| `APP_USER` | - | Username for automatic login | No |
-| `APP_PASSWORD` | - | Password for automatic login | No |
-| `APP_AUTH_TYPE` | `token` | Authentication method: `token` or `password` | No |
-| `SERVER_TYPE` | `subsonic` | Server type: `subsonic`, `navidrome`, or `lms` | No |
-| `HIDE_RADIOS_SECTION` | `false` | Hide internet radios from sidebar | No |
+### Required Settings
 
-### Optional Services
+```env
+# Navidrome connection (required)
+VITE_API_URL=http://localhost:4533
+NAVIDROME_URL=http://localhost:4533
+NAVIDROME_USERNAME=your_username
+NAVIDROME_PASSWORD=your_password
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `VITE_TAG_WRITER_URL` | - | Tag writer service URL (e.g., `http://localhost:3001`) |
-| `VITE_UPLOAD_SERVICE_URL` | - | Upload service URL (e.g., `http://localhost:3002`) |
-| `VITE_YOUTUBE_API_KEY` | - | YouTube Data API v3 key for YouTube integration |
-
-### Upload Service Configuration
-
-If using the music upload feature, configure `upload-service/.env`:
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `PORT` | `3001` | Upload service port |
-| `UPLOAD_DIR` | `/tmp/uploads` | Temporary upload directory |
-| `MUSIC_LIBRARY_PATH` | `/music` | Navidrome music folder path |
-| `MAX_FILE_SIZE` | `104857600` | Maximum file size in bytes (100MB) |
-| `NAVIDROME_URL` | `http://localhost:4533` | Navidrome server URL |
-| `NAVIDROME_USERNAME` | - | Navidrome admin username |
-| `NAVIDROME_PASSWORD` | - | Navidrome admin password |
-
-### Security Notes
-
-**Automatic Login**: Only use `APP_USER` and `APP_PASSWORD` in secure local environments to prevent password compromise.
-
-**YouTube API Key**: Always restrict your API key:
-1. Go to Google Cloud Console
-2. Set HTTP referrer restrictions (e.g., `http://localhost:*`, `https://yourdomain.com/*`)
-3. Restrict to YouTube Data API v3 only
-4. Never commit API keys to version control
-
-## Running the Application
-
-### Web Application
-
-```bash
-npm run dev
+# Music paths (required for upload/tag features)
+TAG_WRITER_MUSIC_PATH=/path/to/music
+UPLOAD_MUSIC_PATH=/path/to/music
 ```
 
-Access at `http://localhost:3000`
+### Optional Settings
 
-### Desktop Application
+```env
+# YouTube integration
+VITE_YOUTUBE_API_KEY=your_api_key
 
-```bash
-npm run electron:dev
+# Discord OAuth
+AUTH_DISCORD_CLIENT_ID=your_client_id
+AUTH_DISCORD_CLIENT_SECRET=your_secret
+
+# JWT secrets (generate with: node -e "console.log(require('crypto').randomBytes(32).toString('hex'))")
+AUTH_JWT_SECRET=your_random_secret
+AUTH_JWT_REFRESH_SECRET=your_random_secret
+AUTH_SESSION_SECRET=your_random_secret
 ```
 
-### With Upload Service
+### How It Works
 
-**Terminal 1 - Upload Service:**
-```bash
-cd upload-service
-npm install
-npm start
-```
+Each service directory has a `.env.loader.js` file that:
+1. Loads the root `.env` file
+2. Maps variables to service-specific names
+3. Keeps all services in sync
 
-**Terminal 2 - Main Application:**
-```bash
-npm run dev
-```
+**Variables are prefixed by service:**
+- `TAG_WRITER_*` → Tag Writer Service
+- `UPLOAD_*` → Upload Service
+- `AUTH_*` → Auth Service
+- `VITE_*` → Main Frontend App
 
-### Production Build
-
-**Web:**
-```bash
-npm run build
-npm run preview
-```
-
-**Desktop:**
-```bash
-npm run build:win    # Windows
-npm run build:mac    # macOS
-npm run build:linux  # Linux
-```
+See `.env.example` for complete documentation.
 
 ## Feature Guides
 
@@ -177,117 +195,56 @@ npm run build:linux  # Linux
 
 #### Quick Start
 
-1. Start the upload service (see [Running the Application](#running-the-application))
-2. Navigate to the Upload page in the sidebar
-3. Drag and drop music files or click to browse
-4. Review auto-detected metadata
-5. Click "Edit Metadata" to modify tags if needed
-6. Click "Upload" to transfer files to your Navidrome server
+1. Ensure upload service is running (`npm run dev` starts everything)
+2. Navigate to Upload page in sidebar
+3. Drag and drop music files
+4. Review/edit metadata
+5. Click Upload
 
 #### Batch Upload Mode
 
-Enable "Batch Upload Mode" to upload entire albums or folders at once without individual metadata editing:
-
-1. Toggle "Batch Upload Mode" checkbox
-2. Select multiple files or entire folders
-3. Files upload with existing metadata
-4. Automatically organized by Artist/Album structure
+Toggle "Batch Upload Mode" to upload entire folders:
+- Files keep existing metadata
+- Auto-organized by Artist/Album
+- No individual editing needed
 
 #### File Organization
-
-Files are automatically organized in your music library:
 
 ```
 /music/
   Artist Name/
     Album Name/
       01 - Track Title.mp3
-      02 - Another Track.mp3
-    Another Album/
-      ...
-  Another Artist/
-    ...
 ```
-
-#### Docker Deployment
-
-Use the provided docker-compose.yml:
-
-```bash
-cd upload-service
-docker-compose up -d
-```
-
-Edit `upload-service/docker-compose.yml` to configure environment variables.
 
 ### YouTube Integration
 
 #### Setup
 
-1. Get a YouTube Data API v3 key:
-   - Go to [Google Cloud Console](https://console.cloud.google.com/)
-   - Create a project and enable YouTube Data API v3
-   - Create credentials (API key)
-   - Restrict the API key (see [Security Notes](#security-notes))
-
-2. Add the key to `.env`:
+1. Get API key from [Google Cloud Console](https://console.cloud.google.com/)
+2. Enable YouTube Data API v3
+3. Restrict API key (HTTP referrers + API restrictions)
+4. Add to `.env`:
 ```env
-VITE_YOUTUBE_API_KEY=your_youtube_api_key_here
+VITE_YOUTUBE_API_KEY=your_key
 ```
-
-3. Navigate to Library > YouTube in the application
 
 #### Features
 
-**Search and Filter:**
-- Real-time search by title or description
-- Sort by: Latest, Most Viewed, Most Liked, Most Comments, Duration, Title
-- Time filters: All Time, This Week, This Month, This Year, Popular (10K+ views)
-- Duration filters: Any Length, Short (<4 min), Medium (4-20 min), Long (>20 min)
-
-**View Modes:**
-- Grid View: 2-6 columns based on screen size
-- List View: Single column with detailed cards
-
-**Video Player:**
-- Split-screen layout with video on left
-- Side panel with Description and Comments tabs
-- Collapsible comment threads
-- Formatted timestamps and user avatars
-
-**Statistics Dashboard:**
-- Total videos and playlists
-- Aggregate views, likes, and comments
-- Average metrics per video
-- Manual refresh button
-
-**Performance:**
-- 1-hour local caching (saves 90% of API quota)
-- Client-side filtering (no extra API calls)
-- Lazy loading for comments
+- Real-time search and filtering
+- Multiple sort options (date, views, likes, comments, duration)
+- Time filters (week, month, year, popular)
+- Duration filters (short, medium, long)
+- Grid and list views
+- Split-screen video player
+- Statistics dashboard
+- 1-hour caching (saves 90% API quota)
 
 #### API Quota
 
-YouTube Data API v3 is completely free with 10,000 quota units per day (default).
-
-**Usage with caching:**
-- Initial page load: ~104 units
-- Cached loads: 0 units
-- Daily capacity: ~96-240 loads/day
-
-**Adjust cache duration** in `src/app/pages/youtube/index.tsx`:
-```typescript
-const cacheExpiry = 6 * 60 * 60 * 1000; // 6 hours instead of 1
-```
-
-#### Changing Channel
-
-Edit `src/service/youtube.ts`:
-```typescript
-const CHANNEL_HANDLE = 'YourChannelName';
-// or
-const CHANNEL_ID = 'UCxxxxxxxxxxxxxx';
-```
+- Completely free (10,000 units/day)
+- ~104 units per page load
+- ~96-240 loads/day with caching
 
 ## Development
 
@@ -296,18 +253,32 @@ const CHANNEL_ID = 'UCxxxxxxxxxxxxxx';
 - [VS Code](https://code.visualstudio.com/)
 - [Biome.js](https://marketplace.visualstudio.com/items?itemName=biomejs.biome) extension
 
-### Scripts
+### Available Commands
 
 ```bash
-npm run dev              # Start development server
+# Development
+npm run dev              # Run all services (recommended)
+npm run dev:frontend     # Just main app
+npm run dev:tag-writer   # Just tag writer
+npm run dev:upload       # Just upload service
+npm run dev:auth         # Just auth service
+
+# Building
 npm run build            # Build for production
 npm run preview          # Preview production build
+
+# Code Quality
 npm run lint             # Run linter
 npm run lint:fix         # Fix linting issues
 npm run lint:format      # Format code
 npm run test             # Run tests
+
+# Desktop App
 npm run electron:dev     # Start electron in dev mode
 npm run electron:build   # Build electron app
+npm run build:win        # Build for Windows
+npm run build:mac        # Build for macOS
+npm run build:linux      # Build for Linux
 ```
 
 ### Technology Stack
@@ -320,6 +291,16 @@ npm run electron:build   # Build electron app
 - **Data Fetching**: TanStack Query
 - **Desktop**: Electron
 - **Backend Services**: Node.js, Express
+
+### Port Allocation
+
+| Service | Port | Terminal Color |
+|---------|------|----------------|
+| Main App | 3000 | Blue |
+| Tag Writer | 3001 | Yellow |
+| Upload | 3002 | Green |
+| Auth | 3005 | Magenta |
+| Navidrome | 4533 | (external) |
 
 ## Docker Deployment
 
@@ -382,57 +363,87 @@ sudo codesign --force --deep --sign - /Applications/Aonsoku.app
 
 ## Troubleshooting
 
+### Services Won't Start
+
+**Check if ports are in use:**
+```bash
+# Linux/Mac
+lsof -i :3000,3001,3002,3005
+
+# Windows
+netstat -ano | findstr :3000
+```
+
+**Run services individually to see errors:**
+```bash
+npm run dev:frontend
+npm run dev:tag-writer
+npm run dev:upload
+npm run dev:auth
+```
+
+### Missing .env Variables
+
+Make sure:
+1. `.env` file exists at root
+2. All required variables are set (see `.env.example`)
+3. No typos in variable names
+
 ### Upload Service Issues
 
-**Service won't start:**
-- Check if port 3001 is already in use
-- Verify Docker is running (if using Docker)
-- Check logs: `docker logs aonsoku-upload`
-
-**Files not appearing in Navidrome:**
-- Verify `MUSIC_LIBRARY_PATH` matches Navidrome's music folder
+**Files not appearing:**
+- Verify `UPLOAD_MUSIC_PATH` matches Navidrome's music folder
 - Check Navidrome has read/write permissions
-- Manually trigger scan in Navidrome settings
-- Check Navidrome logs for errors
+- Manually trigger scan in Navidrome
 
 **Metadata not saving:**
-- Only MP3 files support metadata writing currently
+- Only MP3 files support metadata editing
 - Check file isn't read-only
-- Verify sufficient disk space
 
-**CORS errors:**
-- Ensure `VITE_UPLOAD_SERVICE_URL` is correct
-- Check upload service is running
-- Verify CORS is enabled in upload service
+### YouTube Integration
 
-### YouTube Integration Issues
-
-**"Invalid API key" error:**
-- Verify API key is correct in `.env`
-- Check YouTube Data API v3 is enabled in Google Cloud Console
+**Invalid API key:**
+- Verify key in `.env` is correct
+- Check YouTube Data API v3 is enabled
 - Ensure API key restrictions allow your domain
 
 **Videos not loading:**
 - Check browser console for errors
 - Verify API quota hasn't been exceeded
-- Clear browser cache and try again
+- Clear browser cache
 
-**Translation key missing in sidebar:**
-- The app uses i18n - `sidebar.upload` key may need to be added
-- To fix: Add to i18n files or update sidebar component to use plain text
+### CORS Errors
 
-### General Issues
+Update `TAG_WRITER_CORS_ORIGINS` in `.env`:
+```env
+TAG_WRITER_CORS_ORIGINS=http://localhost:3000,http://localhost:5173
+```
 
-**Cannot connect to Navidrome:**
-- Verify `VITE_API_URL` is correct
+### Cannot Connect to Navidrome
+
+- Verify `VITE_API_URL` and `NAVIDROME_URL` are correct
 - Check Navidrome server is running
 - Verify network connectivity
 - Check CORS settings in Navidrome
 
-**Desktop app won't start:**
-- Check system requirements (Node.js 16+)
-- Try rebuilding: `npm run electron:build`
-- Check console for error messages
+## Security Notes
+
+**Never commit your .env file!** It contains:
+- Passwords
+- API keys
+- JWT secrets
+- OAuth credentials
+
+The `.gitignore` is configured to prevent this, but always double-check:
+```bash
+git status  # Should NOT show .env
+```
+
+**Rotate credentials if exposed:**
+- YouTube API key
+- Discord OAuth secrets
+- Navidrome password
+- JWT secrets
 
 ## License
 
