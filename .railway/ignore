@@ -1,0 +1,17 @@
+# Ignore service directories - deploy them separately
+auth-service/
+tag-writer-service/
+upload-service/
+backend/
+
+# Development files
+node_modules/
+.env
+.env.local
+*.log
+.vscode/
+.idea/
+
+# Build artifacts (Railway will build fresh)
+dist/
+build/
