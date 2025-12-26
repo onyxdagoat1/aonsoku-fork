@@ -45,6 +45,7 @@ account-service/.env
 !.env.example
 !**/.env.example
 !**/.env.loader.js
+!**/.env.loader.cjs
 
 # Auth service database
 auth-service/data/
