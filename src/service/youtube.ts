@@ -4,11 +4,6 @@ import { YouTubeVideo, YouTubePlaylist, YouTubeComment, YouTubeChannelInfo } fro
 const API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY || '';
 
 // YeditsCommunity Channel Configuration
-// To get the channel ID from @YeditsCommunity:
-// 1. Visit: https://www.youtube.com/@YeditsCommunity
-// 2. View page source (Ctrl+U or Cmd+U)
-// 3. Search for "channelId" or "externalId"
-// Alternative: Use the forUsername parameter with "YeditsCommunity"
 const CHANNEL_HANDLE = 'YeditsCommunity';
 const CHANNEL_ID = ''; // Leave empty to use handle-based lookup
 
@@ -33,13 +28,25 @@ export class YouTubeService {
   private static instance: YouTubeService;
   private cachedChannelId: string | null = null;
 
-  private constructor() {}
+  private constructor() {
+    // Validate API key on initialization
+    if (!API_KEY || API_KEY === '' || API_KEY === 'your_youtube_api_key_here') {
+      console.warn('[YouTube] API key not configured. Please add VITE_YOUTUBE_API_KEY to your .env file.');
+      console.warn('[YouTube] Get your API key from: https://console.cloud.google.com/');
+    } else {
+      console.log('[YouTube] Service initialized with API key');
+    }
+  }
 
   public static getInstance(): YouTubeService {
     if (!YouTubeService.instance) {
       YouTubeService.instance = new YouTubeService();
     }
     return YouTubeService.instance;
+  }
+
+  private isApiKeyValid(): boolean {
+    return API_KEY !== '' && API_KEY !== 'your_youtube_api_key_here';
   }
 
   private async getChannelId(): Promise<string | null> {
@@ -55,9 +62,9 @@ export class YouTubeService {
     }
 
     // Look up channel by handle
-    if (!API_KEY) {
-      console.warn('YouTube API key not configured');
-      return null;
+    if (!this.isApiKeyValid()) {
+      console.error('[YouTube] Cannot fetch channel ID: API key not configured');
+      throw new Error('YouTube API key not configured. Please add VITE_YOUTUBE_API_KEY to your .env file.');
     }
 
     try {
@@ -67,8 +74,15 @@ export class YouTubeService {
       );
       const data = await response.json();
       
+      // Check for API errors
+      if (data.error) {
+        console.error('[YouTube] API Error:', data.error.message);
+        throw new Error(`YouTube API Error: ${data.error.message}`);
+      }
+      
       if (data.items && data.items.length > 0) {
         this.cachedChannelId = data.items[0].id;
+        console.log('[YouTube] Channel ID found via forHandle:', this.cachedChannelId);
         return this.cachedChannelId;
       }
 
@@ -78,23 +92,28 @@ export class YouTubeService {
       );
       const data2 = await response2.json();
       
+      if (data2.error) {
+        console.error('[YouTube] API Error:', data2.error.message);
+        throw new Error(`YouTube API Error: ${data2.error.message}`);
+      }
+      
       if (data2.items && data2.items.length > 0) {
         this.cachedChannelId = data2.items[0].id;
+        console.log('[YouTube] Channel ID found via forUsername:', this.cachedChannelId);
         return this.cachedChannelId;
       }
 
-      console.error('Could not find channel ID for:', CHANNEL_HANDLE);
-      return null;
+      console.error('[YouTube] Could not find channel ID for:', CHANNEL_HANDLE);
+      throw new Error(`Could not find YouTube channel: @${CHANNEL_HANDLE}`);
     } catch (error) {
-      console.error('Error fetching channel ID:', error);
-      return null;
+      console.error('[YouTube] Error fetching channel ID:', error);
+      throw error;
     }
   }
 
   async getChannelInfo(): Promise<YouTubeChannelInfo | null> {
-    if (!API_KEY) {
-      console.warn('YouTube API key not configured');
-      return null;
+    if (!this.isApiKeyValid()) {
+      throw new Error('YouTube API key not configured. Please add VITE_YOUTUBE_API_KEY to your .env file.');
     }
 
     const channelId = await this.getChannelId();
@@ -105,6 +124,11 @@ export class YouTubeService {
         `${BASE_URL}/channels?part=snippet,statistics&id=${channelId}&key=${API_KEY}`
       );
       const data = await response.json();
+      
+      if (data.error) {
+        console.error('[YouTube] API Error:', data.error.message);
+        throw new Error(`YouTube API Error: ${data.error.message}`);
+      }
       
       if (!data.items || data.items.length === 0) return null;
       
@@ -118,15 +142,14 @@ export class YouTubeService {
         thumbnail: channel.snippet.thumbnails.high.url,
       };
     } catch (error) {
-      console.error('Error fetching channel info:', error);
-      return null;
+      console.error('[YouTube] Error fetching channel info:', error);
+      throw error;
     }
   }
 
   async getChannelVideos(maxResults = 50): Promise<YouTubeVideo[]> {
-    if (!API_KEY) {
-      console.warn('YouTube API key not configured');
-      return [];
+    if (!this.isApiKeyValid()) {
+      throw new Error('YouTube API key not configured. Please add VITE_YOUTUBE_API_KEY to your .env file.');
     }
 
     const channelId = await this.getChannelId();
@@ -139,6 +162,11 @@ export class YouTubeService {
       );
       const searchData = await searchResponse.json();
       
+      if (searchData.error) {
+        console.error('[YouTube] API Error:', searchData.error.message);
+        throw new Error(`YouTube API Error: ${searchData.error.message}`);
+      }
+      
       if (!searchData.items || searchData.items.length === 0) return [];
       
       const videoIds = searchData.items.map((item: any) => item.id.videoId).join(',');
@@ -148,6 +176,11 @@ export class YouTubeService {
         `${BASE_URL}/videos?part=snippet,contentDetails,statistics&id=${videoIds}&key=${API_KEY}`
       );
       const videosData = await videosResponse.json();
+      
+      if (videosData.error) {
+        console.error('[YouTube] API Error:', videosData.error.message);
+        throw new Error(`YouTube API Error: ${videosData.error.message}`);
+      }
       
       return videosData.items.map((video: any) => ({
         id: video.id,
@@ -161,15 +194,14 @@ export class YouTubeService {
         commentCount: video.statistics.commentCount || '0',
       }));
     } catch (error) {
-      console.error('Error fetching videos:', error);
-      return [];
+      console.error('[YouTube] Error fetching videos:', error);
+      throw error;
     }
   }
 
   async getChannelPlaylists(maxResults = 50): Promise<YouTubePlaylist[]> {
-    if (!API_KEY) {
-      console.warn('YouTube API key not configured');
-      return [];
+    if (!this.isApiKeyValid()) {
+      throw new Error('YouTube API key not configured. Please add VITE_YOUTUBE_API_KEY to your .env file.');
     }
 
     const channelId = await this.getChannelId();
@@ -180,6 +212,11 @@ export class YouTubeService {
         `${BASE_URL}/playlists?part=snippet,contentDetails&channelId=${channelId}&maxResults=${maxResults}&key=${API_KEY}`
       );
       const data = await response.json();
+      
+      if (data.error) {
+        console.error('[YouTube] API Error:', data.error.message);
+        throw new Error(`YouTube API Error: ${data.error.message}`);
+      }
       
       if (!data.items || data.items.length === 0) return [];
       
@@ -192,15 +229,14 @@ export class YouTubeService {
         videos: [], // Populated on demand
       }));
     } catch (error) {
-      console.error('Error fetching playlists:', error);
-      return [];
+      console.error('[YouTube] Error fetching playlists:', error);
+      throw error;
     }
   }
 
   async getPlaylistVideos(playlistId: string, maxResults = 50): Promise<YouTubeVideo[]> {
-    if (!API_KEY) {
-      console.warn('YouTube API key not configured');
-      return [];
+    if (!this.isApiKeyValid()) {
+      throw new Error('YouTube API key not configured. Please add VITE_YOUTUBE_API_KEY to your .env file.');
     }
 
     try {
@@ -208,6 +244,11 @@ export class YouTubeService {
         `${BASE_URL}/playlistItems?part=snippet&playlistId=${playlistId}&maxResults=${maxResults}&key=${API_KEY}`
       );
       const data = await response.json();
+      
+      if (data.error) {
+        console.error('[YouTube] API Error:', data.error.message);
+        throw new Error(`YouTube API Error: ${data.error.message}`);
+      }
       
       if (!data.items || data.items.length === 0) return [];
       
@@ -217,6 +258,11 @@ export class YouTubeService {
         `${BASE_URL}/videos?part=snippet,contentDetails,statistics&id=${videoIds}&key=${API_KEY}`
       );
       const videosData = await videosResponse.json();
+      
+      if (videosData.error) {
+        console.error('[YouTube] API Error:', videosData.error.message);
+        throw new Error(`YouTube API Error: ${videosData.error.message}`);
+      }
       
       return videosData.items.map((video: any) => ({
         id: video.id,
@@ -230,15 +276,14 @@ export class YouTubeService {
         commentCount: video.statistics.commentCount || '0',
       }));
     } catch (error) {
-      console.error('Error fetching playlist videos:', error);
-      return [];
+      console.error('[YouTube] Error fetching playlist videos:', error);
+      throw error;
     }
   }
 
   async getVideoComments(videoId: string, maxResults = 100): Promise<YouTubeComment[]> {
-    if (!API_KEY) {
-      console.warn('YouTube API key not configured');
-      return [];
+    if (!this.isApiKeyValid()) {
+      throw new Error('YouTube API key not configured. Please add VITE_YOUTUBE_API_KEY to your .env file.');
     }
 
     try {
@@ -246,6 +291,11 @@ export class YouTubeService {
         `${BASE_URL}/commentThreads?part=snippet,replies&videoId=${videoId}&maxResults=${maxResults}&order=relevance&key=${API_KEY}`
       );
       const data = await response.json();
+      
+      if (data.error) {
+        console.error('[YouTube] API Error:', data.error.message);
+        throw new Error(`YouTube API Error: ${data.error.message}`);
+      }
       
       if (!data.items || data.items.length === 0) return [];
       
@@ -271,8 +321,8 @@ export class YouTubeService {
         };
       });
     } catch (error) {
-      console.error('Error fetching comments:', error);
-      return [];
+      console.error('[YouTube] Error fetching comments:', error);
+      throw error;
     }
   }
 }
