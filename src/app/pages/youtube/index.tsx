@@ -8,8 +8,9 @@ import { YouTubeFilters } from '@/app/pages/youtube/components/Filters';
 import { YouTubeStats } from '@/app/pages/youtube/components/Stats';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/app/components/ui/tabs';
 import { Input } from '@/app/components/ui/input';
+import { Card, CardContent } from '@/app/components/ui/card';
+import { Button } from '@/app/components/ui/button';
 import { Search, AlertCircle } from 'lucide-react';
-import { Alert, AlertDescription } from '@/app/components/ui/alert';
 
 type SortOption = 'date' | 'views' | 'likes' | 'title';
 type FilterOption = 'all' | 'recent' | 'popular';
@@ -96,7 +97,6 @@ export default function YouTubePage() {
     // Quick filters
     const now = Date.now();
     const weekAgo = now - (7 * 24 * 60 * 60 * 1000);
-    const monthAgo = now - (30 * 24 * 60 * 60 * 1000);
     
     if (filterBy === 'recent') {
       filtered = filtered.filter(video => 
@@ -139,18 +139,20 @@ export default function YouTubePage() {
   if (error) {
     return (
       <div className="container mx-auto px-4 py-8">
-        <Alert variant="destructive">
-          <AlertCircle className="h-4 w-4" />
-          <AlertDescription>
-            {error}
-            <button 
-              onClick={clearCache}
-              className="ml-4 underline hover:no-underline"
-            >
-              Retry
-            </button>
-          </AlertDescription>
-        </Alert>
+        <Card className="border-destructive">
+          <CardContent className="pt-6">
+            <div className="flex items-start gap-4">
+              <AlertCircle className="h-5 w-5 text-destructive mt-0.5" />
+              <div className="flex-1">
+                <p className="text-sm text-destructive font-medium mb-2">Error Loading YouTube Data</p>
+                <p className="text-sm text-muted-foreground mb-4">{error}</p>
+                <Button onClick={clearCache} variant="outline" size="sm">
+                  Retry
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     );
   }
