@@ -127,10 +127,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // Sign in with OAuth provider (Google, Discord, GitHub)
   const signInWithProvider = async (provider: 'google' | 'discord' | 'github') => {
+    // Use regular URL without hash - Supabase handles the callback
+    // After OAuth, we manually redirect to hash route
     const { error } = await supabase.auth.signInWithOAuth({
       provider,
       options: {
-        redirectTo: `${window.location.origin}/#/auth/callback`,
+        redirectTo: `${window.location.origin}/auth/callback`,
         queryParams: provider === 'google' ? {
           access_type: 'offline',
           prompt: 'consent',
