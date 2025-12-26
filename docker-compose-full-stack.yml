@@ -1,0 +1,113 @@
+version: '3.8'
+
+services:
+  # Navidrome music server
+  navidrome:
+    image: deluan/navidrome:latest
+    container_name: aonsoku-navidrome
+    restart: unless-stopped
+    ports:
+      - "4533:4533"
+    environment:
+      ND_SCANSCHEDULE: 1h
+      ND_LOGLEVEL: info
+      ND_SESSIONTIMEOUT: 24h
+      ND_BASEURL: ""
+    volumes:
+      - ./data/navidrome:/data
+      - ./music:/music:ro
+
+  # Auth service (PostgreSQL version)
+  auth-service:
+    build:
+      context: ./auth-service
+      dockerfile: Dockerfile
+    container_name: aonsoku-auth
+    restart: unless-stopped
+    ports:
+      - "3002:3002"
+    environment:
+      NODE_ENV: production
+      PORT: 3002
+      DB_TYPE: postgres
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: aonsoku_auth
+      DB_USER: aonsoku
+      DB_PASSWORD: ${DB_PASSWORD:-changeme}
+      JWT_SECRET: ${JWT_SECRET:-change-this-secret-key}
+      SESSION_SECRET: ${SESSION_SECRET:-change-this-session-key}
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3000}
+      NAVIDROME_URL: http://navidrome:4533
+      NAVIDROME_USERNAME: ${NAVIDROME_USERNAME:-admin}
+      NAVIDROME_PASSWORD: ${NAVIDROME_PASSWORD}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
+      GOOGLE_CALLBACK_URL: ${GOOGLE_CALLBACK_URL:-http://localhost:3002/api/v1/auth/google/callback}
+      DISCORD_CLIENT_ID: ${DISCORD_CLIENT_ID}
+      DISCORD_CLIENT_SECRET: ${DISCORD_CLIENT_SECRET}
+      DISCORD_CALLBACK_URL: ${DISCORD_CALLBACK_URL:-http://localhost:3002/api/v1/auth/discord/callback}
+    depends_on:
+      - postgres
+      - navidrome
+
+  # Tag writer service
+  tag-service:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: aonsoku-tags
+    restart: unless-stopped
+    ports:
+      - "3001:3001"
+    environment:
+      PORT: 3001
+      NAVIDROME_URL: http://navidrome:4533
+      NAVIDROME_USERNAME: ${NAVIDROME_USERNAME:-admin}
+      NAVIDROME_PASSWORD: ${NAVIDROME_PASSWORD}
+      MUSIC_LIBRARY_PATH: /music
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3000}
+    volumes:
+      - ./music:/music
+    depends_on:
+      - navidrome
+
+  # Frontend
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: aonsoku-frontend
+    restart: unless-stopped
+    ports:
+      - "3000:8080"
+    environment:
+      SERVER_URL: http://navidrome:4533
+      AUTH_SERVICE_URL: http://auth-service:3002
+      TAG_SERVICE_URL: http://tag-service:3001
+    depends_on:
+      - navidrome
+      - auth-service
+      - tag-service
+
+  # PostgreSQL database
+  postgres:
+    image: postgres:16-alpine
+    container_name: aonsoku-postgres
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: aonsoku_auth
+      POSTGRES_USER: aonsoku
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-changeme}
+    volumes:
+      - ./data/postgres:/var/lib/postgresql/data
+
+volumes:
+  navidrome-data:
+  postgres-data:
+
+networks:
+  default:
+    name: aonsoku-network
