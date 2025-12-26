@@ -1,12 +1,6 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/contexts/AuthContext'
-import { Button } from '@/app/components/ui/button'
-import { Input } from '@/app/components/ui/input'
-import { Label } from '@/app/components/ui/label'
-import { OAuthButtons } from './components/OAuthButtons'
-import { Separator } from '@/app/components/ui/separator'
-import { Loader2 } from 'lucide-react'
 
 export function Register() {
   const navigate = useNavigate()
@@ -22,15 +16,15 @@ export function Register() {
 
   if (!isConfigured) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-background p-4">
-        <div className="w-full max-w-md space-y-4 rounded-lg border border-border bg-card p-8 text-center">
-          <h2 className="text-2xl font-bold text-foreground">Supabase Not Configured</h2>
-          <p className="text-muted-foreground">
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
+        <div style={{ maxWidth: '28rem', width: '100%', padding: '2rem', border: '1px solid #333', borderRadius: '0.5rem', textAlign: 'center' }}>
+          <h2 style={{ fontSize: '1.5rem', fontWeight: 'bold', marginBottom: '1rem' }}>Supabase Not Configured</h2>
+          <p style={{ marginBottom: '1rem', color: '#888' }}>
             Social features are not enabled. Please configure Supabase in your .env file.
           </p>
-          <Button onClick={() => navigate('/')} variant="outline">
+          <button onClick={() => navigate('/')} style={{ padding: '0.5rem 1rem', border: '1px solid #333', borderRadius: '0.25rem', cursor: 'pointer' }}>
             Back to Home
-          </Button>
+          </button>
         </div>
       </div>
     )
@@ -73,9 +67,7 @@ export function Register() {
 
     try {
       await signUp(formData.email, formData.password, formData.username)
-      navigate('/auth/login', {
-        state: { message: 'Account created! Please check your email to verify.' }
-      })
+      navigate('/auth/login')
     } catch (err: any) {
       setErrors({ general: err.message || 'Failed to create account' })
     } finally {
@@ -91,49 +83,44 @@ export function Register() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background p-4">
-      <div className="w-full max-w-md space-y-6 rounded-lg border border-border bg-card p-8">
+    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem', backgroundColor: 'var(--background)' }}>
+      <div style={{ maxWidth: '28rem', width: '100%', padding: '2rem', border: '1px solid var(--border)', borderRadius: '0.5rem', backgroundColor: 'var(--card)' }}>
         {/* Header */}
-        <div className="space-y-2 text-center">
-          <h1 className="text-3xl font-bold tracking-tight text-foreground">Create Account</h1>
-          <p className="text-sm text-muted-foreground">
+        <div style={{ marginBottom: '1.5rem', textAlign: 'center' }}>
+          <h1 style={{ fontSize: '1.875rem', fontWeight: 'bold', marginBottom: '0.5rem' }}>Create Account</h1>
+          <p style={{ fontSize: '0.875rem', color: 'var(--muted-foreground)' }}>
             Join the community and unlock social features
           </p>
         </div>
 
-        {/* OAuth Buttons */}
-        <OAuthButtons />
-
-        {/* Divider */}
-        <div className="relative">
-          <div className="absolute inset-0 flex items-center">
-            <Separator />
-          </div>
-          <div className="relative flex justify-center text-xs uppercase">
-            <span className="bg-card px-2 text-muted-foreground">Or register with email</span>
-          </div>
-        </div>
-
         {/* Registration Form */}
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="username">Username</Label>
-            <Input
+        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          <div>
+            <label htmlFor="username" style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.875rem' }}>Username</label>
+            <input
               id="username"
               placeholder="musiclover123"
               value={formData.username}
               onChange={(e) => updateField('username', e.target.value)}
               required
               disabled={loading}
+              style={{
+                width: '100%',
+                padding: '0.5rem',
+                border: '1px solid var(--border)',
+                borderRadius: '0.375rem',
+                backgroundColor: 'var(--background)',
+                color: 'var(--foreground)'
+              }}
             />
             {errors.username && (
-              <p className="text-xs text-destructive">{errors.username}</p>
+              <p style={{ marginTop: '0.25rem', fontSize: '0.75rem', color: '#ef4444' }}>{errors.username}</p>
             )}
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="email">Email</Label>
-            <Input
+          <div>
+            <label htmlFor="email" style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.875rem' }}>Email</label>
+            <input
               id="email"
               type="email"
               placeholder="you@example.com"
@@ -141,15 +128,23 @@ export function Register() {
               onChange={(e) => updateField('email', e.target.value)}
               required
               disabled={loading}
+              style={{
+                width: '100%',
+                padding: '0.5rem',
+                border: '1px solid var(--border)',
+                borderRadius: '0.375rem',
+                backgroundColor: 'var(--background)',
+                color: 'var(--foreground)'
+              }}
             />
             {errors.email && (
-              <p className="text-xs text-destructive">{errors.email}</p>
+              <p style={{ marginTop: '0.25rem', fontSize: '0.75rem', color: '#ef4444' }}>{errors.email}</p>
             )}
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="password">Password</Label>
-            <Input
+          <div>
+            <label htmlFor="password" style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.875rem' }}>Password</label>
+            <input
               id="password"
               type="password"
               placeholder="••••••••"
@@ -157,15 +152,23 @@ export function Register() {
               onChange={(e) => updateField('password', e.target.value)}
               required
               disabled={loading}
+              style={{
+                width: '100%',
+                padding: '0.5rem',
+                border: '1px solid var(--border)',
+                borderRadius: '0.375rem',
+                backgroundColor: 'var(--background)',
+                color: 'var(--foreground)'
+              }}
             />
             {errors.password && (
-              <p className="text-xs text-destructive">{errors.password}</p>
+              <p style={{ marginTop: '0.25rem', fontSize: '0.75rem', color: '#ef4444' }}>{errors.password}</p>
             )}
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="confirmPassword">Confirm Password</Label>
-            <Input
+          <div>
+            <label htmlFor="confirmPassword" style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.875rem' }}>Confirm Password</label>
+            <input
               id="confirmPassword"
               type="password"
               placeholder="••••••••"
@@ -173,38 +176,55 @@ export function Register() {
               onChange={(e) => updateField('confirmPassword', e.target.value)}
               required
               disabled={loading}
+              style={{
+                width: '100%',
+                padding: '0.5rem',
+                border: '1px solid var(--border)',
+                borderRadius: '0.375rem',
+                backgroundColor: 'var(--background)',
+                color: 'var(--foreground)'
+              }}
             />
             {errors.confirmPassword && (
-              <p className="text-xs text-destructive">{errors.confirmPassword}</p>
+              <p style={{ marginTop: '0.25rem', fontSize: '0.75rem', color: '#ef4444' }}>{errors.confirmPassword}</p>
             )}
           </div>
 
           {errors.general && (
-            <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
+            <div style={{ padding: '0.75rem', backgroundColor: 'rgba(239, 68, 68, 0.1)', borderRadius: '0.375rem', fontSize: '0.875rem', color: '#ef4444' }}>
               {errors.general}
             </div>
           )}
 
-          <Button type="submit" className="w-full" disabled={loading}>
-            {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Create Account
-          </Button>
+          <button
+            type="submit"
+            disabled={loading}
+            style={{
+              width: '100%',
+              padding: '0.5rem 1rem',
+              backgroundColor: 'var(--primary)',
+              color: 'white',
+              border: 'none',
+              borderRadius: '0.375rem',
+              cursor: 'pointer',
+              fontWeight: '500'
+            }}
+          >
+            {loading ? 'Creating Account...' : 'Create Account'}
+          </button>
         </form>
 
         {/* Sign In Link */}
-        <div className="text-center text-sm">
-          <span className="text-muted-foreground">Already have an account? </span>
-          <Link to="/auth/login" className="font-medium text-primary hover:underline">
+        <div style={{ marginTop: '1.5rem', textAlign: 'center', fontSize: '0.875rem' }}>
+          <span style={{ color: 'var(--muted-foreground)' }}>Already have an account? </span>
+          <Link to="/auth/login" style={{ color: 'var(--primary)', fontWeight: '500' }}>
             Sign in
           </Link>
         </div>
 
         {/* Back to App */}
-        <div className="text-center">
-          <Link
-            to="/"
-            className="text-xs text-muted-foreground hover:text-foreground transition-colors"
-          >
+        <div style={{ marginTop: '1rem', textAlign: 'center' }}>
+          <Link to="/" style={{ fontSize: '0.75rem', color: 'var(--muted-foreground)' }}>
             ← Back to app
           </Link>
         </div>

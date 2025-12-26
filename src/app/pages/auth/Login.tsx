@@ -1,12 +1,6 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/contexts/AuthContext'
-import { Button } from '@/app/components/ui/button'
-import { Input } from '@/app/components/ui/input'
-import { Label } from '@/app/components/ui/label'
-import { OAuthButtons } from './components/OAuthButtons'
-import { Separator } from '@/app/components/ui/separator'
-import { Loader2 } from 'lucide-react'
 
 export function Login() {
   const navigate = useNavigate()
@@ -18,15 +12,15 @@ export function Login() {
 
   if (!isConfigured) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-background p-4">
-        <div className="w-full max-w-md space-y-4 rounded-lg border border-border bg-card p-8 text-center">
-          <h2 className="text-2xl font-bold text-foreground">Supabase Not Configured</h2>
-          <p className="text-muted-foreground">
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
+        <div style={{ maxWidth: '28rem', width: '100%', padding: '2rem', border: '1px solid #333', borderRadius: '0.5rem', textAlign: 'center' }}>
+          <h2 style={{ fontSize: '1.5rem', fontWeight: 'bold', marginBottom: '1rem' }}>Supabase Not Configured</h2>
+          <p style={{ marginBottom: '1rem', color: '#888' }}>
             Social features are not enabled. Please configure Supabase in your .env file.
           </p>
-          <Button onClick={() => navigate('/')} variant="outline">
+          <button onClick={() => navigate('/')} style={{ padding: '0.5rem 1rem', border: '1px solid #333', borderRadius: '0.25rem', cursor: 'pointer' }}>
             Back to Home
-          </Button>
+          </button>
         </div>
       </div>
     )
@@ -47,35 +41,98 @@ export function Login() {
     }
   }
 
+  const handleOAuth = async (provider: 'google' | 'discord' | 'github') => {
+    try {
+      const { signInWithProvider } = useAuth()
+      await signInWithProvider(provider)
+    } catch (error) {
+      console.error(`OAuth error:`, error)
+      setError(`Failed to sign in with ${provider}`)
+    }
+  }
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background p-4">
-      <div className="w-full max-w-md space-y-6 rounded-lg border border-border bg-card p-8">
+    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem', backgroundColor: 'var(--background)' }}>
+      <div style={{ maxWidth: '28rem', width: '100%', padding: '2rem', border: '1px solid var(--border)', borderRadius: '0.5rem', backgroundColor: 'var(--card)' }}>
         {/* Header */}
-        <div className="space-y-2 text-center">
-          <h1 className="text-3xl font-bold tracking-tight text-foreground">Welcome Back</h1>
-          <p className="text-sm text-muted-foreground">
+        <div style={{ marginBottom: '1.5rem', textAlign: 'center' }}>
+          <h1 style={{ fontSize: '1.875rem', fontWeight: 'bold', marginBottom: '0.5rem' }}>Welcome Back</h1>
+          <p style={{ fontSize: '0.875rem', color: 'var(--muted-foreground)' }}>
             Sign in to access your music and social features
           </p>
         </div>
 
         {/* OAuth Buttons */}
-        <OAuthButtons />
+        <div style={{ marginBottom: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+          <button
+            onClick={() => handleOAuth('google')}
+            disabled={loading}
+            style={{
+              width: '100%',
+              padding: '0.5rem 1rem',
+              border: '1px solid var(--border)',
+              borderRadius: '0.375rem',
+              backgroundColor: 'transparent',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '0.5rem'
+            }}
+          >
+            <span>🔐</span> Continue with Google
+          </button>
+          <button
+            onClick={() => handleOAuth('discord')}
+            disabled={loading}
+            style={{
+              width: '100%',
+              padding: '0.5rem 1rem',
+              border: '1px solid var(--border)',
+              borderRadius: '0.375rem',
+              backgroundColor: 'transparent',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '0.5rem'
+            }}
+          >
+            <span>💬</span> Continue with Discord
+          </button>
+          <button
+            onClick={() => handleOAuth('github')}
+            disabled={loading}
+            style={{
+              width: '100%',
+              padding: '0.5rem 1rem',
+              border: '1px solid var(--border)',
+              borderRadius: '0.375rem',
+              backgroundColor: 'transparent',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '0.5rem'
+            }}
+          >
+            <span>🐙</span> Continue with GitHub
+          </button>
+        </div>
 
         {/* Divider */}
-        <div className="relative">
-          <div className="absolute inset-0 flex items-center">
-            <Separator />
-          </div>
-          <div className="relative flex justify-center text-xs uppercase">
-            <span className="bg-card px-2 text-muted-foreground">Or continue with</span>
-          </div>
+        <div style={{ margin: '1.5rem 0', textAlign: 'center', position: 'relative' }}>
+          <div style={{ position: 'absolute', top: '50%', left: 0, right: 0, height: '1px', backgroundColor: 'var(--border)' }} />
+          <span style={{ position: 'relative', backgroundColor: 'var(--card)', padding: '0 0.5rem', fontSize: '0.75rem', color: 'var(--muted-foreground)' }}>
+            OR CONTINUE WITH
+          </span>
         </div>
 
         {/* Email/Password Form */}
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="email">Email</Label>
-            <Input
+        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          <div>
+            <label htmlFor="email" style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.875rem' }}>Email</label>
+            <input
               id="email"
               type="email"
               placeholder="you@example.com"
@@ -83,20 +140,25 @@ export function Login() {
               onChange={(e) => setEmail(e.target.value)}
               required
               disabled={loading}
+              style={{
+                width: '100%',
+                padding: '0.5rem',
+                border: '1px solid var(--border)',
+                borderRadius: '0.375rem',
+                backgroundColor: 'var(--background)',
+                color: 'var(--foreground)'
+              }}
             />
           </div>
 
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <Label htmlFor="password">Password</Label>
-              <Link
-                to="/auth/forgot-password"
-                className="text-xs text-primary hover:underline"
-              >
+          <div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+              <label htmlFor="password" style={{ fontSize: '0.875rem' }}>Password</label>
+              <Link to="/auth/forgot-password" style={{ fontSize: '0.75rem', color: 'var(--primary)' }}>
                 Forgot password?
               </Link>
             </div>
-            <Input
+            <input
               id="password"
               type="password"
               placeholder="••••••••"
@@ -104,35 +166,52 @@ export function Login() {
               onChange={(e) => setPassword(e.target.value)}
               required
               disabled={loading}
+              style={{
+                width: '100%',
+                padding: '0.5rem',
+                border: '1px solid var(--border)',
+                borderRadius: '0.375rem',
+                backgroundColor: 'var(--background)',
+                color: 'var(--foreground)'
+              }}
             />
           </div>
 
           {error && (
-            <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
+            <div style={{ padding: '0.75rem', backgroundColor: 'rgba(239, 68, 68, 0.1)', borderRadius: '0.375rem', fontSize: '0.875rem', color: '#ef4444' }}>
               {error}
             </div>
           )}
 
-          <Button type="submit" className="w-full" disabled={loading}>
-            {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Sign In
-          </Button>
+          <button
+            type="submit"
+            disabled={loading}
+            style={{
+              width: '100%',
+              padding: '0.5rem 1rem',
+              backgroundColor: 'var(--primary)',
+              color: 'white',
+              border: 'none',
+              borderRadius: '0.375rem',
+              cursor: 'pointer',
+              fontWeight: '500'
+            }}
+          >
+            {loading ? 'Signing in...' : 'Sign In'}
+          </button>
         </form>
 
         {/* Sign Up Link */}
-        <div className="text-center text-sm">
-          <span className="text-muted-foreground">Don't have an account? </span>
-          <Link to="/auth/register" className="font-medium text-primary hover:underline">
+        <div style={{ marginTop: '1.5rem', textAlign: 'center', fontSize: '0.875rem' }}>
+          <span style={{ color: 'var(--muted-foreground)' }}>Don't have an account? </span>
+          <Link to="/auth/register" style={{ color: 'var(--primary)', fontWeight: '500' }}>
             Sign up
           </Link>
         </div>
 
         {/* Back to App */}
-        <div className="text-center">
-          <Link
-            to="/"
-            className="text-xs text-muted-foreground hover:text-foreground transition-colors"
-          >
+        <div style={{ marginTop: '1rem', textAlign: 'center' }}>
+          <Link to="/" style={{ fontSize: '0.75rem', color: 'var(--muted-foreground)' }}>
             ← Back to app
           </Link>
         </div>
