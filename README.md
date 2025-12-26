@@ -1,6 +1,6 @@
 # Aonsoku
 
-A modern desktop and web client for Navidrome/Subsonic music servers with advanced features including music upload, YouTube integration, and comprehensive media management.
+A modern desktop and web client for Navidrome/Subsonic music servers with advanced features including music upload, metadata editing, YouTube integration, and comprehensive media management.
 
 ## Quick Start - One Command Development
 
@@ -42,8 +42,6 @@ That's it! One command starts all 3 services:
 - **Tag Writer**: http://localhost:3001 (Yellow)
 - **Upload Service**: http://localhost:3002 (Green)
 
-*Note: Auth service is planned but not yet implemented.*
-
 Stop everything with `Ctrl+C`.
 
 ### File Structure - Only ONE .env
@@ -70,6 +68,7 @@ aonsoku-fork/
 - [Features](#features)
 - [Installation](#installation)
 - [Configuration](#configuration)
+- [Service APIs](#service-apis)
 - [Feature Guides](#feature-guides)
 - [Development](#development)
 - [Docker Deployment](#docker-deployment)
@@ -88,6 +87,14 @@ aonsoku-fork/
 - Comprehensive playlist management
 - Advanced search and filtering
 - Keyboard shortcuts
+
+### Music Metadata Editor (Tag Writer Service)
+- ✅ Write ID3v2.4 tags to MP3 files
+- ✅ Update metadata: title, artist, album, year, genre, track#, disc#, composer, BPM, lyrics
+- ✅ Update cover art (JPEG, PNG, WebP)
+- ✅ Automatically trigger Navidrome library rescan after updates
+- ✅ CORS support for frontend integration
+- ✅ File validation and error handling
 
 ### Music Upload System
 - Drag and drop music file upload
@@ -165,14 +172,12 @@ UPLOAD_MUSIC_PATH=/path/to/music
 VITE_YOUTUBE_API_KEY=your_api_key
 
 # Service ports (defaults shown)
+PORT=3000
 TAG_WRITER_PORT=3001
 UPLOAD_PORT=3002
 
-# Generate JWT secrets with:
-# node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
-AUTH_JWT_SECRET=your_random_secret
-AUTH_JWT_REFRESH_SECRET=your_random_secret
-AUTH_SESSION_SECRET=your_random_secret
+# CORS origins
+TAG_WRITER_CORS_ORIGINS=http://localhost:3000
 ```
 
 ### How It Works
@@ -185,12 +190,121 @@ Each service directory has a `.env.loader.cjs` file that:
 **Variables are prefixed by service:**
 - `TAG_WRITER_*` → Tag Writer Service
 - `UPLOAD_*` → Upload Service
-- `AUTH_*` → Auth Service (planned)
 - `VITE_*` → Main Frontend App
 
 See `.env.example` for complete documentation.
 
+## Service APIs
+
+### Tag Writer Service API
+
+Base URL: `http://localhost:3001`
+
+#### Update Song Metadata
+**POST** `/api/update-tags`
+
+```json
+{
+  "songId": "navidrome-song-id",
+  "metadata": {
+    "title": "New Title",
+    "artist": "New Artist",
+    "album": "New Album",
+    "albumArtist": "Album Artist",
+    "year": 2025,
+    "genre": "Rock",
+    "track": 1,
+    "disc": 1,
+    "composer": "Composer Name",
+    "bpm": 120,
+    "comment": "Comments here",
+    "lyrics": "Song lyrics here"
+  }
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Tags updated successfully",
+  "path": "Artist/Album/01 - Song.mp3"
+}
+```
+
+#### Update Cover Art
+**POST** `/api/update-cover-art`
+
+**Form Data:**
+- `songId`: Navidrome song ID
+- `coverArt`: Image file (JPEG, PNG, WebP)
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Cover art updated successfully"
+}
+```
+
+#### Get Current Tags
+**GET** `/api/get-tags/:songId`
+
+**Response:**
+```json
+{
+  "success": true,
+  "tags": {
+    "title": "Song Title",
+    "artist": "Artist Name",
+    ...
+  },
+  "path": "Artist/Album/01 - Song.mp3"
+}
+```
+
+#### Trigger Manual Rescan
+**POST** `/api/rescan`
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Rescan triggered"
+}
+```
+
+#### Health Check
+**GET** `/health`
+
+**Response:**
+```json
+{
+  "status": "ok",
+  "version": "1.0.0"
+}
+```
+
 ## Feature Guides
+
+### Music Metadata Editing
+
+#### Quick Start
+
+1. Ensure tag writer service is running (`npm run dev` starts everything)
+2. Select a song in the main app
+3. Open metadata editor
+4. Edit fields as needed
+5. Save changes
+6. Navidrome automatically rescans
+
+#### Important Notes
+
+1. **File Access**: The service must have read/write access to the music library path
+2. **Path Matching**: `TAG_WRITER_MUSIC_PATH` must match Navidrome's music folder mount
+3. **Permissions**: Ensure the service runs with appropriate file permissions
+4. **Backups**: Always backup your music library before bulk tag editing
+5. **Rescan**: Automatic rescans are triggered after each tag update
 
 ### Music Upload System
 
@@ -251,8 +365,8 @@ VITE_YOUTUBE_API_KEY=your_key
 
 ### Recommended IDE Setup
 
-- [VS Code](https://code.visualstudio.com/)
-- [Biome.js](https://marketplace.visualstudio.com/items?itemName=biomejs.biome) extension
+- [VS Code](https://code.visualstudio.com/) or [PyCharm](https://www.jetbrains.com/pycharm/)
+- [Biome.js](https://marketplace.visualstudio.com/items?itemName=biomejs.biome) extension for VS Code
 
 ### Available Commands
 
@@ -291,16 +405,17 @@ npm run build:linux      # Build for Linux
 - **Data Fetching**: TanStack Query
 - **Desktop**: Electron
 - **Backend Services**: Node.js, Express
+- **Tag Writing**: node-id3
+- **Tag Reading**: music-metadata
 
 ### Port Allocation
 
-| Service | Port | Terminal Color | Status |
-|---------|------|----------------|--------|
-| Main App | 3000 | Blue | ✅ Active |
-| Tag Writer | 3001 | Yellow | ✅ Active |
-| Upload | 3002 | Green | ✅ Active |
-| Auth | 3005 | Magenta | 🚧 Planned |
-| Navidrome | 4533 | (external) | ✅ Active |
+| Service | Port | Terminal Color |
+|---------|------|----------------|
+| Main App | 3000 | Blue |
+| Tag Writer | 3001 | Yellow |
+| Upload | 3002 | Green |
+| Navidrome | 4533 | (external) |
 
 ## Docker Deployment
 
@@ -318,7 +433,99 @@ services:
       - 8080:8080
     environment:
       - SERVER_URL=http://your-navidrome:4533
-      - VITE_UPLOAD_SERVICE_URL=http://upload-service:3001
+      - VITE_UPLOAD_SERVICE_URL=http://upload-service:3002
+      - VITE_TAG_WRITER_SERVICE_URL=http://tag-writer:3001
+```
+
+### Tag Writer Service (Docker)
+
+```dockerfile
+FROM node:18-alpine
+
+WORKDIR /app
+
+COPY package*.json ./
+RUN npm ci --only=production
+
+COPY . .
+
+EXPOSE 3001
+
+CMD ["node", "server.js"]
+```
+
+Build and run:
+
+```bash
+cd tag-writer-service
+docker build -t navidrome-tag-writer .
+docker run -d \
+  -p 3001:3001 \
+  -v /path/to/music:/music \
+  -e NAVIDROME_URL=http://navidrome:4533 \
+  -e NAVIDROME_USERNAME=admin \
+  -e NAVIDROME_PASSWORD=yourpassword \
+  -e MUSIC_LIBRARY_PATH=/music \
+  --name tag-writer \
+  navidrome-tag-writer
+```
+
+### Complete Docker Compose
+
+```yaml
+services:
+  navidrome:
+    image: deluan/navidrome:latest
+    ports:
+      - "4533:4533"
+    volumes:
+      - ./data:/data
+      - /path/to/music:/music
+    environment:
+      ND_SCANSCHEDULE: "@every 1m"
+  
+  tag-writer:
+    build: ./tag-writer-service
+    ports:
+      - "3001:3001"
+    volumes:
+      - /path/to/music:/music
+    environment:
+      - NAVIDROME_URL=http://navidrome:4533
+      - NAVIDROME_USERNAME=admin
+      - NAVIDROME_PASSWORD=yourpassword
+      - MUSIC_LIBRARY_PATH=/music
+      - CORS_ORIGINS=http://localhost:3000
+    depends_on:
+      - navidrome
+  
+  upload-service:
+    build: ./upload-service
+    ports:
+      - "3002:3002"
+    volumes:
+      - /path/to/music:/music
+      - /tmp/uploads:/tmp/uploads
+    environment:
+      - NAVIDROME_URL=http://navidrome:4533
+      - NAVIDROME_USERNAME=admin
+      - NAVIDROME_PASSWORD=yourpassword
+      - MUSIC_LIBRARY_PATH=/music
+    depends_on:
+      - navidrome
+  
+  aonsoku:
+    image: ghcr.io/victoralvesf/aonsoku:latest
+    ports:
+      - "8080:8080"
+    environment:
+      - SERVER_URL=http://navidrome:4533
+      - VITE_TAG_WRITER_SERVICE_URL=http://tag-writer:3001
+      - VITE_UPLOAD_SERVICE_URL=http://upload-service:3002
+    depends_on:
+      - navidrome
+      - tag-writer
+      - upload-service
 ```
 
 ### Podman Quadlet
@@ -383,10 +590,10 @@ npm run dev:upload
 
 ### .env File Issues
 
-**File not found in IDE/Explorer:**
+**File not found in IDE/Explorer (WSL users):**
 - This is normal on Windows + WSL
-- Use `nano .env` or `code .env` to edit
-- Or create it from Windows side (PowerShell: `Copy-Item .env.example .env`)
+- Use `nano .env` or `code .env` to edit from terminal
+- Or create it from Windows side: `Copy-Item .env.example .env` in PowerShell
 
 **Variables not loading:**
 - Verify `.env` exists at root: `ls -la .env`
@@ -400,6 +607,23 @@ Make sure:
 2. All required variables are set (see `.env.example`)
 3. No extra spaces around `=` signs
 4. Values with spaces are quoted: `PATH="/my path/music"`
+
+### Tag Writer Service Issues
+
+**"Music file not found on disk":**
+- Check that `TAG_WRITER_MUSIC_PATH` is correctly set
+- Verify the path matches Navidrome's music folder
+- Ensure the service has read/write permissions
+
+**"Failed to trigger Navidrome rescan":**
+- Verify `NAVIDROME_URL` is accessible
+- Check Navidrome credentials are correct
+- Ensure Navidrome API is enabled
+
+**Tags not updating in Navidrome:**
+- Wait for the rescan to complete (check Navidrome logs)
+- Manually trigger a rescan from Navidrome UI
+- Check file permissions
 
 ### Upload Service Issues
 
@@ -443,8 +667,7 @@ TAG_WRITER_CORS_ORIGINS=http://localhost:3000,http://localhost:5173
 **Never commit your .env file!** It contains:
 - Passwords
 - API keys
-- JWT secrets
-- OAuth credentials
+- Sensitive configuration
 
 The `.gitignore` is configured to prevent this, but always double-check:
 ```bash
@@ -453,9 +676,7 @@ git status  # Should NOT show .env
 
 **Rotate credentials if exposed:**
 - YouTube API key
-- Discord OAuth secrets
 - Navidrome password
-- JWT secrets
 
 ## License
 
