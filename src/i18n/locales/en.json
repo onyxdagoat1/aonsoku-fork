@@ -364,7 +364,7 @@
   "login": {
     "form": {
       "server": "Server",
-      "description": "Connect to your Subsonic server.",
+      "description": "Connect to your Navidrome server.",
       "url": "URL",
       "urlDescription": "This is your server URL",
       "username": "Username",
@@ -519,7 +519,7 @@
     "management": "Server management",
     "incompatible": {
       "title": "Incompatible server",
-      "description": "This server uses an older version of the Subsonic protocol that is not fully supported. Please proceed with caution as you may have issues.",
+      "description": "This server uses an older version that is not fully supported. Please proceed with caution as you may have issues.",
       "skip": "Continue anyway"
     },
     "buttons": {
@@ -662,7 +662,7 @@
     "privacy": {
       "services": {
         "group": "External Services",
-        "description": "Manage the external services that Aonsoku can access.",
+        "description": "Manage the external services that yedits.net can access.",
         "lrclib": {
           "info": "LRCLIB is used to find song lyrics.",
           "label": "LRCLIB"
@@ -679,7 +679,7 @@
       },
       "podcast": {
         "group": "Podcasts",
-        "description": "Enable integration with the Aonsoku Podcasts service.",
+        "description": "Enable integration with the yedits.net Podcasts service.",
         "enabled": {
           "label": "Enable Integration"
         },
