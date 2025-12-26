@@ -1,5 +1,5 @@
 import clsx from 'clsx'
-import { Check, Minus, Pencil, Trash2 } from 'lucide-react'
+import { Check, Minus, Pencil, Trash2, Download, Upload } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { ContentItemTitle } from '@/app/components/settings/section'
 import { ThemeCreatorDialog } from '@/app/components/theme-creator/theme-creator-dialog'
@@ -10,7 +10,7 @@ import { Theme } from '@/types/themeContext'
 import { CustomTheme } from '@/types/customTheme'
 import { Button } from '@/app/components/ui/button'
 import { toast } from 'react-toastify'
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -21,18 +21,14 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/app/components/ui/alert-dialog'
-import {
-  Dialog,
-  DialogContent,
-  DialogTrigger,
-} from '@/app/components/ui/dialog'
 
 export function ThemeSettingsPicker() {
   const { t } = useTranslation()
   const { theme: currentTheme, setTheme } = useTheme()
-  const { customThemes, deleteCustomTheme, activeCustomTheme, setActiveCustomTheme } = useCustomTheme()
+  const { customThemes, deleteCustomTheme, activeCustomTheme, setActiveCustomTheme, exportTheme, importTheme } = useCustomTheme()
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
   const [editingTheme, setEditingTheme] = useState<string | null>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   // Clear custom theme CSS variables
   const clearCustomThemeVars = () => {
@@ -56,6 +52,7 @@ export function ThemeSettingsPicker() {
       root.style.setProperty(`--${cssVar}`, value)
     })
     setActiveCustomTheme(theme.id)
+    // Keep the current theme mode (dark/light) but mark custom as active
     toast.success(`Applied theme: ${theme.name}`)
   }
 
@@ -77,12 +74,71 @@ export function ThemeSettingsPicker() {
     toast.success('Theme deleted')
   }
 
+  const handleExport = (id: string) => {
+    const json = exportTheme(id)
+    if (!json) {
+      toast.error('Failed to export theme')
+      return
+    }
+    
+    const blob = new Blob([json], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `theme-${id}.json`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+    toast.success('Theme exported!')
+  }
+
+  const handleImport = () => {
+    fileInputRef.current?.click()
+  }
+
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    try {
+      const text = await file.text()
+      const theme = importTheme(text)
+      if (theme) {
+        toast.success(`Imported theme: ${theme.name}`)
+      } else {
+        toast.error('Failed to import theme')
+      }
+    } catch (error) {
+      toast.error('Invalid theme file')
+    }
+    
+    // Reset file input
+    if (fileInputRef.current) {
+      fileInputRef.current.value = ''
+    }
+  }
+
   return (
     <div className="h-full space-y-4">
       <div className="flex items-center justify-between">
         <ContentItemTitle>{t('theme.label')}</ContentItemTitle>
-        <ThemeCreatorDialog />
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={handleImport} className="gap-2">
+            <Upload className="h-4 w-4" />
+            Import
+          </Button>
+          <ThemeCreatorDialog key={editingTheme || 'new'} editThemeId={editingTheme} onEditComplete={() => setEditingTheme(null)} />
+        </div>
       </div>
+
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept=".json"
+        className="hidden"
+        onChange={handleFileSelect}
+      />
 
       {/* Built-in Themes */}
       <div>
@@ -118,24 +174,29 @@ export function ThemeSettingsPicker() {
                   
                   {/* Action Buttons - Show on hover */}
                   <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
-                    <Dialog>
-                      <DialogTrigger asChild>
-                        <Button
-                          size="sm"
-                          variant="secondary"
-                          className="h-7 w-7 p-0"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <Pencil className="h-3 w-3" />
-                        </Button>
-                      </DialogTrigger>
-                      <DialogContent className="max-w-5xl max-h-[90vh] p-0">
-                        <ThemeCreatorDialog 
-                          editThemeId={theme.id}
-                          onEditComplete={() => {}}
-                        />
-                      </DialogContent>
-                    </Dialog>
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      className="h-7 w-7 p-0"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setEditingTheme(theme.id)
+                      }}
+                    >
+                      <Pencil className="h-3 w-3" />
+                    </Button>
+                    
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      className="h-7 w-7 p-0"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        handleExport(theme.id)
+                      }}
+                    >
+                      <Download className="h-3 w-3" />
+                    </Button>
                     
                     <Button
                       size="sm"
@@ -224,7 +285,10 @@ function CustomThemePlaceholder({ theme }: { theme: CustomTheme }) {
             />
           ))}
         </div>
-        <div className="w-full h-full flex flex-col gap-1 p-1">
+        <div 
+          className="w-full h-full flex flex-col gap-1 p-1"
+          style={{ backgroundColor: `hsl(${colors.backgroundForeground})` }}
+        >
           <div 
             className="w-full h-1/4 rounded-[2px]" 
             style={{ backgroundColor: `hsl(${colors.accent})` }}
