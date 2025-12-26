@@ -11,6 +11,8 @@ interface AuthContextType {
   profile: Profile | null
   session: Session | null
   loading: boolean
+  signIn: (email: string, password: string) => Promise<void>
+  signInWithProvider: (provider: 'google' | 'discord' | 'github') => Promise<void>
   signInWithGoogle: () => Promise<void>
   signInWithDiscord: () => Promise<void>
   signInWithEmail: (email: string, password: string) => Promise<{ error: Error | null }>
@@ -123,48 +125,53 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => subscription.unsubscribe()
   }, [isConfigured])
 
-  // Sign in with Google
-  const signInWithGoogle = async () => {
+  // Sign in with OAuth provider (Google, Discord, GitHub)
+  const signInWithProvider = async (provider: 'google' | 'discord' | 'github') => {
     const { error } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
+      provider,
       options: {
-        redirectTo: `${window.location.origin}/auth/callback`,
-        queryParams: {
+        redirectTo: `${window.location.origin}/#/auth/callback`,
+        queryParams: provider === 'google' ? {
           access_type: 'offline',
           prompt: 'consent',
-        },
+        } : undefined,
       },
     })
 
     if (error) {
-      console.error('Error signing in with Google:', error)
+      console.error(`Error signing in with ${provider}:`, error)
       throw error
     }
   }
 
-  // Sign in with Discord
+  // Sign in with Google (wrapper)
+  const signInWithGoogle = async () => {
+    await signInWithProvider('google')
+  }
+
+  // Sign in with Discord (wrapper)
   const signInWithDiscord = async () => {
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: 'discord',
-      options: {
-        redirectTo: `${window.location.origin}/auth/callback`,
-      },
-    })
-
-    if (error) {
-      console.error('Error signing in with Discord:', error)
-      throw error
-    }
+    await signInWithProvider('discord')
   }
 
-  // Sign in with email
-  const signInWithEmail = async (email: string, password: string) => {
+  // Sign in with email/password
+  const signIn = async (email: string, password: string) => {
     const { error } = await supabase.auth.signInWithPassword({
       email,
       password,
     })
 
-    return { error }
+    if (error) throw error
+  }
+
+  // Alias for signIn (for compatibility)
+  const signInWithEmail = async (email: string, password: string) => {
+    try {
+      await signIn(email, password)
+      return { error: null }
+    } catch (error) {
+      return { error: error as Error }
+    }
   }
 
   // Sign up with email
@@ -230,6 +237,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     profile,
     session,
     loading,
+    signIn,
+    signInWithProvider,
     signInWithGoogle,
     signInWithDiscord,
     signInWithEmail,
