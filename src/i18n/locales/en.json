@@ -364,7 +364,7 @@
   "login": {
     "form": {
       "server": "Server",
-      "description": "Connect to your Navidrome server.",
+      "description": "Connect to your server.",
       "url": "URL",
       "urlDescription": "This is your server URL",
       "username": "Username",
