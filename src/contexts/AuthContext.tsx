@@ -1,51 +1,95 @@
-import React, { createContext, useContext, useEffect, useState } from 'react'
-import { User, Session, AuthError } from '@supabase/supabase-js'
+import { createContext, useContext, useEffect, useState } from 'react'
 import { supabase, isSupabaseConfigured } from '@/lib/supabase'
-import { toast } from 'react-toastify'
+import type { User, Session } from '@supabase/supabase-js'
+import type { Database } from '@/lib/database.types'
+import axios from 'axios'
 
-interface Profile {
-  id: string
-  username: string
-  display_name: string | null
-  avatar_url: string | null
-  bio: string | null
-  navidrome_username: string | null
-  created_at: string
-  updated_at: string
-}
+type Profile = Database['public']['Tables']['profiles']['Row']
 
 interface AuthContextType {
   user: User | null
   profile: Profile | null
   session: Session | null
   loading: boolean
-  signUp: (email: string, password: string, username: string) => Promise<void>
-  signIn: (email: string, password: string) => Promise<void>
-  signInWithProvider: (provider: 'google' | 'discord' | 'github') => Promise<void>
+  signInWithGoogle: () => Promise<void>
+  signInWithDiscord: () => Promise<void>
+  signInWithEmail: (email: string, password: string) => Promise<{ error: Error | null }>
+  signUpWithEmail: (email: string, password: string, username: string) => Promise<{ error: Error | null }>
   signOut: () => Promise<void>
-  updateProfile: (updates: Partial<Profile>) => Promise<void>
+  updateProfile: (updates: Partial<Profile>) => Promise<{ error: Error | null }>
   isConfigured: boolean
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
-export const useAuth = () => {
-  const context = useContext(AuthContext)
-  if (!context) {
-    throw new Error('useAuth must be used within AuthProvider')
-  }
-  return context
-}
-
-export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [profile, setProfile] = useState<Profile | null>(null)
   const [session, setSession] = useState<Session | null>(null)
   const [loading, setLoading] = useState(true)
-  const configured = isSupabaseConfigured()
+  const isConfigured = isSupabaseConfigured()
 
+  // Create Navidrome user for new Supabase user
+  const createNavidromeUser = async (userId: string, username: string, email: string) => {
+    try {
+      const authServiceUrl = import.meta.env.VITE_ACCOUNT_API_URL || 'http://localhost:3005/api'
+      
+      // Generate a random password for Navidrome
+      const navidromePassword = `${username}_${Math.random().toString(36).slice(2, 12)}`
+      
+      // Create Navidrome user via auth service
+      const response = await axios.post(`${authServiceUrl}/auth/register`, {
+        username,
+        password: navidromePassword,
+        email,
+      })
+
+      if (response.data.success) {
+        // Update Supabase profile with Navidrome username
+        await supabase
+          .from('profiles')
+          .update({
+            navidrome_username: username,
+            navidrome_user_id: response.data.user?.id || null,
+          })
+          .eq('id', userId)
+
+        console.log('✅ Navidrome user created and linked:', username)
+      }
+    } catch (error) {
+      console.error('⚠️ Failed to create Navidrome user (non-critical):', error)
+      // Don't throw - user can still use the app without Navidrome
+    }
+  }
+
+  // Fetch user profile
+  const fetchProfile = async (userId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .single()
+
+      if (error) throw error
+
+      setProfile(data)
+
+      // If profile exists but no Navidrome user, create one
+      if (data && !data.navidrome_username) {
+        const user = (await supabase.auth.getUser()).data.user
+        if (user?.email) {
+          await createNavidromeUser(userId, data.username, user.email)
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching profile:', error)
+    }
+  }
+
+  // Initialize auth state
   useEffect(() => {
-    if (!configured) {
+    if (!isConfigured) {
       setLoading(false)
       return
     }
@@ -55,10 +99,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setSession(session)
       setUser(session?.user ?? null)
       if (session?.user) {
-        loadProfile(session.user.id)
-      } else {
-        setLoading(false)
+        fetchProfile(session.user.id)
       }
+      setLoading(false)
     })
 
     // Listen for auth changes
@@ -69,7 +112,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setUser(session?.user ?? null)
       
       if (session?.user) {
-        await loadProfile(session.user.id)
+        await fetchProfile(session.user.id)
       } else {
         setProfile(null)
       }
@@ -78,160 +121,131 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     })
 
     return () => subscription.unsubscribe()
-  }, [configured])
+  }, [isConfigured])
 
-  const loadProfile = async (userId: string) => {
-    try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', userId)
-        .single()
-
-      if (error) throw error
-      setProfile(data)
-    } catch (error) {
-      console.error('Error loading profile:', error)
-      toast.error('Failed to load profile')
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const signUp = async (email: string, password: string, username: string) => {
-    if (!configured) {
-      toast.error('Supabase not configured')
-      return
-    }
-
-    try {
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: {
-            username,
-          },
+  // Sign in with Google
+  const signInWithGoogle = async () => {
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: `${window.location.origin}/auth/callback`,
+        queryParams: {
+          access_type: 'offline',
+          prompt: 'consent',
         },
-      })
+      },
+    })
 
-      if (error) throw error
-
-      if (data.user) {
-        toast.success('Account created! Please check your email to verify.')
-      }
-    } catch (error) {
-      const authError = error as AuthError
-      console.error('Sign up error:', authError)
-      toast.error(authError.message || 'Failed to create account')
+    if (error) {
+      console.error('Error signing in with Google:', error)
       throw error
     }
   }
 
-  const signIn = async (email: string, password: string) => {
-    if (!configured) {
-      toast.error('Supabase not configured')
-      return
-    }
+  // Sign in with Discord
+  const signInWithDiscord = async () => {
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'discord',
+      options: {
+        redirectTo: `${window.location.origin}/auth/callback`,
+      },
+    })
 
-    try {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      })
-
-      if (error) throw error
-
-      if (data.user) {
-        toast.success('Welcome back!')
-      }
-    } catch (error) {
-      const authError = error as AuthError
-      console.error('Sign in error:', authError)
-      toast.error(authError.message || 'Failed to sign in')
+    if (error) {
+      console.error('Error signing in with Discord:', error)
       throw error
     }
   }
 
-  const signInWithProvider = async (provider: 'google' | 'discord' | 'github') => {
-    if (!configured) {
-      toast.error('Supabase not configured')
-      return
+  // Sign in with email
+  const signInWithEmail = async (email: string, password: string) => {
+    const { error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    })
+
+    return { error }
+  }
+
+  // Sign up with email
+  const signUpWithEmail = async (email: string, password: string, username: string) => {
+    // Check if username is available
+    const { data: existingProfile } = await supabase
+      .from('profiles')
+      .select('username')
+      .eq('username', username)
+      .single()
+
+    if (existingProfile) {
+      return { error: new Error('Username already taken') }
     }
 
-    try {
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider,
-        options: {
-          redirectTo: `${window.location.origin}/#/auth/callback`,
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: {
+          username,
         },
-      })
+      },
+    })
 
-      if (error) throw error
-    } catch (error) {
-      const authError = error as AuthError
-      console.error('OAuth sign in error:', authError)
-      toast.error(authError.message || `Failed to sign in with ${provider}`)
-      throw error
+    if (error) return { error }
+
+    // Create Navidrome user
+    if (data.user) {
+      await createNavidromeUser(data.user.id, username, email)
     }
+
+    return { error: null }
   }
 
+  // Sign out
   const signOut = async () => {
-    if (!configured) return
-
-    try {
-      const { error } = await supabase.auth.signOut()
-      if (error) throw error
-      
-      setUser(null)
-      setProfile(null)
-      setSession(null)
-      toast.success('Signed out successfully')
-    } catch (error) {
-      const authError = error as AuthError
-      console.error('Sign out error:', authError)
-      toast.error(authError.message || 'Failed to sign out')
+    const { error } = await supabase.auth.signOut()
+    if (error) {
+      console.error('Error signing out:', error)
       throw error
     }
   }
 
+  // Update profile
   const updateProfile = async (updates: Partial<Profile>) => {
-    if (!configured || !user) {
-      toast.error('Not authenticated')
-      return
+    if (!user) return { error: new Error('No user logged in') }
+
+    const { error } = await supabase
+      .from('profiles')
+      .update(updates)
+      .eq('id', user.id)
+
+    if (!error) {
+      setProfile((prev) => (prev ? { ...prev, ...updates } : null))
     }
 
-    try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .update(updates)
-        .eq('id', user.id)
-        .select()
-        .single()
-
-      if (error) throw error
-
-      setProfile(data)
-      toast.success('Profile updated successfully')
-    } catch (error) {
-      console.error('Update profile error:', error)
-      toast.error('Failed to update profile')
-      throw error
-    }
+    return { error }
   }
 
-  const value: AuthContextType = {
+  const value = {
     user,
     profile,
     session,
     loading,
-    signUp,
-    signIn,
-    signInWithProvider,
+    signInWithGoogle,
+    signInWithDiscord,
+    signInWithEmail,
+    signUpWithEmail,
     signOut,
     updateProfile,
-    isConfigured: configured,
+    isConfigured,
   }
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
+}
+
+export function useAuth() {
+  const context = useContext(AuthContext)
+  if (context === undefined) {
+    throw new Error('useAuth must be used within an AuthProvider')
+  }
+  return context
 }
