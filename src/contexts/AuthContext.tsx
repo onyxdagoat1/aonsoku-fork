@@ -12,7 +12,7 @@ interface AuthContextType {
   session: Session | null
   loading: boolean
   signIn: (email: string, password: string) => Promise<void>
-  signInWithProvider: (provider: 'google' | 'discord') => Promise<void>
+  signInWithProvider: (provider: 'google' | 'discord' | 'github') => Promise<void>
   signInWithGoogle: () => Promise<void>
   signInWithDiscord: () => Promise<void>
   signInWithEmail: (email: string, password: string) => Promise<{ error: Error | null }>
@@ -31,7 +31,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true)
   const isConfigured = isSupabaseConfigured()
 
-  // Create Navidrome user for new Supabase user
+  // Create Navidrome user for new Supabase user (legacy - for email signup)
   const createNavidromeUser = async (userId: string, username: string, email: string) => {
     try {
       const authServiceUrl = import.meta.env.VITE_ACCOUNT_API_URL || 'http://localhost:3005/api'
@@ -62,15 +62,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         console.log('✅ Profile updated with Navidrome credentials')
         
-        // Store credentials in localStorage for auto-login
-        localStorage.setItem('navidrome_username', username)
-        localStorage.setItem('navidrome_password', navidromePassword)
-        localStorage.setItem('navidrome_auto_created', 'true')
-        
-        console.log('✅ Navidrome credentials stored in localStorage')
-        console.log('🔐 Username:', username)
-        console.log('🔐 Password stored')
-        
         return true
       }
       
@@ -90,7 +81,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           })
           .eq('id', userId)
           
-        // Don't store password as we don't know it for existing users
         return false
       }
       
@@ -111,7 +101,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       setProfile(data)
 
-      // If profile exists but no Navidrome user, create one
+      // If profile exists but no Navidrome user, create one (for email signups)
       if (data && !data.navidrome_username) {
         const user = (await supabase.auth.getUser()).data.user
         if (user?.email) {
@@ -164,8 +154,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => subscription.unsubscribe()
   }, [isConfigured])
 
-  // Sign in with OAuth provider (Google, Discord)
-  const signInWithProvider = async (provider: 'google' | 'discord') => {
+  // Sign in with OAuth provider (Google, Discord, GitHub)
+  const signInWithProvider = async (provider: 'google' | 'discord' | 'github') => {
     const { error } = await supabase.auth.signInWithOAuth({
       provider,
       options: {
@@ -248,11 +238,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // Sign out
   const signOut = async () => {
-    // Clear Navidrome credentials
-    localStorage.removeItem('navidrome_username')
-    localStorage.removeItem('navidrome_password')
-    localStorage.removeItem('navidrome_auto_created')
-    
     const { error } = await supabase.auth.signOut()
     if (error) {
       console.error('Error signing out:', error)
