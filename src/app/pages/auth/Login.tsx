@@ -4,7 +4,7 @@ import { useAuth } from '@/contexts/AuthContext'
 
 export function Login() {
   const navigate = useNavigate()
-  const { signIn, isConfigured } = useAuth()
+  const { signIn, signInWithProvider, isConfigured } = useAuth()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
@@ -42,12 +42,15 @@ export function Login() {
   }
 
   const handleOAuth = async (provider: 'google' | 'discord' | 'github') => {
+    setLoading(true)
+    setError('')
     try {
-      const { signInWithProvider } = useAuth()
       await signInWithProvider(provider)
     } catch (error) {
       console.error(`OAuth error:`, error)
       setError(`Failed to sign in with ${provider}`)
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -73,11 +76,12 @@ export function Login() {
               border: '1px solid var(--border)',
               borderRadius: '0.375rem',
               backgroundColor: 'transparent',
-              cursor: 'pointer',
+              cursor: loading ? 'not-allowed' : 'pointer',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              gap: '0.5rem'
+              gap: '0.5rem',
+              opacity: loading ? 0.5 : 1
             }}
           >
             <span>🔐</span> Continue with Google
@@ -91,11 +95,12 @@ export function Login() {
               border: '1px solid var(--border)',
               borderRadius: '0.375rem',
               backgroundColor: 'transparent',
-              cursor: 'pointer',
+              cursor: loading ? 'not-allowed' : 'pointer',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              gap: '0.5rem'
+              gap: '0.5rem',
+              opacity: loading ? 0.5 : 1
             }}
           >
             <span>💬</span> Continue with Discord
@@ -109,11 +114,12 @@ export function Login() {
               border: '1px solid var(--border)',
               borderRadius: '0.375rem',
               backgroundColor: 'transparent',
-              cursor: 'pointer',
+              cursor: loading ? 'not-allowed' : 'pointer',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              gap: '0.5rem'
+              gap: '0.5rem',
+              opacity: loading ? 0.5 : 1
             }}
           >
             <span>🐙</span> Continue with GitHub
@@ -154,9 +160,6 @@ export function Login() {
           <div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
               <label htmlFor="password" style={{ fontSize: '0.875rem' }}>Password</label>
-              <Link to="/auth/forgot-password" style={{ fontSize: '0.75rem', color: 'var(--primary)' }}>
-                Forgot password?
-              </Link>
             </div>
             <input
               id="password"
@@ -193,8 +196,9 @@ export function Login() {
               color: 'white',
               border: 'none',
               borderRadius: '0.375rem',
-              cursor: 'pointer',
-              fontWeight: '500'
+              cursor: loading ? 'not-allowed' : 'pointer',
+              fontWeight: '500',
+              opacity: loading ? 0.5 : 1
             }}
           >
             {loading ? 'Signing in...' : 'Sign In'}

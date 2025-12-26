@@ -12,6 +12,7 @@ import '@/i18n'
 
 import App from '@/App'
 import { AuthProvider } from '@/contexts/AuthContext'
+import { ErrorBoundary } from '@/app/components/ErrorBoundary'
 
 import { queryClient } from '@/lib/queryClient'
 import { blockFeatures } from '@/utils/browser'
@@ -20,10 +21,12 @@ blockFeatures()
 
 createRoot(document.getElementById('root') as HTMLElement).render(
   <StrictMode>
-    <QueryClientProvider client={queryClient}>
-      <AuthProvider>
-        <App />
-      </AuthProvider>
-    </QueryClientProvider>
+    <ErrorBoundary>
+      <QueryClientProvider client={queryClient}>
+        <AuthProvider>
+          <App />
+        </AuthProvider>
+      </QueryClientProvider>
+    </ErrorBoundary>
   </StrictMode>,
 )

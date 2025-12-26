@@ -1,16 +1,5 @@
 import { useAuth } from '@/contexts/AuthContext'
 import { Link } from 'react-router-dom'
-import { Button } from '@/app/components/ui/button'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/app/components/ui/dropdown-menu'
-import { Avatar, AvatarFallback, AvatarImage } from '@/app/components/ui/avatar'
-import { User, LogOut, Settings, Music } from 'lucide-react'
 
 export function UserMenu() {
   const { user, profile, signOut, isConfigured } = useAuth()
@@ -23,22 +12,37 @@ export function UserMenu() {
   // Show login button if not authenticated
   if (!user) {
     return (
-      <div className="flex items-center gap-2">
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
         <Link to="/auth/login">
-          <Button variant="ghost" size="sm">
+          <button style={{
+            padding: '0.375rem 0.75rem',
+            backgroundColor: 'transparent',
+            border: '1px solid var(--border)',
+            borderRadius: '0.375rem',
+            cursor: 'pointer',
+            fontSize: '0.875rem'
+          }}>
             Sign In
-          </Button>
+          </button>
         </Link>
         <Link to="/auth/register">
-          <Button size="sm">
+          <button style={{
+            padding: '0.375rem 0.75rem',
+            backgroundColor: 'var(--primary)',
+            color: 'white',
+            border: 'none',
+            borderRadius: '0.375rem',
+            cursor: 'pointer',
+            fontSize: '0.875rem'
+          }}>
             Sign Up
-          </Button>
+          </button>
         </Link>
       </div>
     )
   }
 
-  // Show user menu if authenticated
+  // Show user info if authenticated
   const displayName = profile?.display_name || profile?.username || user.email?.split('@')[0] || 'User'
   const initials = displayName
     .split(' ')
@@ -48,54 +52,77 @@ export function UserMenu() {
     .slice(0, 2)
 
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button variant="ghost" className="relative h-10 w-10 rounded-full">
-          <Avatar className="h-10 w-10">
-            {profile?.avatar_url && <AvatarImage src={profile.avatar_url} alt={displayName} />}
-            <AvatarFallback>{initials}</AvatarFallback>
-          </Avatar>
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent className="w-56" align="end" forceMount>
-        <DropdownMenuLabel className="font-normal">
-          <div className="flex flex-col space-y-1">
-            <p className="text-sm font-medium leading-none">{displayName}</p>
+    <div style={{ position: 'relative', display: 'inline-block' }}>
+      <button
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '0.5rem',
+          padding: '0.375rem 0.75rem',
+          backgroundColor: 'var(--card)',
+          border: '1px solid var(--border)',
+          borderRadius: '0.375rem',
+          cursor: 'pointer',
+          fontSize: '0.875rem'
+        }}
+        title={`Logged in as ${displayName}`}
+      >
+        <div style={{
+          width: '1.5rem',
+          height: '1.5rem',
+          borderRadius: '50%',
+          backgroundColor: 'var(--primary)',
+          color: 'white',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          fontSize: '0.75rem',
+          fontWeight: 'bold'
+        }}>
+          {initials}
+        </div>
+        <span>{displayName}</span>
+      </button>
+      <div style={{
+        position: 'absolute',
+        right: 0,
+        top: '100%',
+        marginTop: '0.25rem',
+        display: 'none'
+      }} className="user-menu-dropdown">
+        <div style={{
+          backgroundColor: 'var(--card)',
+          border: '1px solid var(--border)',
+          borderRadius: '0.375rem',
+          padding: '0.5rem',
+          minWidth: '10rem',
+          boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)'
+        }}>
+          <div style={{ padding: '0.5rem', borderBottom: '1px solid var(--border)', marginBottom: '0.5rem' }}>
+            <div style={{ fontWeight: '500', fontSize: '0.875rem' }}>{displayName}</div>
             {user.email && (
-              <p className="text-xs leading-none text-muted-foreground">
+              <div style={{ fontSize: '0.75rem', color: 'var(--muted-foreground)' }}>
                 {user.email}
-              </p>
+              </div>
             )}
           </div>
-        </DropdownMenuLabel>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem asChild>
-          <Link to="/profile" className="cursor-pointer">
-            <User className="mr-2 h-4 w-4" />
-            <span>Profile</span>
-          </Link>
-        </DropdownMenuItem>
-        <DropdownMenuItem asChild>
-          <Link to="/my-playlists" className="cursor-pointer">
-            <Music className="mr-2 h-4 w-4" />
-            <span>My Playlists</span>
-          </Link>
-        </DropdownMenuItem>
-        <DropdownMenuItem asChild>
-          <Link to="/settings" className="cursor-pointer">
-            <Settings className="mr-2 h-4 w-4" />
-            <span>Settings</span>
-          </Link>
-        </DropdownMenuItem>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem
-          onClick={() => signOut()}
-          className="cursor-pointer text-destructive focus:text-destructive"
-        >
-          <LogOut className="mr-2 h-4 w-4" />
-          <span>Log out</span>
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
+          <button
+            onClick={() => signOut()}
+            style={{
+              width: '100%',
+              padding: '0.5rem',
+              textAlign: 'left',
+              backgroundColor: 'transparent',
+              border: 'none',
+              cursor: 'pointer',
+              fontSize: '0.875rem',
+              color: '#ef4444'
+            }}
+          >
+            🚪 Logout
+          </button>
+        </div>
+      </div>
+    </div>
   )
 }
