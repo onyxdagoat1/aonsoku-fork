@@ -8,10 +8,11 @@ import { ScrollArea } from '@/app/components/ui/scroll-area';
 import { Separator } from '@/app/components/ui/separator';
 import { Avatar, AvatarFallback, AvatarImage } from '@/app/components/ui/avatar';
 import { Badge } from '@/app/components/ui/badge';
+import { useToast } from '@/hooks/use-toast';
 import { 
   X, Eye, ThumbsUp, MessageSquare, ChevronDown, ChevronRight, 
-  Share2, ExternalLink, Clock, ThumbsDown, Calendar, Hash,
-  PanelRightClose, PanelRightOpen
+  Share2, ExternalLink, Clock, ThumbsDown, Download, Hash,
+  PanelRightClose, PanelRightOpen, Loader2
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -27,6 +28,8 @@ export function YouTubeVideoView({ video, onClose }: VideoViewProps) {
   const [isLiked, setIsLiked] = useState(false);
   const [isDisliked, setIsDisliked] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [isDownloading, setIsDownloading] = useState(false);
+  const { toast } = useToast();
 
   useEffect(() => {
     loadComments();
@@ -71,7 +74,87 @@ export function YouTubeVideoView({ video, onClose }: VideoViewProps) {
   };
 
   const handleShare = () => {
-    navigator.clipboard.writeText(`https://www.youtube.com/watch?v=${video.id}`);
+    const url = `https://www.youtube.com/watch?v=${video.id}`;
+    navigator.clipboard.writeText(url);
+    toast({
+      title: 'Link copied!',
+      description: 'Video URL copied to clipboard',
+    });
+  };
+
+  const handleDownload = async () => {
+    setIsDownloading(true);
+    toast({
+      title: 'Downloading...',
+      description: 'Preparing your video download',
+    });
+
+    try {
+      const videoUrl = `https://www.youtube.com/watch?v=${video.id}`;
+      
+      // Call Cobalt API
+      const response = await fetch('https://cobalt-backend.canine.tools/', {
+        method: 'POST',
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          url: videoUrl,
+          videoQuality: '1080',
+          filenameStyle: 'pretty',
+          downloadMode: 'auto'
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Download failed');
+      }
+
+      const data = await response.json();
+      
+      if (data.status === 'success' || data.status === 'redirect') {
+        const downloadUrl = data.url;
+        
+        // Create download link
+        const link = document.createElement('a');
+        link.href = downloadUrl;
+        link.download = `${video.title}.mp4`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        toast({
+          title: 'Download started!',
+          description: 'Your video is being downloaded',
+        });
+      } else if (data.status === 'picker') {
+        // Multiple quality options available
+        const bestQuality = data.picker[0];
+        const link = document.createElement('a');
+        link.href = bestQuality.url;
+        link.download = `${video.title}.mp4`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        toast({
+          title: 'Download started!',
+          description: 'Your video is being downloaded',
+        });
+      } else {
+        throw new Error(data.text || 'Download failed');
+      }
+    } catch (err) {
+      console.error('Download error:', err);
+      toast({
+        title: 'Download failed',
+        description: 'Could not download video. Try opening in YouTube instead.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsDownloading(false);
+    }
   };
 
   const extractTags = (description: string) => {
@@ -149,55 +232,57 @@ export function YouTubeVideoView({ video, onClose }: VideoViewProps) {
               {/* Title */}
               <h1 className="text-2xl font-bold leading-tight">{video.title}</h1>
               
-              {/* Stats and Actions Bar */}
-              <div className="flex items-center justify-between gap-4">
-                {/* Left: Stats */}
-                <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                  <span className="flex items-center gap-1.5">
-                    <Eye className="w-4 h-4" />
-                    {formatNumber(video.viewCount)} views
-                  </span>
-                  <span>•</span>
-                  <span>{formatDate(video.publishedAt)}</span>
-                </div>
+              {/* Action Buttons */}
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  className={cn(isLiked && 'bg-primary text-primary-foreground')}
+                  onClick={() => {
+                    setIsLiked(!isLiked);
+                    if (isDisliked) setIsDisliked(false);
+                  }}
+                >
+                  <ThumbsUp className="w-4 h-4 mr-2" />
+                  {formatNumber(video.likeCount)}
+                </Button>
                 
-                {/* Right: Action Buttons */}
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    className={cn(isLiked && 'bg-primary text-primary-foreground')}
-                    onClick={() => {
-                      setIsLiked(!isLiked);
-                      if (isDisliked) setIsDisliked(false);
-                    }}
-                  >
-                    <ThumbsUp className="w-4 h-4 mr-2" />
-                    {formatNumber(video.likeCount)}
-                  </Button>
-                  
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    className={cn(isDisliked && 'bg-primary text-primary-foreground')}
-                    onClick={() => {
-                      setIsDisliked(!isDisliked);
-                      if (isLiked) setIsLiked(false);
-                    }}
-                  >
-                    <ThumbsDown className="w-4 h-4" />
-                  </Button>
-                  
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={handleShare}
-                    className="gap-2"
-                  >
-                    <Share2 className="w-4 h-4" />
-                    Share
-                  </Button>
-                </div>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  className={cn(isDisliked && 'bg-primary text-primary-foreground')}
+                  onClick={() => {
+                    setIsDisliked(!isDisliked);
+                    if (isLiked) setIsLiked(false);
+                  }}
+                >
+                  <ThumbsDown className="w-4 h-4" />
+                </Button>
+                
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={handleShare}
+                  className="gap-2"
+                >
+                  <Share2 className="w-4 h-4" />
+                  Share
+                </Button>
+
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={handleDownload}
+                  disabled={isDownloading}
+                  className="gap-2"
+                >
+                  {isDownloading ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Download className="w-4 h-4" />
+                  )}
+                  {isDownloading ? 'Downloading...' : 'Download'}
+                </Button>
               </div>
 
               {/* Tags */}
@@ -241,10 +326,9 @@ export function YouTubeVideoView({ video, onClose }: VideoViewProps) {
                       </div>
                     </div>
                     <div>
-                      <div className="text-muted-foreground mb-1">Comments</div>
-                      <div className="font-medium flex items-center gap-1.5">
-                        <MessageSquare className="w-4 h-4" />
-                        {formatNumber(video.commentCount)}
+                      <div className="text-muted-foreground mb-1">Published</div>
+                      <div className="font-medium text-sm">
+                        {formatDate(video.publishedAt)}
                       </div>
                     </div>
                   </div>
