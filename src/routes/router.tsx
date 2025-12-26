@@ -45,6 +45,11 @@ const ArtGallery = lazy(() => import('@/app/pages/art/gallery'));
 const UploadPage = lazy(() => import('@/app/pages/upload'));
 const YouTubePage = lazy(() => import('@/app/pages/youtube'));
 
+// Supabase Auth Pages
+const SupabaseLogin = lazy(() => import('@/app/pages/auth/Login').then(m => ({ default: m.Login })));
+const SupabaseRegister = lazy(() => import('@/app/pages/auth/Register').then(m => ({ default: m.Register })));
+const AuthCallback = lazy(() => import('@/app/pages/auth/AuthCallback').then(m => ({ default: m.AuthCallback })));
+
 export const router = createHashRouter([
   {
     path: ROUTES.LIBRARY.HOME,
@@ -244,6 +249,34 @@ export const router = createHashRouter([
     element: (
       <Suspense>
         <RegisterPage />
+      </Suspense>
+    ),
+  },
+  // Supabase Auth Routes
+  {
+    id: 'auth-login',
+    path: '/auth/login',
+    element: (
+      <Suspense fallback={<div>Loading...</div>}>
+        <SupabaseLogin />
+      </Suspense>
+    ),
+  },
+  {
+    id: 'auth-register',
+    path: '/auth/register',
+    element: (
+      <Suspense fallback={<div>Loading...</div>}>
+        <SupabaseRegister />
+      </Suspense>
+    ),
+  },
+  {
+    id: 'auth-callback',
+    path: '/auth/callback',
+    element: (
+      <Suspense fallback={<div>Loading...</div>}>
+        <AuthCallback />
       </Suspense>
     ),
   },
