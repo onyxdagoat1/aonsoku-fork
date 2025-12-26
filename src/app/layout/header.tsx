@@ -4,6 +4,7 @@ import { UserDropdown } from '@/app/components/header/user-dropdown'
 import { HeaderSongInfo } from '@/app/components/header-song'
 import { SettingsButton } from '@/app/components/settings/header-button'
 import { MainSidebarTrigger } from '@/app/components/ui/main-sidebar'
+import { UserMenu } from '@/app/components/user/UserMenu'
 import { useAppWindow } from '@/app/hooks/use-app-window'
 import { isLinux, isMacOS, isWindows } from '@/utils/desktop'
 
@@ -19,6 +20,7 @@ export function Header() {
       </div>
       <HeaderSongInfo />
       <div className="flex justify-end items-center gap-2">
+        <UserMenu />
         <ThemeToggle />
         <SettingsButton />
         <UserDropdown />
