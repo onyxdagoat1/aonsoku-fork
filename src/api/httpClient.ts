@@ -105,59 +105,20 @@ export async function httpClient<T>(
   }
 }
 
-// Cache for cover art URLs to prevent regenerating auth params on every call
-const coverArtUrlCache = new Map<string, string>()
-let lastAuthState = ''
-
-function getCacheKey(id: string | undefined, type: CoverArt, size: string): string {
-  return `${id || 'default'}_${type}_${size}`
-}
-
-function getCurrentAuthState(): string {
-  const { username, password, authType } = useAppStore.getState().data
-  return `${username}:${password}:${authType}`
-}
-
-// Clear cache when auth state changes
-function clearCoverArtCache() {
-  coverArtUrlCache.clear()
-  console.log('[httpClient] Cover art cache cleared')
-}
-
 export function getCoverArtUrl(
   id?: string,
   type: CoverArt = 'album',
   size = '300',
 ): string {
-  // Handle default cover art (no auth needed)
   if (!id) {
+    // everything except artists uses the same default cover art
     type = type === 'artist' ? 'artist' : 'album'
     return `/default_${type}_art.webp`
   }
-
-  // Check if auth state changed (user logged out/in)
-  const currentAuthState = getCurrentAuthState()
-  if (currentAuthState !== lastAuthState) {
-    clearCoverArtCache()
-    lastAuthState = currentAuthState
-  }
-
-  // Check cache first
-  const cacheKey = getCacheKey(id, type, size)
-  const cachedUrl = coverArtUrlCache.get(cacheKey)
-  
-  if (cachedUrl) {
-    return cachedUrl
-  }
-
-  // Generate new URL and cache it
-  const url = getUrl('getCoverArt', {
+  return getUrl('getCoverArt', {
     id,
     size,
   })
-  
-  coverArtUrlCache.set(cacheKey, url)
-  return url
 }
 
 export function getSongStreamUrl(
