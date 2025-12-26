@@ -1,14 +1,14 @@
 {
-  "name": "aonsoku",
+  "name": "yedits-net",
   "private": true,
   "version": "0.10.2",
-  "description": "A modern desktop client for Navidrome/Subsonic servers.",
+  "description": "A modern desktop client for Navidrome music servers.",
   "author": {
     "name": "Victor Alves"
   },
   "main": "./out/main/index.js",
   "type": "module",
-  "productName": "Aonsoku",
+  "productName": "yedits.net",
   "scripts": {
     "dev": "npm run dev:all",
     "dev:all": "concurrently --kill-others --names \"APP,TAG,UPLOAD\" --prefix-colors \"blue,yellow,green\" \"npm run dev:frontend\" \"npm run dev:tag-writer\" \"npm run dev:upload\"",
@@ -37,7 +37,7 @@
     "prepare": "husky"
   },
   "repository": {
-    "url": "https://github.com/victoralvesf/aonsoku"
+    "url": "https://github.com/onyxdagoat1/aonsoku-fork"
   },
   "dependencies": {
     "@chriscodesthings/random-css-hex-color": "^1.1.0",
