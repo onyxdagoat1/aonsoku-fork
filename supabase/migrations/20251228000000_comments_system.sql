@@ -140,7 +140,21 @@ CREATE POLICY "Users can delete own reactions"
 -- Create view for comments with reaction counts
 CREATE OR REPLACE VIEW public.comments_with_reactions AS
 SELECT 
-  c.*,
+  c.id,
+  c.content_type,
+  c.content_id,
+  c.user_id,
+  c.username,
+  c.user_avatar,
+  c.text,
+  c.parent_id,
+  c.reply_count,
+  c.created_at,
+  c.updated_at,
+  c.edited,
+  c.pinned,
+  c.deleted,
+  c.reported,
   COALESCE(
     json_object_agg(
       r.reaction_type, 
@@ -152,7 +166,22 @@ SELECT
 FROM public.comments c
 LEFT JOIN public.comment_reactions r ON c.id = r.comment_id
 WHERE c.deleted = FALSE
-GROUP BY c.id;
+GROUP BY 
+  c.id,
+  c.content_type,
+  c.content_id,
+  c.user_id,
+  c.username,
+  c.user_avatar,
+  c.text,
+  c.parent_id,
+  c.reply_count,
+  c.created_at,
+  c.updated_at,
+  c.edited,
+  c.pinned,
+  c.deleted,
+  c.reported;
 
 -- Grant permissions
 GRANT ALL ON public.comments TO authenticated;
