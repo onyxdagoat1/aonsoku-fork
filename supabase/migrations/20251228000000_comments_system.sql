@@ -128,7 +128,7 @@ SELECT
     ) FILTER (WHERE r.reaction_type IS NOT NULL),
     '{}'
   ) as reaction_counts,
-  COALESCE(COUNT(r.id), 0) as total_reactions
+  COUNT(r.id) as total_reactions
 FROM public.comments c
 LEFT JOIN public.comment_reactions r ON c.id = r.comment_id
 WHERE c.deleted = FALSE
