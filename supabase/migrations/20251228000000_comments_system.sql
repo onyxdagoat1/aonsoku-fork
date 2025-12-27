@@ -75,7 +75,7 @@ BEGIN
     UPDATE public.comments
     SET reply_count = GREATEST(reply_count - 1, 0)
     WHERE id = OLD.parent_id;
-  END IF
+  END IF;
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
