@@ -75,7 +75,7 @@ BEGIN
     UPDATE public.comments
     SET reply_count = GREATEST(reply_count - 1, 0)
     WHERE id = OLD.parent_id;
-  END IF;
+  END IF
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
@@ -104,6 +104,7 @@ CREATE TRIGGER trigger_update_updated_at
   EXECUTE FUNCTION update_updated_at_column();
 
 -- Create view for comments with reaction counts
+-- Note: We calculate reaction_counts as JSON and total_reactions separately
 CREATE VIEW public.comments_with_reactions AS
 SELECT 
   c.id,
@@ -128,7 +129,7 @@ SELECT
     ) FILTER (WHERE r.reaction_type IS NOT NULL),
     '{}'
   ) as reaction_counts,
-  COUNT(r.id) as total_reactions
+  COUNT(r.id) FILTER (WHERE r.id IS NOT NULL) as total_reactions
 FROM public.comments c
 LEFT JOIN public.comment_reactions r ON c.id = r.comment_id
 WHERE c.deleted = FALSE
@@ -205,7 +206,7 @@ GRANT ALL ON public.comments TO authenticated, anon;
 GRANT ALL ON public.comment_reactions TO authenticated, anon;
 GRANT SELECT ON public.comments_with_reactions TO authenticated, anon;
 
--- Add helpful comment
+-- Add helpful comments
 COMMENT ON TABLE public.comments IS 'User comments on artists, albums, songs, compilations, and singles';
 COMMENT ON TABLE public.comment_reactions IS 'Emoji reactions to comments';
 COMMENT ON VIEW public.comments_with_reactions IS 'Comments with aggregated reaction counts for efficient querying';
