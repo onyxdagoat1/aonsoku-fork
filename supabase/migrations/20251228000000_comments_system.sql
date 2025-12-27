@@ -104,7 +104,7 @@ CREATE TRIGGER trigger_update_updated_at
   EXECUTE FUNCTION update_updated_at_column();
 
 -- Create view for comments with reaction counts
--- Note: We calculate reaction_counts as JSON and total_reactions separately
+-- Using a subquery to avoid nested aggregate functions
 CREATE VIEW public.comments_with_reactions AS
 SELECT 
   c.id,
@@ -122,33 +122,25 @@ SELECT
   c.pinned,
   c.deleted,
   c.reported,
-  COALESCE(
-    json_object_agg(
-      r.reaction_type, 
-      COUNT(r.id)
-    ) FILTER (WHERE r.reaction_type IS NOT NULL),
-    '{}'
-  ) as reaction_counts,
-  COUNT(r.id) FILTER (WHERE r.id IS NOT NULL) as total_reactions
+  COALESCE(r.reaction_counts, '{}') as reaction_counts,
+  COALESCE(r.total_reactions, 0) as total_reactions
 FROM public.comments c
-LEFT JOIN public.comment_reactions r ON c.id = r.comment_id
-WHERE c.deleted = FALSE
-GROUP BY 
-  c.id,
-  c.content_type,
-  c.content_id,
-  c.user_id,
-  c.username,
-  c.user_avatar,
-  c.text,
-  c.parent_id,
-  c.reply_count,
-  c.created_at,
-  c.updated_at,
-  c.edited,
-  c.pinned,
-  c.deleted,
-  c.reported;
+LEFT JOIN (
+  SELECT 
+    comment_id,
+    json_object_agg(reaction_type, reaction_count) as reaction_counts,
+    SUM(reaction_count) as total_reactions
+  FROM (
+    SELECT 
+      comment_id,
+      reaction_type,
+      COUNT(*) as reaction_count
+    FROM public.comment_reactions
+    GROUP BY comment_id, reaction_type
+  ) reaction_summary
+  GROUP BY comment_id
+) r ON c.id = r.comment_id
+WHERE c.deleted = FALSE;
 
 -- Enable Row Level Security
 ALTER TABLE public.comments ENABLE ROW LEVEL SECURITY;
