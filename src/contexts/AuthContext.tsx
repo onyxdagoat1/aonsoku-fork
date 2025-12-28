@@ -29,7 +29,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [profile, setProfile] = useState<Profile | null>(null)
   const [session, setSession] = useState<Session | null>(null)
   const [loading, setLoading] = useState(true)
-  const isConfigured = isSupabaseConfigured()
 
   // Create Navidrome user for new Supabase user (legacy - for email signup)
   const createNavidromeUser = async (userId: string, username: string, email: string) => {
@@ -118,7 +117,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // Initialize auth state
   useEffect(() => {
-    if (!isConfigured) {
+    if (!isSupabaseConfigured) {
       setLoading(false)
       return
     }
@@ -152,7 +151,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     })
 
     return () => subscription.unsubscribe()
-  }, [isConfigured])
+  }, [isSupabaseConfigured])
 
   // Sign in with OAuth provider (Google, Discord, GitHub)
   const signInWithProvider = async (provider: 'google' | 'discord' | 'github') => {
@@ -274,7 +273,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     signUpWithEmail,
     signOut,
     updateProfile,
-    isConfigured,
+    isConfigured: isSupabaseConfigured,
   }
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
