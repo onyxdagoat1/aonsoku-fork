@@ -1,40 +1,48 @@
 import { useParams } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
-import { subsonic } from '@/app/clients/subsonic'
-import { Skeleton } from '@/app/components/ui/skeleton'
-import { Card } from '@/app/components/ui/card'
-import { AspectRatio } from '@/app/components/ui/aspect-ratio'
-import { Button } from '@/app/components/ui/button'
-import { Play, Heart, MoreHorizontal } from 'lucide-react'
-// import Comments from '@/app/components/comments'
+import { useTranslation } from 'react-i18next'
+import { useGetAlbum, useGetAlbumInfo } from '@/app/hooks/use-album'
+import { AlbumFallback } from '@/app/components/fallbacks/album-fallbacks'
+import ImageHeader from '@/app/components/album/image-header'
+import AlbumTable from '@/app/components/album/album-table'
+import ListWrapper from '@/app/components/list-wrapper'
+import ErrorPage from '@/app/pages/error-page'
+import { BadgesData } from '@/app/components/header-info'
+import Comments from '@/app/components/comments'
 
-export default function AlbumPage() {
-  const { id } = useParams<{ id: string }>()
+export default function Album() {
+  const { t } = useTranslation()
+  const { albumId } = useParams() as { albumId: string }
 
-  const { data: album, isLoading } = useQuery({
-    queryKey: ['album', id],
-    queryFn: () => subsonic.getAlbum({ id: id! }),
-    enabled: !!id,
-  })
+  const { data: album, isLoading, isFetched } = useGetAlbum(albumId)
+  const { data: albumInfo } = useGetAlbumInfo(albumId)
 
-  if (isLoading) {
-    return (
-      <div className="container mx-auto p-6 space-y-6">
-        <div className="flex gap-6">
-          <Skeleton className="h-64 w-64 rounded-lg" />
-          <div className="flex-1 space-y-4">
-            <Skeleton className="h-12 w-3/4" />
-            <Skeleton className="h-6 w-1/2" />
-            <Skeleton className="h-24 w-full" />
-          </div>
-        </div>
-      </div>
-    )
+  if (isLoading) return <AlbumFallback />
+  if (isFetched && !album) {
+    return <ErrorPage status={404} statusText="Not Found" />
   }
+  if (!album) return <AlbumFallback />
 
-  if (!album) {
-    return <div className="container mx-auto p-6">Album not found</div>
-  }
+  const badges: BadgesData = [
+    {
+      content: album.artist,
+      type: 'artist',
+      artistId: album.artistId,
+    },
+    {
+      content: album.year?.toString(),
+      type: 'text',
+    },
+    {
+      content: t('playlist.songCount', { count: album.songCount }),
+      type: 'text',
+    },
+    {
+      content: album.duration
+        ? `${Math.floor(album.duration / 60)} ${t('common.minuteShort')}`
+        : null,
+      type: 'text',
+    },
+  ]
 
   // Detect entity type
   const isSingle = album.songCount === 1
@@ -45,48 +53,27 @@ export default function AlbumPage() {
       : 'album'
 
   return (
-    <div className="container mx-auto p-6 space-y-8">
-      {/* Album Header */}
-      <div className="flex gap-6">
-        <Card className="overflow-hidden">
-          <AspectRatio ratio={1}>
-            <img
-              src={album.coverArt}
-              alt={album.name}
-              className="object-cover w-full h-full"
-            />
-          </AspectRatio>
-        </Card>
+    <div className="w-full">
+      <ImageHeader
+        type={t('album.headline')}
+        title={album.name}
+        coverArtId={album.coverArt}
+        coverArtType="album"
+        coverArtSize="700"
+        coverArtAlt={album.name}
+        badges={badges}
+      />
 
-        <div className="flex-1 space-y-4">
-          <h1 className="text-4xl font-bold">{album.name}</h1>
-          <p className="text-lg text-muted-foreground">{album.artist}</p>
-          
-          <div className="flex gap-2">
-            <Button size="lg">
-              <Play className="h-5 w-5 mr-2" />
-              Play
-            </Button>
-            <Button size="lg" variant="outline">
-              <Heart className="h-5 w-5" />
-            </Button>
-            <Button size="lg" variant="outline">
-              <MoreHorizontal className="h-5 w-5" />
-            </Button>
-          </div>
-        </div>
-      </div>
+      <ListWrapper>
+        <AlbumTable album={album} albumInfo={albumInfo} />
 
-      {/* Track list would go here */}
-
-      {/* Comments Section - Temporarily Disabled */}
-      {/* <div className="mt-8">
+        {/* Comments Section */}
         <Comments
           entityType={entityType}
           entityId={album.id}
           entityName={album.name}
         />
-      </div> */}
+      </ListWrapper>
     </div>
   )
 }
