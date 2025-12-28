@@ -1,98 +1,124 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { useAuth } from './use-auth'
+import { toast } from 'react-toastify'
 import {
-  fetchComments,
+  getComments,
   createComment,
-  deleteComment as apiDeleteComment,
-  likeComment as apiLikeComment,
-} from '../features/comments/api'
-import { Comment, CreateCommentDto } from '../features/comments/types'
+  deleteComment,
+  likeComment,
+} from '@/app/features/comments/api'
+import type { Comment, CreateCommentData } from '@/app/features/comments/types'
+import { useAuth } from './use-auth'
 
 export function useComments(
   entityType: 'artist' | 'album' | 'compilation' | 'single',
   entityId: string,
 ) {
-  const { user } = useAuth()
+  return useQuery({
+    queryKey: ['comments', entityType, entityId],
+    queryFn: () => getComments(entityType, entityId),
+  })
+}
+
+export function useCreateComment() {
   const queryClient = useQueryClient()
 
-  const queryKey = ['comments', entityType, entityId]
-
-  const { data: comments, isLoading } = useQuery<Comment[]>({
-    queryKey,
-    queryFn: () => fetchComments(entityType, entityId),
-    enabled: !!entityId,
-  })
-
-  const { mutateAsync: addComment, isPending: isAddingComment } = useMutation({
-    mutationFn: async (content: string) => {
-      if (!user) throw new Error('Must be logged in to comment')
-
-      const dto: CreateCommentDto = {
-        entity_type: entityType,
-        entity_id: entityId,
-        user_id: user.id,
-        user_name: user.username || user.email || 'Anonymous',
-        content,
-      }
-
-      return createComment(dto)
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey })
-    },
-  })
-
-  const { mutateAsync: deleteComment } = useMutation({
-    mutationFn: (commentId: number) => apiDeleteComment(commentId),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey })
-    },
-  })
-
-  const { mutateAsync: likeComment } = useMutation({
-    mutationFn: async (commentId: number) => {
-      if (!user) throw new Error('Must be logged in to like')
-      return apiLikeComment(commentId, user.id)
-    },
-    onMutate: async (commentId) => {
-      await queryClient.cancelQueries({ queryKey })
-
-      const previousComments = queryClient.getQueryData<Comment[]>(queryKey)
-
-      queryClient.setQueryData<Comment[]>(queryKey, (old) => {
-        if (!old) return old
-        return old.map((comment) => {
-          if (comment.id === commentId) {
-            return {
-              ...comment,
-              likes: comment.user_has_liked
-                ? comment.likes - 1
-                : comment.likes + 1,
-              user_has_liked: !comment.user_has_liked,
-            }
-          }
-          return comment
-        })
+  return useMutation({
+    mutationFn: createComment,
+    onMutate: async (newComment) => {
+      // Cancel outgoing refetches
+      await queryClient.cancelQueries({
+        queryKey: ['comments', newComment.entityType, newComment.entityId],
       })
+
+      // Snapshot previous value
+      const previousComments = queryClient.getQueryData([
+        'comments',
+        newComment.entityType,
+        newComment.entityId,
+      ])
+
+      // Optimistically update
+      queryClient.setQueryData<Comment[]>(
+        ['comments', newComment.entityType, newComment.entityId],
+        (old = []) => [
+          {
+            id: Date.now(), // temporary ID
+            ...newComment,
+            createdAt: new Date().toISOString(),
+            likes: 0,
+            userHasLiked: false,
+          },
+          ...old,
+        ],
+      )
 
       return { previousComments }
     },
-    onError: (err, commentId, context) => {
-      if (context?.previousComments) {
-        queryClient.setQueryData(queryKey, context.previousComments)
-      }
+    onError: (err, newComment, context) => {
+      // Rollback on error
+      queryClient.setQueryData(
+        ['comments', newComment.entityType, newComment.entityId],
+        context?.previousComments,
+      )
+      toast.error('Failed to post comment')
     },
-    onSettled: () => {
-      queryClient.invalidateQueries({ queryKey })
+    onSuccess: (data, variables) => {
+      // Invalidate to refetch with real data
+      queryClient.invalidateQueries({
+        queryKey: ['comments', variables.entityType, variables.entityId],
+      })
+      toast.success('Comment posted!')
     },
   })
+}
 
-  return {
-    comments,
-    isLoading,
-    addComment,
-    deleteComment,
-    likeComment,
-    isAddingComment,
-  }
+export function useDeleteComment() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: deleteComment,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['comments'] })
+      toast.success('Comment deleted')
+    },
+    onError: () => {
+      toast.error('Failed to delete comment')
+    },
+  })
+}
+
+export function useLikeComment() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: ({ commentId, userId }: { commentId: number; userId: string }) =>
+      likeComment(commentId, userId),
+    onMutate: async ({ commentId }) => {
+      // Find the comment in all queries
+      const queries = queryClient.getQueriesData<Comment[]>({
+        queryKey: ['comments'],
+      })
+
+      queries.forEach(([queryKey, comments]) => {
+        if (comments) {
+          queryClient.setQueryData<Comment[]>(queryKey, (old = []) =>
+            old.map((comment) =>
+              comment.id === commentId
+                ? {
+                    ...comment,
+                    likes: comment.userHasLiked
+                      ? comment.likes - 1
+                      : comment.likes + 1,
+                    userHasLiked: !comment.userHasLiked,
+                  }
+                : comment,
+            ),
+          )
+        }
+      })
+    },
+    onError: () => {
+      queryClient.invalidateQueries({ queryKey: ['comments'] })
+    },
+  })
 }
