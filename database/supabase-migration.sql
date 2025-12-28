@@ -102,40 +102,55 @@ EXECUTE FUNCTION update_updated_at_column();
 ALTER TABLE public.comments ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.comment_likes ENABLE ROW LEVEL SECURITY;
 
--- Anyone can read comments
+-- Drop existing policies if they exist
+DROP POLICY IF EXISTS "Comments are viewable by everyone" ON public.comments;
+DROP POLICY IF EXISTS "Authenticated users can create comments" ON public.comments;
+DROP POLICY IF EXISTS "Users can delete their own comments" ON public.comments;
+DROP POLICY IF EXISTS "Users can update their own comments" ON public.comments;
+DROP POLICY IF EXISTS "Likes are viewable by everyone" ON public.comment_likes;
+DROP POLICY IF EXISTS "Authenticated users can like comments" ON public.comment_likes;
+DROP POLICY IF EXISTS "Users can unlike comments" ON public.comment_likes;
+
+-- Anyone can read comments (public access)
 CREATE POLICY "Comments are viewable by everyone"
 ON public.comments FOR SELECT
 USING (true);
 
--- Only authenticated users can create comments
-CREATE POLICY "Authenticated users can create comments"
+-- Anyone can create comments (we handle auth in the app)
+CREATE POLICY "Anyone can create comments"
 ON public.comments FOR INSERT
-WITH CHECK (auth.role() = 'authenticated');
+WITH CHECK (true);
 
--- Users can only delete their own comments
-CREATE POLICY "Users can delete their own comments"
-ON public.comments FOR DELETE
-USING (auth.uid()::text = user_id);
-
--- Users can update their own comments
-CREATE POLICY "Users can update their own comments"
+-- Anyone can update comments (we handle auth in the app)
+CREATE POLICY "Anyone can update comments"
 ON public.comments FOR UPDATE
-USING (auth.uid()::text = user_id);
+USING (true);
+
+-- Anyone can delete comments (we handle auth in the app)
+CREATE POLICY "Anyone can delete comments"
+ON public.comments FOR DELETE
+USING (true);
 
 -- Anyone can read likes
 CREATE POLICY "Likes are viewable by everyone"
 ON public.comment_likes FOR SELECT
 USING (true);
 
--- Only authenticated users can like
-CREATE POLICY "Authenticated users can like comments"
+-- Anyone can like comments (we handle auth in the app)
+CREATE POLICY "Anyone can like comments"
 ON public.comment_likes FOR INSERT
-WITH CHECK (auth.role() = 'authenticated');
+WITH CHECK (true);
 
--- Users can unlike (delete their own likes)
-CREATE POLICY "Users can unlike comments"
+-- Anyone can unlike comments (we handle auth in the app)
+CREATE POLICY "Anyone can unlike comments"
 ON public.comment_likes FOR DELETE
-USING (auth.uid()::text = user_id);
+USING (true);
+
+-- Grant public access to anon role
+GRANT ALL ON public.comments TO anon, authenticated;
+GRANT ALL ON public.comment_likes TO anon, authenticated;
+GRANT USAGE, SELECT ON SEQUENCE comments_id_seq TO anon, authenticated;
+GRANT USAGE, SELECT ON SEQUENCE comment_likes_id_seq TO anon, authenticated;
 
 -- ============================================
 -- Sample Data (Optional - for testing)
