@@ -18,7 +18,7 @@ import {
 import ErrorPage from '@/app/pages/error-page'
 import { ROUTES } from '@/routes/routesList'
 import { sortRecentAlbums } from '@/utils/album'
-import Comments from '@/app/components/comments'
+// import Comments from '@/app/components/comments'
 
 export default function Artist() {
   const { t } = useTranslation()
@@ -118,12 +118,12 @@ export default function Artist() {
           />
         )}
 
-        {/* Comments Section */}
-        <Comments
+        {/* Comments Section - DISABLED FOR DEBUGGING */}
+        {/* <Comments
           entityType="artist"
           entityId={artist.id}
           entityName={artist.name}
-        />
+        /> */}
       </ListWrapper>
     </div>
   )

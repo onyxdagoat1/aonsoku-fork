@@ -23,7 +23,7 @@ import { ColumnFilter } from '@/types/columnFilter'
 import { Albums } from '@/types/responses/album'
 import { sortRecentAlbums } from '@/utils/album'
 import { convertSecondsToHumanRead } from '@/utils/convertSecondsToTime'
-import Comments from '@/app/components/comments'
+// import Comments from '@/app/components/comments'
 
 export default function Album() {
   const { albumId } = useParams() as { albumId: string }
@@ -119,11 +119,11 @@ export default function Album() {
   const albumComment = album.song.length > 0 ? album.song[0].comment : null
 
   // Detect entity type for comments
-  const entityType = isSingle 
-    ? 'single' 
-    : album.compilation 
-      ? 'compilation' 
-      : 'album'
+  // const entityType = isSingle 
+  //   ? 'single' 
+  //   : album.compilation 
+  //     ? 'compilation' 
+  //     : 'album'
 
   return (
     <div className="w-full">
@@ -180,12 +180,12 @@ export default function Album() {
           )}
         </div>
 
-        {/* Comments Section */}
-        <Comments
+        {/* Comments Section - DISABLED FOR DEBUGGING */}
+        {/* <Comments
           entityType={entityType}
           entityId={album.id}
           entityName={album.name}
-        />
+        /> */}
       </ListWrapper>
     </div>
   )
