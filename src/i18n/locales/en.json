@@ -203,6 +203,33 @@
     "recentAlbums": "Recent comps",
     "relatedArtists": "Related artists"
   },
+  "comments": {
+    "title_one": "{{count}} Comment",
+    "title_other": "{{count}} Comments",
+    "subtitle": "Share your thoughts about {{name}}",
+    "empty": "No comments yet. Be the first to share your thoughts!",
+    "delete": "Delete",
+    "deleteDialog": {
+      "title": "Delete Comment?",
+      "description": "This action cannot be undone."
+    },
+    "form": {
+      "placeholder": "Write your comment about this {{type}}...",
+      "post": "Post Comment",
+      "posting": "Posting...",
+      "loginRequired": "Please log in to leave a comment",
+      "error": {
+        "empty": "Comment cannot be empty",
+        "tooLong": "Comment is too long (max 1000 characters)",
+        "failed": "Failed to post comment"
+      }
+    }
+  },
+  "common": {
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "deleting": "Deleting..."
+  },
   "podcasts": {
     "form": {
       "all": "Browse",
