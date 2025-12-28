@@ -1,73 +1,75 @@
 import { createClient } from '@supabase/supabase-js'
-import type { Database } from './database.types'
 
-// Get environment variables
+// Supabase configuration
+// Add these to your .env file:
+// VITE_SUPABASE_URL=your_supabase_url
+// VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
+
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
 
-// Check if Supabase is configured
-export const isSupabaseConfigured = (): boolean => {
-  return Boolean(supabaseUrl && supabaseAnonKey)
+if (!supabaseUrl || !supabaseAnonKey) {
+  console.warn(
+    'Supabase credentials not found. Comments will use mock data. ' +
+    'Add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY to your .env file.'
+  )
 }
 
-// Create a placeholder client if not configured
-const createPlaceholderClient = () => {
-  // Return a dummy client that won't crash the app
-  return {
-    auth: {
-      getSession: async () => ({ data: { session: null }, error: null }),
-      onAuthStateChange: () => ({ data: { subscription: { unsubscribe: () => {} } } }),
-      signUp: async () => ({ data: null, error: new Error('Supabase not configured') }),
-      signInWithPassword: async () => ({ data: null, error: new Error('Supabase not configured') }),
-      signInWithOAuth: async () => ({ data: null, error: new Error('Supabase not configured') }),
-      signOut: async () => ({ error: null }),
-      getUser: async () => ({ data: { user: null }, error: new Error('Supabase not configured') }),
-    },
-    from: () => ({
-      select: () => ({
-        eq: () => ({
-          single: async () => ({ data: null, error: new Error('Supabase not configured') }),
-          order: () => ({ data: [], error: null }),
-        }),
-        order: () => ({ data: [], error: null }),
-      }),
-      insert: () => ({
-        select: () => ({
-          single: async () => ({ data: null, error: new Error('Supabase not configured') }),
-        }),
-      }),
-      update: () => ({
-        eq: () => ({
-          select: () => ({
-            single: async () => ({ data: null, error: new Error('Supabase not configured') }),
-          }),
-        }),
-      }),
-      delete: () => ({
-        eq: () => ({ error: null }),
-      }),
-    }),
-  } as any
-}
+export const supabase = createClient(
+  supabaseUrl || 'https://placeholder.supabase.co',
+  supabaseAnonKey || 'placeholder-key'
+)
 
-// Create Supabase client only if configured
-export const supabase = isSupabaseConfigured()
-  ? createClient<Database>(supabaseUrl!, supabaseAnonKey!, {
-      auth: {
-        autoRefreshToken: true,
-        persistSession: true,
-        detectSessionInUrl: true,
-        flowType: 'pkce',
-      },
-    })
-  : createPlaceholderClient()
-
-// Log configuration status for debugging
-if (import.meta.env.DEV) {
-  console.log('Supabase Configuration:', {
-    configured: isSupabaseConfigured(),
-    hasUrl: Boolean(supabaseUrl),
-    hasKey: Boolean(supabaseAnonKey),
-    url: supabaseUrl ? `${supabaseUrl.slice(0, 30)}...` : 'not set',
-  })
+// Database types
+export interface Database {
+  public: {
+    Tables: {
+      comments: {
+        Row: {
+          id: number
+          entity_type: 'artist' | 'album' | 'compilation' | 'single'
+          entity_id: string
+          user_id: string
+          username: string
+          content: string
+          created_at: string
+          updated_at: string | null
+          likes: number
+        }
+        Insert: {
+          id?: number
+          entity_type: 'artist' | 'album' | 'compilation' | 'single'
+          entity_id: string
+          user_id: string
+          username: string
+          content: string
+          created_at?: string
+          updated_at?: string | null
+          likes?: number
+        }
+        Update: {
+          content?: string
+          updated_at?: string | null
+        }
+      }
+      comment_likes: {
+        Row: {
+          id: number
+          comment_id: number
+          user_id: string
+          created_at: string
+        }
+        Insert: {
+          id?: number
+          comment_id: number
+          user_id: string
+          created_at?: string
+        }
+        Delete: {
+          comment_id: number
+          user_id: string
+        }
+      }
+    }
+  }
 }

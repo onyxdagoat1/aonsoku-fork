@@ -1,95 +1,156 @@
+import { supabase } from '@/lib/supabase'
 import type { Comment, CreateCommentData } from './types'
 
 /**
- * API functions for the comment system
- * 
- * NOTE: These are currently mock implementations.
- * Replace with actual API calls to your backend.
+ * Get comments for an entity with user like status
  */
-
-// Mock data store (replace with actual API calls)
-const mockComments: Comment[] = []
-let mockIdCounter = 1
-
 export async function getComments(
   entityType: string,
   entityId: string,
+  userId?: string
 ): Promise<Comment[]> {
-  // TODO: Replace with actual API call
-  // Example:
-  // const response = await fetch(`/api/comments?entityType=${entityType}&entityId=${entityId}`)
-  // return response.json()
+  try {
+    // Get comments
+    const { data: comments, error: commentsError } = await supabase
+      .from('comments')
+      .select('*')
+      .eq('entity_type', entityType)
+      .eq('entity_id', entityId)
+      .order('created_at', { ascending: false })
 
-  // Mock implementation
-  await new Promise((resolve) => setTimeout(resolve, 500))
-  return mockComments.filter(
-    (c) => c.entityType === entityType && c.entityId === entityId,
-  )
+    if (commentsError) throw commentsError
+    if (!comments) return []
+
+    // If no user, return comments without like status
+    if (!userId) {
+      return comments.map(comment => ({
+        id: comment.id,
+        entityType: comment.entity_type,
+        entityId: comment.entity_id,
+        userId: comment.user_id,
+        username: comment.username,
+        content: comment.content,
+        createdAt: comment.created_at,
+        likes: comment.likes,
+        userHasLiked: false,
+      }))
+    }
+
+    // Get user's likes for these comments
+    const commentIds = comments.map(c => c.id)
+    const { data: likes } = await supabase
+      .from('comment_likes')
+      .select('comment_id')
+      .eq('user_id', userId)
+      .in('comment_id', commentIds)
+
+    const likedCommentIds = new Set(likes?.map(l => l.comment_id) || [])
+
+    // Combine comments with like status
+    return comments.map(comment => ({
+      id: comment.id,
+      entityType: comment.entity_type,
+      entityId: comment.entity_id,
+      userId: comment.user_id,
+      username: comment.username,
+      content: comment.content,
+      createdAt: comment.created_at,
+      likes: comment.likes,
+      userHasLiked: likedCommentIds.has(comment.id),
+    }))
+  } catch (error) {
+    console.error('Error fetching comments:', error)
+    return []
+  }
 }
 
+/**
+ * Create a new comment
+ */
 export async function createComment(
-  data: CreateCommentData,
+  data: CreateCommentData
 ): Promise<Comment> {
-  // TODO: Replace with actual API call
-  // Example:
-  // const response = await fetch('/api/comments', {
-  //   method: 'POST',
-  //   headers: { 'Content-Type': 'application/json' },
-  //   body: JSON.stringify(data),
-  // })
-  // return response.json()
+  const { data: comment, error } = await supabase
+    .from('comments')
+    .insert({
+      entity_type: data.entityType,
+      entity_id: data.entityId,
+      user_id: data.userId,
+      username: data.username,
+      content: data.content,
+    })
+    .select()
+    .single()
 
-  // Mock implementation
-  await new Promise((resolve) => setTimeout(resolve, 500))
-  const newComment: Comment = {
-    id: mockIdCounter++,
-    ...data,
-    createdAt: new Date().toISOString(),
-    likes: 0,
+  if (error) throw error
+
+  return {
+    id: comment.id,
+    entityType: comment.entity_type,
+    entityId: comment.entity_id,
+    userId: comment.user_id,
+    username: comment.username,
+    content: comment.content,
+    createdAt: comment.created_at,
+    likes: comment.likes,
     userHasLiked: false,
   }
-  mockComments.push(newComment)
-  return newComment
 }
 
+/**
+ * Delete a comment
+ */
 export async function deleteComment(commentId: number): Promise<void> {
-  // TODO: Replace with actual API call
-  // Example:
-  // await fetch(`/api/comments/${commentId}`, { method: 'DELETE' })
+  const { error } = await supabase
+    .from('comments')
+    .delete()
+    .eq('id', commentId)
 
-  // Mock implementation
-  await new Promise((resolve) => setTimeout(resolve, 500))
-  const index = mockComments.findIndex((c) => c.id === commentId)
-  if (index !== -1) {
-    mockComments.splice(index, 1)
-  }
+  if (error) throw error
 }
 
+/**
+ * Like or unlike a comment
+ */
 export async function likeComment(
   commentId: number,
-  userId: string,
+  userId: string
 ): Promise<{ likes: number }> {
-  // TODO: Replace with actual API call
-  // Example:
-  // const response = await fetch(`/api/comments/${commentId}/like`, {
-  //   method: 'POST',
-  //   headers: { 'Content-Type': 'application/json' },
-  //   body: JSON.stringify({ userId }),
-  // })
-  // return response.json()
+  // Check if already liked
+  const { data: existingLike } = await supabase
+    .from('comment_likes')
+    .select('id')
+    .eq('comment_id', commentId)
+    .eq('user_id', userId)
+    .single()
 
-  // Mock implementation
-  await new Promise((resolve) => setTimeout(resolve, 300))
-  const comment = mockComments.find((c) => c.id === commentId)
-  if (comment) {
-    if (comment.userHasLiked) {
-      comment.likes = Math.max(0, comment.likes - 1)
-      comment.userHasLiked = false
-    } else {
-      comment.likes += 1
-      comment.userHasLiked = true
-    }
-    return { likes: comment.likes }
+  if (existingLike) {
+    // Unlike: delete the like
+    const { error } = await supabase
+      .from('comment_likes')
+      .delete()
+      .eq('comment_id', commentId)
+      .eq('user_id', userId)
+
+    if (error) throw error
+  } else {
+    // Like: insert new like
+    const { error } = await supabase
+      .from('comment_likes')
+      .insert({
+        comment_id: commentId,
+        user_id: userId,
+      })
+
+    if (error) throw error
   }
-  return { likes: 0 }
+
+  // Get updated like count
+  const { data: comment } = await supabase
+    .from('comments')
+    .select('likes')
+    .eq('id', commentId)
+    .single()
+
+  return { likes: comment?.likes || 0 }
 }
