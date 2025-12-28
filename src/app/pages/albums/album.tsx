@@ -4,6 +4,7 @@ import { AlbumComment } from '@/app/components/album/comment'
 import ImageHeader from '@/app/components/album/image-header'
 import { AlbumInfo } from '@/app/components/album/info'
 import { RecordLabelsInfo } from '@/app/components/album/record-labels'
+import Comments from '@/app/components/comments'
 import { AlbumFallback } from '@/app/components/fallbacks/album-fallbacks'
 import { PreviewListFallback } from '@/app/components/fallbacks/home-fallbacks'
 import { BadgesData } from '@/app/components/header-info'
@@ -56,6 +57,9 @@ export default function Album() {
 
   const isSingle = album.songCount === 1
   const albumType = isSingle ? t('album.singleHeadline') : t('album.headline')
+
+  // Determine the entity type based on album metadata
+  const entityType = isSingle ? 'single' : album.compilation ? 'compilation' : 'album'
 
   const badges: BadgesData = [
     { content: album.year?.toString() ?? null, type: 'text' },
@@ -170,6 +174,15 @@ export default function Album() {
               })}
             />
           )}
+        </div>
+
+        {/* Comment Section */}
+        <div className="mt-8">
+          <Comments
+            entityType={entityType}
+            entityId={album.id}
+            entityName={album.name}
+          />
         </div>
       </ListWrapper>
     </div>

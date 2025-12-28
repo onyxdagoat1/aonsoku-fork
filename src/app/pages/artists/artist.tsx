@@ -4,6 +4,7 @@ import ImageHeader from '@/app/components/album/image-header'
 import ArtistTopSongs from '@/app/components/artist/artist-top-songs'
 import { ArtistInfo } from '@/app/components/artist/info'
 import RelatedArtistsList from '@/app/components/artist/related-artists'
+import Comments from '@/app/components/comments'
 import { AlbumFallback } from '@/app/components/fallbacks/album-fallbacks'
 import { PreviewListFallback } from '@/app/components/fallbacks/home-fallbacks'
 import { TopSongsTableFallback } from '@/app/components/fallbacks/table-fallbacks'
@@ -116,6 +117,15 @@ export default function Artist() {
             similarArtists={artistInfo.similarArtist}
           />
         )}
+
+        {/* Comment Section */}
+        <div className="mt-8">
+          <Comments
+            entityType="artist"
+            entityId={artist.id}
+            entityName={artist.name}
+          />
+        </div>
       </ListWrapper>
     </div>
   )
