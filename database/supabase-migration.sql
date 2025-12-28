@@ -104,12 +104,12 @@ ALTER TABLE public.comment_likes ENABLE ROW LEVEL SECURITY;
 
 -- Drop existing policies if they exist
 DROP POLICY IF EXISTS "Comments are viewable by everyone" ON public.comments;
-DROP POLICY IF EXISTS "Authenticated users can create comments" ON public.comments;
-DROP POLICY IF EXISTS "Users can delete their own comments" ON public.comments;
-DROP POLICY IF EXISTS "Users can update their own comments" ON public.comments;
+DROP POLICY IF EXISTS "Anyone can create comments" ON public.comments;
+DROP POLICY IF EXISTS "Anyone can update comments" ON public.comments;
+DROP POLICY IF EXISTS "Anyone can delete comments" ON public.comments;
 DROP POLICY IF EXISTS "Likes are viewable by everyone" ON public.comment_likes;
-DROP POLICY IF EXISTS "Authenticated users can like comments" ON public.comment_likes;
-DROP POLICY IF EXISTS "Users can unlike comments" ON public.comment_likes;
+DROP POLICY IF EXISTS "Anyone can like comments" ON public.comment_likes;
+DROP POLICY IF EXISTS "Anyone can unlike comments" ON public.comment_likes;
 
 -- Anyone can read comments (public access)
 CREATE POLICY "Comments are viewable by everyone"
@@ -146,11 +146,15 @@ CREATE POLICY "Anyone can unlike comments"
 ON public.comment_likes FOR DELETE
 USING (true);
 
--- Grant public access to anon role
+-- ============================================
+-- Grant permissions to anon and authenticated roles
+-- ============================================
 GRANT ALL ON public.comments TO anon, authenticated;
 GRANT ALL ON public.comment_likes TO anon, authenticated;
-GRANT USAGE, SELECT ON SEQUENCE comments_id_seq TO anon, authenticated;
-GRANT USAGE, SELECT ON SEQUENCE comment_likes_id_seq TO anon, authenticated;
+
+-- Grant sequence permissions (BIGSERIAL auto-creates these sequences)
+GRANT USAGE, SELECT ON SEQUENCE public.comments_id_seq TO anon, authenticated;
+GRANT USAGE, SELECT ON SEQUENCE public.comment_likes_id_seq TO anon, authenticated;
 
 -- ============================================
 -- Sample Data (Optional - for testing)
