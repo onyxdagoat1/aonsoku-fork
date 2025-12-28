@@ -13,9 +13,11 @@ export function useComments(
   entityType: 'artist' | 'album' | 'compilation' | 'single',
   entityId: string,
 ) {
+  const { user } = useAuth()
+  
   return useQuery({
-    queryKey: ['comments', entityType, entityId],
-    queryFn: () => getComments(entityType, entityId),
+    queryKey: ['comments', entityType, entityId, user?.id],
+    queryFn: () => getComments(entityType, entityId, user?.id),
   })
 }
 
