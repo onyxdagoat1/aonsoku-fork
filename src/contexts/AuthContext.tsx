@@ -24,6 +24,52 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
+// Mock authentication mode (set to true for testing without Supabase)
+const MOCK_AUTH_MODE = import.meta.env.VITE_MOCK_AUTH === 'true'
+
+// Mock user data for testing
+const createMockUser = (): User => ({
+  id: 'mock-user-id-123',
+  app_metadata: {},
+  user_metadata: {
+    username: 'testuser',
+    full_name: 'Test User',
+  },
+  aud: 'authenticated',
+  created_at: new Date().toISOString(),
+  email: 'test@example.com',
+  email_confirmed_at: new Date().toISOString(),
+  phone: '',
+  confirmed_at: new Date().toISOString(),
+  last_sign_in_at: new Date().toISOString(),
+  role: 'authenticated',
+  updated_at: new Date().toISOString(),
+})
+
+const createMockProfile = (): Profile => ({
+  id: 'mock-user-id-123',
+  username: 'testuser',
+  display_name: 'Test User',
+  avatar_url: null,
+  bio: 'This is a mock user for testing',
+  navidrome_username: null,
+  navidrome_user_id: null,
+  navidrome_password: null,
+  is_admin: true, // Mock user is admin for full testing
+  is_yeditor: true,
+  created_at: new Date().toISOString(),
+  updated_at: new Date().toISOString(),
+})
+
+const createMockSession = (): Session => ({
+  access_token: 'mock-access-token',
+  refresh_token: 'mock-refresh-token',
+  expires_in: 3600,
+  expires_at: Math.floor(Date.now() / 1000) + 3600,
+  token_type: 'bearer',
+  user: createMockUser(),
+})
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [profile, setProfile] = useState<Profile | null>(null)
@@ -130,6 +176,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // Initialize auth state
   useEffect(() => {
+    // Mock authentication mode
+    if (MOCK_AUTH_MODE) {
+      console.log('🧪 Mock authentication mode enabled')
+      setUser(createMockUser())
+      setProfile(createMockProfile())
+      setSession(createMockSession())
+      setLoading(false)
+      return
+    }
+
     if (!isSupabaseConfigured) {
       setLoading(false)
       return
@@ -168,6 +224,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // Sign in with OAuth provider (Google, Discord, GitHub)
   const signInWithProvider = async (provider: 'google' | 'discord' | 'github') => {
+    if (MOCK_AUTH_MODE) {
+      console.log('🧪 Mock sign in with', provider)
+      return
+    }
+
     const { error } = await supabase.auth.signInWithOAuth({
       provider,
       options: {
@@ -197,6 +258,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // Sign in with email/password
   const signIn = async (email: string, password: string) => {
+    if (MOCK_AUTH_MODE) {
+      console.log('🧪 Mock sign in with email')
+      return
+    }
+
     const { error } = await supabase.auth.signInWithPassword({
       email,
       password,
@@ -217,6 +283,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // Sign up with email
   const signUpWithEmail = async (email: string, password: string, username: string) => {
+    if (MOCK_AUTH_MODE) {
+      console.log('🧪 Mock sign up with email')
+      return { error: null }
+    }
+
     // Check if username is available
     const { data: existingProfile } = await supabase
       .from('profiles')
@@ -250,6 +321,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // Sign out
   const signOut = async () => {
+    if (MOCK_AUTH_MODE) {
+      console.log('🧪 Mock sign out')
+      return
+    }
+
     const { error } = await supabase.auth.signOut()
     if (error) {
       console.error('Error signing out:', error)
@@ -260,6 +336,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Update profile
   const updateProfile = async (updates: Partial<Profile>) => {
     if (!user) return { error: new Error('No user logged in') }
+
+    if (MOCK_AUTH_MODE) {
+      console.log('🧪 Mock update profile:', updates)
+      setProfile((prev) => (prev ? { ...prev, ...updates } : null))
+      return { error: null }
+    }
 
     const { error } = await supabase
       .from('profiles')
@@ -286,7 +368,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     signUpWithEmail,
     signOut,
     updateProfile,
-    isConfigured: isSupabaseConfigured,
+    isConfigured: MOCK_AUTH_MODE || isSupabaseConfigured,
   }
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
