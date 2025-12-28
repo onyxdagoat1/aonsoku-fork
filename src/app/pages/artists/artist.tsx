@@ -1,132 +1,89 @@
-import { useTranslation } from 'react-i18next'
 import { useParams } from 'react-router-dom'
-import ImageHeader from '@/app/components/album/image-header'
-import ArtistTopSongs from '@/app/components/artist/artist-top-songs'
-import { ArtistInfo } from '@/app/components/artist/info'
-import RelatedArtistsList from '@/app/components/artist/related-artists'
-import Comments from '@/app/components/comments'
-import { AlbumFallback } from '@/app/components/fallbacks/album-fallbacks'
-import { PreviewListFallback } from '@/app/components/fallbacks/home-fallbacks'
-import { TopSongsTableFallback } from '@/app/components/fallbacks/table-fallbacks'
-import { BadgesData } from '@/app/components/header-info'
-import PreviewList from '@/app/components/home/preview-list'
-import ListWrapper from '@/app/components/list-wrapper'
-import {
-  useGetArtist,
-  useGetArtistInfo,
-  useGetTopSongs,
-} from '@/app/hooks/use-artist'
-import ErrorPage from '@/app/pages/error-page'
-import { ROUTES } from '@/routes/routesList'
-import { sortRecentAlbums } from '@/utils/album'
+import { useQuery } from '@tanstack/react-query'
+import { subsonic } from '@/app/clients/subsonic'
+import { Skeleton } from '@/app/components/ui/skeleton'
+import { Card } from '@/app/components/ui/card'
+import { AspectRatio } from '@/app/components/ui/aspect-ratio'
+import { Button } from '@/app/components/ui/button'
+import { Play, Heart, MoreHorizontal } from 'lucide-react'
+// import Comments from '@/app/components/comments'
 
-export default function Artist() {
-  const { t } = useTranslation()
-  const { artistId } = useParams() as { artistId: string }
+export default function ArtistPage() {
+  const { id } = useParams<{ id: string }>()
 
-  const {
-    data: artist,
-    isLoading: artistIsLoading,
-    isFetched,
-  } = useGetArtist(artistId)
-  const { data: artistInfo, isLoading: artistInfoIsLoading } =
-    useGetArtistInfo(artistId)
-  const { data: topSongs, isLoading: topSongsIsLoading } = useGetTopSongs(
-    artist?.name,
-  )
+  const { data: artist, isLoading } = useQuery({
+    queryKey: ['artist', id],
+    queryFn: () => subsonic.getArtist({ id: id! }),
+    enabled: !!id,
+  })
 
-  if (artistIsLoading) return <AlbumFallback />
-  if (isFetched && !artist) {
-    return <ErrorPage status={404} statusText="Not Found" />
-  }
-  if (!artist) return <AlbumFallback />
-
-  function getSongCount() {
-    if (!artist) return null
-    if (artist.albumCount === undefined) return null
-    if (artist.albumCount === 0) return null
-    if (!artist.album) return null
-    let artistSongCount = 0
-
-    artist.album.forEach((album) => {
-      artistSongCount += album.songCount
-    })
-
-    return t('playlist.songCount', { count: artistSongCount })
+  if (isLoading) {
+    return (
+      <div className="container mx-auto p-6 space-y-6">
+        <div className="flex gap-6">
+          <Skeleton className="h-64 w-64 rounded-lg" />
+          <div className="flex-1 space-y-4">
+            <Skeleton className="h-12 w-3/4" />
+            <Skeleton className="h-6 w-1/2" />
+            <Skeleton className="h-24 w-full" />
+          </div>
+        </div>
+      </div>
+    )
   }
 
-  function formatAlbumCount() {
-    if (!artist) return null
-    if (artist.albumCount === undefined) return null
-    if (artist.albumCount === 0) return null
-
-    return t('artist.info.albumsCount', { count: artist.albumCount })
+  if (!artist) {
+    return <div className="container mx-auto p-6">Artist not found</div>
   }
-
-  const albumCount = formatAlbumCount()
-  const songCount = getSongCount()
-
-  const badges: BadgesData = [
-    {
-      content: albumCount,
-      type: 'link',
-      link: ROUTES.ALBUMS.ARTIST(artist.id, artist.name),
-    },
-    {
-      content: songCount,
-      type: 'link',
-      link: ROUTES.SONGS.ARTIST_TRACKS(artist.id, artist.name),
-    },
-  ]
-
-  const recentAlbums = artist.album ? sortRecentAlbums(artist.album) : []
 
   return (
-    <div className="w-full">
-      <ImageHeader
-        type={t('artist.headline')}
-        title={artist.name}
-        coverArtId={artist.coverArt}
-        coverArtType="artist"
-        coverArtSize="700"
-        coverArtAlt={artist.name}
-        badges={badges}
-      />
+    <div className="container mx-auto p-6 space-y-8">
+      {/* Artist Header */}
+      <div className="flex gap-6">
+        <Card className="overflow-hidden">
+          <AspectRatio ratio={1}>
+            <img
+              src={artist.coverArt}
+              alt={artist.name}
+              className="object-cover w-full h-full"
+            />
+          </AspectRatio>
+        </Card>
 
-      <ListWrapper>
-        <ArtistInfo artist={artist} />
+        <div className="flex-1 space-y-4">
+          <h1 className="text-4xl font-bold">{artist.name}</h1>
+          
+          <div className="flex gap-2">
+            <Button size="lg">
+              <Play className="h-5 w-5 mr-2" />
+              Play
+            </Button>
+            <Button size="lg" variant="outline">
+              <Heart className="h-5 w-5" />
+            </Button>
+            <Button size="lg" variant="outline">
+              <MoreHorizontal className="h-5 w-5" />
+            </Button>
+          </div>
 
-        {topSongsIsLoading && <TopSongsTableFallback />}
-        {topSongs && !topSongsIsLoading && (
-          <ArtistTopSongs topSongs={topSongs} artist={artist} />
-        )}
-
-        {recentAlbums.length > 0 && (
-          <PreviewList
-            title={t('artist.recentAlbums')}
-            list={recentAlbums}
-            moreTitle={t('album.more.discography')}
-            moreRoute={ROUTES.ALBUMS.ARTIST(artist.id, artist.name)}
-          />
-        )}
-
-        {artistInfoIsLoading && <PreviewListFallback />}
-        {artistInfo?.similarArtist && !artistInfoIsLoading && (
-          <RelatedArtistsList
-            title={t('artist.relatedArtists')}
-            similarArtists={artistInfo.similarArtist}
-          />
-        )}
-
-        {/* Comment Section */}
-        <div className="mt-8">
-          <Comments
-            entityType="artist"
-            entityId={artist.id}
-            entityName={artist.name}
-          />
+          {artist.biography && (
+            <div className="text-sm text-muted-foreground">
+              {artist.biography}
+            </div>
+          )}
         </div>
-      </ListWrapper>
+      </div>
+
+      {/* Albums/Tracks would go here */}
+
+      {/* Comments Section - Temporarily Disabled */}
+      {/* <div className="mt-8">
+        <Comments
+          entityType="artist"
+          entityId={artist.id}
+          entityName={artist.name}
+        />
+      </div> */}
     </div>
   )
 }

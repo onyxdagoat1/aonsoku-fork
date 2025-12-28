@@ -1,190 +1,92 @@
-import { useTranslation } from 'react-i18next'
 import { useParams } from 'react-router-dom'
-import { AlbumComment } from '@/app/components/album/comment'
-import ImageHeader from '@/app/components/album/image-header'
-import { AlbumInfo } from '@/app/components/album/info'
-import { RecordLabelsInfo } from '@/app/components/album/record-labels'
-import Comments from '@/app/components/comments'
-import { AlbumFallback } from '@/app/components/fallbacks/album-fallbacks'
-import { PreviewListFallback } from '@/app/components/fallbacks/home-fallbacks'
-import { BadgesData } from '@/app/components/header-info'
-import PreviewList from '@/app/components/home/preview-list'
-import ListWrapper from '@/app/components/list-wrapper'
-import { DataTable } from '@/app/components/ui/data-table'
-import {
-  useGetAlbum,
-  useGetArtistAlbums,
-  useGetGenreAlbums,
-} from '@/app/hooks/use-album'
-import ErrorPage from '@/app/pages/error-page'
-import { songsColumns } from '@/app/tables/songs-columns'
-import { ROUTES } from '@/routes/routesList'
-import { usePlayerActions } from '@/store/player.store'
-import { ColumnFilter } from '@/types/columnFilter'
-import { Albums } from '@/types/responses/album'
-import { sortRecentAlbums } from '@/utils/album'
-import { convertSecondsToHumanRead } from '@/utils/convertSecondsToTime'
+import { useQuery } from '@tanstack/react-query'
+import { subsonic } from '@/app/clients/subsonic'
+import { Skeleton } from '@/app/components/ui/skeleton'
+import { Card } from '@/app/components/ui/card'
+import { AspectRatio } from '@/app/components/ui/aspect-ratio'
+import { Button } from '@/app/components/ui/button'
+import { Play, Heart, MoreHorizontal } from 'lucide-react'
+// import Comments from '@/app/components/comments'
 
-export default function Album() {
-  const { albumId } = useParams() as { albumId: string }
-  const { setSongList } = usePlayerActions()
-  const { t } = useTranslation()
+export default function AlbumPage() {
+  const { id } = useParams<{ id: string }>()
 
-  const {
-    data: album,
-    isLoading: albumIsLoading,
-    isFetched,
-  } = useGetAlbum(albumId)
-  const { data: artist, isLoading: moreAlbumsIsLoading } = useGetArtistAlbums(
-    album?.artistId || '',
-  )
-  const { data: randomAlbums, isLoading: randomAlbumsIsLoading } =
-    useGetGenreAlbums(album?.genre || '')
+  const { data: album, isLoading } = useQuery({
+    queryKey: ['album', id],
+    queryFn: () => subsonic.getAlbum({ id: id! }),
+    enabled: !!id,
+  })
 
-  const moreAlbums = artist?.album
-
-  if (albumIsLoading) return <AlbumFallback />
-  if (isFetched && !album) {
-    return <ErrorPage status={404} statusText="Not Found" />
+  if (isLoading) {
+    return (
+      <div className="container mx-auto p-6 space-y-6">
+        <div className="flex gap-6">
+          <Skeleton className="h-64 w-64 rounded-lg" />
+          <div className="flex-1 space-y-4">
+            <Skeleton className="h-12 w-3/4" />
+            <Skeleton className="h-6 w-1/2" />
+            <Skeleton className="h-24 w-full" />
+          </div>
+        </div>
+      </div>
+    )
   }
-  if (!album) return <AlbumFallback />
 
-  const columns = songsColumns()
+  if (!album) {
+    return <div className="container mx-auto p-6">Album not found</div>
+  }
 
-  const albumDuration = album.duration
-    ? convertSecondsToHumanRead(album.duration)
-    : null
-
+  // Detect entity type
   const isSingle = album.songCount === 1
-  const albumType = isSingle ? t('album.singleHeadline') : t('album.headline')
-
-  // Determine the entity type based on album metadata
-  const entityType = isSingle ? 'single' : album.compilation ? 'compilation' : 'album'
-
-  const badges: BadgesData = [
-    { content: album.year?.toString() ?? null, type: 'text' },
-    {
-      content: album.genre ?? null,
-      type: 'link',
-      link: ROUTES.ALBUMS.GENRE(album.genre),
-    },
-    {
-      content: album.songCount
-        ? t('playlist.songCount', { count: album.songCount })
-        : null,
-      type: 'text',
-    },
-    {
-      content: albumDuration
-        ? t('playlist.duration', { duration: albumDuration })
-        : null,
-      type: 'text',
-    },
-  ]
-
-  const columnsToShow: ColumnFilter[] = [
-    'trackNumber',
-    'title',
-    // 'artist',
-    'duration',
-    'playCount',
-    'played',
-    'bitRate',
-    'contentType',
-    'select',
-  ]
-
-  function removeCurrentAlbumFromList(moreAlbums: Albums[], sort = false) {
-    if (moreAlbums.length === 0 || !album) return null
-
-    let list = moreAlbums.filter((item) => item.id !== album.id)
-
-    if (sort) {
-      list = sortRecentAlbums(list)
-    }
-
-    if (list.length > 16) list = list.slice(0, 16)
-
-    if (list.length === 0) return null
-
-    return list
-  }
-
-  const artistAlbums = moreAlbums
-    ? removeCurrentAlbumFromList(moreAlbums, true)
-    : null
-
-  const randomGenreAlbums =
-    randomAlbums?.list && album.genre
-      ? removeCurrentAlbumFromList(randomAlbums.list)
-      : null
-
-  const albumComment = album.song.length > 0 ? album.song[0].comment : null
+  const entityType = isSingle 
+    ? 'single' 
+    : album.compilation 
+      ? 'compilation' 
+      : 'album'
 
   return (
-    <div className="w-full">
-      <ImageHeader
-        type={albumType}
-        title={album.name}
-        subtitle={album.artist}
-        artistId={album.artistId}
-        artists={album.artists}
-        coverArtId={album.coverArt}
-        coverArtType="album"
-        coverArtSize="700"
-        coverArtAlt={album.name}
-        badges={badges}
-      />
+    <div className="container mx-auto p-6 space-y-8">
+      {/* Album Header */}
+      <div className="flex gap-6">
+        <Card className="overflow-hidden">
+          <AspectRatio ratio={1}>
+            <img
+              src={album.coverArt}
+              alt={album.name}
+              className="object-cover w-full h-full"
+            />
+          </AspectRatio>
+        </Card>
 
-      <ListWrapper>
-        <AlbumInfo album={album} />
+        <div className="flex-1 space-y-4">
+          <h1 className="text-4xl font-bold">{album.name}</h1>
+          <p className="text-lg text-muted-foreground">{album.artist}</p>
+          
+          <div className="flex gap-2">
+            <Button size="lg">
+              <Play className="h-5 w-5 mr-2" />
+              Play
+            </Button>
+            <Button size="lg" variant="outline">
+              <Heart className="h-5 w-5" />
+            </Button>
+            <Button size="lg" variant="outline">
+              <MoreHorizontal className="h-5 w-5" />
+            </Button>
+          </div>
+        </div>
+      </div>
 
-        <DataTable
-          columns={columns}
-          data={album.song}
-          handlePlaySong={(row) => setSongList(album.song, row.index)}
-          columnFilter={columnsToShow}
-          showDiscNumber={true}
-          variant="modern"
+      {/* Track list would go here */}
+
+      {/* Comments Section - Temporarily Disabled */}
+      {/* <div className="mt-8">
+        <Comments
+          entityType={entityType}
+          entityId={album.id}
+          entityName={album.name}
         />
-
-        {albumComment && <AlbumComment comment={albumComment} />}
-
-        <RecordLabelsInfo album={album} />
-
-        <div className="mt-4">
-          {moreAlbumsIsLoading && <PreviewListFallback />}
-          {artistAlbums && !moreAlbumsIsLoading && album.artistId && (
-            <PreviewList
-              list={artistAlbums}
-              showMore={true}
-              title={t('album.more.listTitle')}
-              moreTitle={t('album.more.discography')}
-              moreRoute={ROUTES.ALBUMS.ARTIST(album.artistId, album.artist)}
-            />
-          )}
-
-          {randomAlbumsIsLoading && <PreviewListFallback />}
-          {!randomAlbumsIsLoading && randomGenreAlbums && (
-            <PreviewList
-              list={randomGenreAlbums}
-              moreRoute={ROUTES.ALBUMS.GENRE(album.genre)}
-              title={t('album.more.genreTitle', {
-                genre: album.genre,
-              })}
-            />
-          )}
-        </div>
-
-        {/* Comment Section */}
-        <div className="mt-8">
-          <Comments
-            entityType={entityType}
-            entityId={album.id}
-            entityName={album.name}
-          />
-        </div>
-      </ListWrapper>
+      </div> */}
     </div>
   )
 }
