@@ -1,86 +1,94 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Send } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Textarea } from '@/components/ui/textarea'
+import { Button } from '@/app/components/ui/button'
+import { Textarea } from '@/app/components/ui/textarea'
 import { useAuth } from '@/app/hooks/use-auth'
+import { useCreateComment } from '@/app/hooks/use-comments'
 
-interface CommentFormProps {
-  onSubmit: (content: string) => Promise<void>
-  isSubmitting: boolean
-  entityType: 'artist' | 'album' | 'compilation' | 'single'
-}
+const MAX_COMMENT_LENGTH = 1000
 
 export default function CommentForm({
-  onSubmit,
-  isSubmitting,
   entityType,
-}: CommentFormProps) {
+  entityId,
+}: {
+  entityType: 'artist' | 'album' | 'compilation' | 'single'
+  entityId: string
+}) {
   const { t } = useTranslation()
   const { user } = useAuth()
-  const [content, setContent] = useState('')
-  const [error, setError] = useState('')
+  const [comment, setComment] = useState('')
+  const createComment = useCreateComment()
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setError('')
+  const handleSubmit = () => {
+    if (!user || !comment.trim()) return
 
-    if (!content.trim()) {
-      setError(t('comments.form.error.empty'))
+    if (comment.length > MAX_COMMENT_LENGTH) {
+      // TODO: Show error toast
       return
     }
 
-    if (content.length > 1000) {
-      setError(t('comments.form.error.tooLong'))
-      return
-    }
-
-    try {
-      await onSubmit(content.trim())
-      setContent('')
-    } catch (err) {
-      setError(t('comments.form.error.failed'))
-    }
+    createComment.mutate(
+      {
+        entityType,
+        entityId,
+        content: comment.trim(),
+        userId: user.id,
+        username: user.username,
+      },
+      {
+        onSuccess: () => {
+          setComment('')
+        },
+      },
+    )
   }
 
   if (!user) {
     return (
-      <div className="rounded-lg border border-dashed p-6 text-center">
-        <p className="text-sm text-muted-foreground">
-          {t('comments.form.loginRequired')}
-        </p>
+      <div className="rounded-lg border border-dashed p-4 text-center text-sm text-muted-foreground">
+        {t('comments.form.loginRequired')}
       </div>
     )
   }
 
+  const remainingChars = MAX_COMMENT_LENGTH - comment.length
+  const isOverLimit = remainingChars < 0
+
   return (
-    <form onSubmit={handleSubmit} className="space-y-3">
-      <div className="relative">
-        <Textarea
-          value={content}
-          onChange={(e) => setContent(e.target.value)}
-          placeholder={t('comments.form.placeholder', {
-            type: entityType,
-          })}
-          disabled={isSubmitting}
-          className="min-h-[100px] resize-none pr-12"
-          maxLength={1000}
-        />
-        <div className="absolute bottom-2 right-2 text-xs text-muted-foreground">
-          {content.length}/1000
-        </div>
-      </div>
+    <div className="space-y-2">
+      <Textarea
+        placeholder={t('comments.form.placeholder', { type: entityType })}
+        value={comment}
+        onChange={(e) => setComment(e.target.value)}
+        className="min-h-[100px] resize-none"
+        disabled={createComment.isPending}
+      />
 
-      {error && (
-        <p className="text-sm text-destructive">{error}</p>
-      )}
+      <div className="flex items-center justify-between">
+        <span
+          className={`text-xs ${
+            isOverLimit ? 'text-destructive' : 'text-muted-foreground'
+          }`}
+        >
+          {remainingChars} characters remaining
+        </span>
 
-      <div className="flex justify-end">
-        <Button type="submit" disabled={isSubmitting || !content.trim()}>
-          <Send className="mr-2 h-4 w-4" />
-          {isSubmitting ? t('comments.form.posting') : t('comments.form.post')}
+        <Button
+          onClick={handleSubmit}
+          disabled={
+            !comment.trim() ||
+            isOverLimit ||
+            createComment.isPending
+          }
+          size="sm"
+        >
+          <Send className="h-4 w-4 mr-2" />
+          {createComment.isPending
+            ? t('comments.form.posting')
+            : t('comments.form.post')}
         </Button>
       </div>
-    </form>
+    </div>
   )
 }
