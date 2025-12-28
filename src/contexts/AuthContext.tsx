@@ -50,14 +50,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (response.data.success) {
         console.log('✅ Navidrome user created:', username)
         
-        // Update Supabase profile with Navidrome username
-        await supabase
+        // Update Supabase profile with Navidrome credentials
+        const { error: profileError } = await supabase
           .from('profiles')
           .update({
             navidrome_username: username,
             navidrome_user_id: response.data.user?.id || null,
+            navidrome_password: navidromePassword, // Store password in profiles
           })
           .eq('id', userId)
+
+        if (profileError) {
+          console.error('⚠️ Failed to update profile:', profileError)
+        }
+
+        // Also update user_metadata for backward compatibility
+        await supabase.auth.updateUser({
+          data: {
+            navidrome_username: username,
+            navidrome_password: navidromePassword,
+          }
+        })
 
         console.log('✅ Profile updated with Navidrome credentials')
         

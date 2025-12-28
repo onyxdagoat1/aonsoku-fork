@@ -10,6 +10,7 @@ import { YouTubeVideoView } from '@/app/pages/youtube/components/VideoView';
 import { YouTubeAuthButton } from '@/app/pages/youtube/components/YouTubeAuthButton';
 import { PlaylistImport } from '@/app/pages/youtube/components/PlaylistImport';
 import { useYouTubeAuthStore } from '@/store/youtubeAuth.store';
+import { useAuth } from '@/app/hooks/use-auth';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/app/components/ui/tabs';
 import { Input } from '@/app/components/ui/input';
 import { Card, CardContent } from '@/app/components/ui/card';
@@ -22,7 +23,9 @@ type DurationFilter = 'all' | 'short' | 'medium' | 'long';
 type ViewMode = 'grid' | 'list';
 
 export default function YouTubePage() {
-  const { isAuthenticated } = useYouTubeAuthStore();
+  const { isAuthenticated: isYouTubeAuthenticated } = useYouTubeAuthStore();
+  const { user: supabaseUser } = useAuth();
+  const isAuthenticated = isYouTubeAuthenticated && !!supabaseUser;
   const [channelInfo, setChannelInfo] = useState<YouTubeChannelInfo | null>(null);
   const [videos, setVideos] = useState<YouTubeVideo[]>([]);
   const [playlists, setPlaylists] = useState<YouTubePlaylist[]>([]);

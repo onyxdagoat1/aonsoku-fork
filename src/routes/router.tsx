@@ -46,7 +46,13 @@ const UploadPage = lazy(() => import('@/app/pages/upload'));
 const YouTubePage = lazy(() => import('@/app/pages/youtube'));
 const YouTubeCallback = lazy(() => import('@/app/pages/youtube/YouTubeCallback').then(m => ({ default: m.YouTubeCallback })));
 
+// Profile and Admin Pages
+const ProfilePage = lazy(() => import('@/app/pages/profile').then(m => ({ default: m.default })));
+const AdminPanel = lazy(() => import('@/app/pages/admin').then(m => ({ default: m.default })));
+
 // Supabase Auth Pages
+const SupabaseLogin = lazy(() => import('@/app/pages/auth/Login').then(m => ({ default: m.Login })));
+const SupabaseRegister = lazy(() => import('@/app/pages/auth/Register').then(m => ({ default: m.Register })));
 const AuthCallback = lazy(() => import('@/app/auth/AuthCallback').then(m => ({ default: m.AuthCallback })));
 
 export const router = createHashRouter([
@@ -221,6 +227,24 @@ export const router = createHashRouter([
         ),
       },
       {
+        id: 'profile',
+        path: ROUTES.PROFILE.PATH,
+        element: (
+          <Suspense fallback={<div>Loading...</div>}>
+            <ProfilePage />
+          </Suspense>
+        ),
+      },
+      {
+        id: 'admin',
+        path: ROUTES.ADMIN.HOME,
+        element: (
+          <Suspense fallback={<div>Loading...</div>}>
+            <AdminPanel />
+          </Suspense>
+        ),
+      },
+      {
         id: 'error',
         path: '*',
         element: (
@@ -252,6 +276,24 @@ export const router = createHashRouter([
     ),
   },
   // Supabase Auth Routes
+  {
+    id: 'auth-login',
+    path: '/auth/login',
+    element: (
+      <Suspense fallback={<div>Loading...</div>}>
+        <SupabaseLogin />
+      </Suspense>
+    ),
+  },
+  {
+    id: 'auth-register',
+    path: '/auth/register',
+    element: (
+      <Suspense fallback={<div>Loading...</div>}>
+        <SupabaseRegister />
+      </Suspense>
+    ),
+  },
   {
     id: 'auth-callback',
     path: '/auth/callback',

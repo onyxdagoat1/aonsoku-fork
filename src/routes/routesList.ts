@@ -68,6 +68,20 @@ const UPLOAD = '/upload';
 const SERVER_CONFIG = '/server-config';
 const REGISTER = '/register';
 
+const PROFILE = {
+  PAGE: (username: string) => `/profile/${username}`,
+  PATH: '/profile/:username',
+  MY_PROFILE: '/profile/me',
+};
+
+const ADMIN = {
+  HOME: '/admin',
+  USERS: '/admin/users',
+  CONTENT: '/admin/content',
+  HIGHLIGHTS: '/admin/highlights',
+  SETTINGS: '/admin/settings',
+};
+
 export const ROUTES = {
   LIBRARY,
   ARTIST,
@@ -80,4 +94,6 @@ export const ROUTES = {
   UPLOAD,
   SERVER_CONFIG,
   REGISTER,
+  PROFILE,
+  ADMIN,
 };
