@@ -47,9 +47,7 @@ const YouTubePage = lazy(() => import('@/app/pages/youtube'));
 const YouTubeCallback = lazy(() => import('@/app/pages/youtube/YouTubeCallback').then(m => ({ default: m.YouTubeCallback })));
 
 // Supabase Auth Pages
-const SupabaseLogin = lazy(() => import('@/app/pages/auth/Login').then(m => ({ default: m.Login })));
-const SupabaseRegister = lazy(() => import('@/app/pages/auth/Register').then(m => ({ default: m.Register })));
-const AuthCallback = lazy(() => import('@/app/pages/auth/AuthCallback').then(m => ({ default: m.AuthCallback })));
+const AuthCallback = lazy(() => import('@/app/auth/AuthCallback').then(m => ({ default: m.AuthCallback })));
 
 export const router = createHashRouter([
   {
@@ -254,24 +252,6 @@ export const router = createHashRouter([
     ),
   },
   // Supabase Auth Routes
-  {
-    id: 'auth-login',
-    path: '/auth/login',
-    element: (
-      <Suspense fallback={<div>Loading...</div>}>
-        <SupabaseLogin />
-      </Suspense>
-    ),
-  },
-  {
-    id: 'auth-register',
-    path: '/auth/register',
-    element: (
-      <Suspense fallback={<div>Loading...</div>}>
-        <SupabaseRegister />
-      </Suspense>
-    ),
-  },
   {
     id: 'auth-callback',
     path: '/auth/callback',

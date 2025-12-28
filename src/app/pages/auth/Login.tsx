@@ -1,10 +1,17 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/contexts/AuthContext'
+import { supabase } from '@/lib/supabase'
+import { useAppActions } from '@/store/app.store'
+import { ROUTES } from '@/routes/routesList'
+import { useQueryClient } from '@tanstack/react-query'
+import { toast } from 'react-toastify'
 
 export function Login() {
   const navigate = useNavigate()
-  const { signIn, signInWithProvider, isConfigured } = useAuth()
+  const { signIn, signInWithProvider, isConfigured, user, profile } = useAuth()
+  const { saveConfig } = useAppActions()
+  const queryClient = useQueryClient()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
@@ -26,6 +33,86 @@ export function Login() {
     )
   }
 
+  // Auto-login to Navidrome after Supabase authentication
+  useEffect(() => {
+    async function setupNavidromeLogin() {
+      if (!user || !profile) return
+
+      // Check if Navidrome credentials are stored
+      const navidromeUsername = user.user_metadata?.navidrome_username || profile.navidrome_username
+      const navidromePassword = user.user_metadata?.navidrome_password
+
+      if (navidromeUsername && navidromePassword) {
+        console.log('[Login] Setting up Navidrome login...')
+        const navidromeUrl = import.meta.env.VITE_API_URL || 'http://localhost:4533'
+        
+        const loginSuccess = await saveConfig({
+          url: navidromeUrl,
+          username: navidromeUsername,
+          password: navidromePassword,
+        })
+
+        if (loginSuccess) {
+          console.log('[Login] Successfully logged into Navidrome')
+          await queryClient.invalidateQueries()
+          toast.success('Welcome! Successfully signed in')
+          navigate(ROUTES.LIBRARY.HOME, { replace: true })
+        } else {
+          console.error('[Login] Failed to login to Navidrome')
+          // Continue anyway - user is authenticated in Supabase
+        }
+      } else if (navidromeUsername) {
+        // User exists but password not in metadata - try to get it from auth service
+        console.log('[Login] User exists, checking auth service...')
+        const authServiceUrl = import.meta.env.VITE_ACCOUNT_API_URL || 'http://localhost:3005/api'
+        
+        try {
+          const response = await fetch(`${authServiceUrl}/auth/oauth-callback`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              email: user.email,
+              userId: user.id,
+            }),
+          })
+
+          const data = await response.json()
+
+          if (data.success && data.password) {
+            // Store password in metadata
+            await supabase.auth.updateUser({
+              data: {
+                navidrome_username: data.username,
+                navidrome_password: data.password,
+              }
+            })
+
+            // Now login to Navidrome
+            const navidromeUrl = import.meta.env.VITE_API_URL || 'http://localhost:4533'
+            const loginSuccess = await saveConfig({
+              url: navidromeUrl,
+              username: data.username,
+              password: data.password,
+            })
+
+            if (loginSuccess) {
+              await queryClient.invalidateQueries()
+              toast.success('Welcome! Successfully signed in')
+              navigate(ROUTES.LIBRARY.HOME, { replace: true })
+            }
+          }
+        } catch (error) {
+          console.error('[Login] Failed to set up Navidrome:', error)
+          // Continue - user is authenticated in Supabase
+        }
+      }
+    }
+
+    setupNavidromeLogin()
+  }, [user, profile, saveConfig, queryClient, navigate])
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
@@ -33,10 +120,10 @@ export function Login() {
 
     try {
       await signIn(email, password)
-      navigate('/')
+      // Navidrome setup will happen in useEffect
+      // Don't navigate here - let useEffect handle it
     } catch (err) {
       setError('Invalid email or password')
-    } finally {
       setLoading(false)
     }
   }

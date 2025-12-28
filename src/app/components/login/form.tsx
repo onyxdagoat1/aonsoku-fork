@@ -2,7 +2,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { useQueryClient } from '@tanstack/react-query'
 import clsx from 'clsx'
 import { Loader2 } from 'lucide-react'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import { useNavigate, Link } from 'react-router-dom'
@@ -40,10 +40,12 @@ import {
 import { Input } from '@/app/components/ui/input'
 import { Password } from '@/app/components/ui/password'
 import { ROUTES } from '@/routes/routesList'
-import { useAppActions, useAppData } from '@/store/app.store'
+import { useAppActions, useAppData, useAppStore } from '@/store/app.store'
 import { isDesktop } from '@/utils/desktop'
 import { removeSlashFromUrl } from '@/utils/removeSlashFromUrl'
-import { supabase } from '@/lib/supabase'
+import { supabase, isSupabaseConfigured } from '@/lib/supabase'
+import { useAuth } from '@/contexts/AuthContext'
+import { SupabaseLoginForm } from './supabase-login-form'
 
 const loginSchema = z.object({
   url: z
@@ -74,8 +76,94 @@ export function LoginForm() {
   const navigate = useNavigate()
   const { t } = useTranslation()
   const queryClient = useQueryClient()
+  const { user, profile, isConfigured: supabaseConfigured } = useAuth()
 
   const shouldHideUrlInput = urlIsValid && hideServer
+
+  // If Supabase is configured and user is authenticated, auto-connect to Navidrome
+  useEffect(() => {
+    async function autoConnectNavidrome() {
+      if (!supabaseConfigured || !user || !profile) return
+
+      // Check if already connected
+      const { isServerConfigured } = useAppStore.getState().data
+      if (isServerConfigured) {
+        navigate(ROUTES.LIBRARY.HOME, { replace: true })
+        return
+      }
+
+      // Get Navidrome credentials
+      const navidromeUsername = user.user_metadata?.navidrome_username || profile.navidrome_username
+      const navidromePassword = user.user_metadata?.navidrome_password
+
+      if (navidromeUsername && navidromePassword) {
+        console.log('[LoginForm] Auto-connecting to Navidrome...')
+        const navidromeUrl = import.meta.env.VITE_API_URL || 'http://localhost:4533'
+        
+        const loginSuccess = await saveConfig({
+          url: navidromeUrl,
+          username: navidromeUsername,
+          password: navidromePassword,
+        })
+
+        if (loginSuccess) {
+          await queryClient.invalidateQueries()
+          toast.success('Connected to music server!')
+          navigate(ROUTES.LIBRARY.HOME, { replace: true })
+        }
+      } else if (navidromeUsername) {
+        // User exists but password missing - try to get it
+        console.log('[LoginForm] Setting up Navidrome account...')
+        const authServiceUrl = import.meta.env.VITE_ACCOUNT_API_URL || 'http://localhost:3005/api'
+        
+        try {
+          const response = await fetch(`${authServiceUrl}/auth/oauth-callback`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              email: user.email,
+              userId: user.id,
+            }),
+          })
+
+          const data = await response.json()
+
+          if (data.success && data.password) {
+            // Store password
+            await supabase.auth.updateUser({
+              data: {
+                navidrome_username: data.username,
+                navidrome_password: data.password,
+              }
+            })
+
+            // Connect to Navidrome
+            const navidromeUrl = import.meta.env.VITE_API_URL || 'http://localhost:4533'
+            const loginSuccess = await saveConfig({
+              url: navidromeUrl,
+              username: data.username,
+              password: data.password,
+            })
+
+            if (loginSuccess) {
+              await queryClient.invalidateQueries()
+              toast.success('Connected to music server!')
+              navigate(ROUTES.LIBRARY.HOME, { replace: true })
+            }
+          }
+        } catch (error) {
+          console.error('[LoginForm] Failed to set up Navidrome:', error)
+        }
+      }
+    }
+
+    autoConnectNavidrome()
+  }, [supabaseConfigured, user, profile, saveConfig, queryClient, navigate])
+
+  // If Supabase is configured but user not authenticated, show Supabase login
+  if (supabaseConfigured && !user) {
+    return <SupabaseLoginForm />
+  }
 
   const form = useForm<FormData>({
     resolver: zodResolver(loginSchema),

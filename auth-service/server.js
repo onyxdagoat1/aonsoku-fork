@@ -88,11 +88,34 @@ async function checkNavidromeUserExists(username, token) {
       }
     );
     
-    // Check if user exists in the list
-    const users = response.data || [];
-    return users.find(user => user.userName === username);
+    // Handle different response formats (array, paginated, or object with data property)
+    let users = [];
+    if (Array.isArray(response.data)) {
+      users = response.data;
+    } else if (response.data?.data && Array.isArray(response.data.data)) {
+      users = response.data.data;
+    } else if (response.data?.items && Array.isArray(response.data.items)) {
+      users = response.data.items;
+    } else if (response.data?.content && Array.isArray(response.data.content)) {
+      users = response.data.content;
+    }
+    
+    // Check if user exists in the list (case-insensitive comparison)
+    const foundUser = users.find(user => 
+      user.userName && user.userName.toLowerCase() === username.toLowerCase()
+    );
+    
+    if (foundUser) {
+      console.log('[AUTH] [Auth Service] User found in Navidrome:', foundUser.userName);
+    }
+    
+    return foundUser || null;
   } catch (error) {
     console.error('[AUTH] [Auth Service] Failed to check user existence:', error.message);
+    if (error.response) {
+      console.error('[AUTH] [Auth Service] Response status:', error.response.status);
+      console.error('[AUTH] [Auth Service] Response data:', error.response.data);
+    }
     return null;
   }
 }
@@ -117,38 +140,47 @@ app.post('/api/auth/oauth-callback', oauthLimiter, async (req, res) => {
     // Get admin auth token
     const token = await getNavidromeToken();
 
-    // Check if user already exists
-    let existingUser = await checkNavidromeUserExists(baseUsername, token);
+    // For OAuth users, always create a fresh account
+    // Use userId to ensure uniqueness if username already exists
     let username = baseUsername;
-    let password = null;
+    let password = generateSecurePassword();
+    let counter = 0;
+    const maxAttempts = 10;
 
-    if (existingUser) {
-      console.log('[AUTH] [Auth Service] User already exists:', username);
+    // Find available username (append userId suffix if needed)
+    while (counter < maxAttempts) {
+      const existingUser = await checkNavidromeUserExists(username, token);
       
-      // For existing OAuth users, we need to retrieve their stored password
-      // This should ideally be stored in Supabase user_metadata
-      // For now, return username only - password should be retrieved from Supabase
-      return res.json({
-        success: true,
-        username: username,
-        message: 'User already exists',
-        requiresPasswordFromMetadata: true
-      });
-    } else {
-      // Generate secure random password for new user
-      password = generateSecurePassword();
+      if (!existingUser) {
+        // Username is available, break and create account
+        break;
+      }
+      
+      // Username exists, try with userId suffix
+      if (counter === 0) {
+        // First attempt: use first 8 chars of userId
+        const userIdSuffix = userId.replace(/-/g, '').substring(0, 8);
+        username = baseUsername.substring(0, 12) + userIdSuffix;
+      } else {
+        // Subsequent attempts: append counter
+        username = baseUsername.substring(0, 15) + counter;
+      }
+      
+      counter++;
+    }
 
-      // Create new user
-      const userData = {
-        userName: username,
-        name: username,
-        email: email,
-        password: password,
-        isAdmin: false
-      };
+    // Create new user with unique username
+    const userData = {
+      userName: username,
+      name: username,
+      email: email,
+      password: password,
+      isAdmin: false
+    };
 
-      console.log('[AUTH] [Auth Service] Creating new OAuth user in Navidrome:', username);
+    console.log('[AUTH] [Auth Service] Creating new OAuth user in Navidrome:', username);
 
+    try {
       const response = await axios.post(
         `${NAVIDROME_URL}/api/user`,
         userData,
@@ -174,6 +206,49 @@ app.post('/api/auth/oauth-callback', oauthLimiter, async (req, res) => {
           error: 'Failed to create user'
         });
       }
+    } catch (createError) {
+      // If creation fails due to username conflict, try one more time with different username
+      if (createError.response?.status === 409 && counter < maxAttempts) {
+        // Username conflict, try with full userId
+        const userIdSuffix = userId.replace(/-/g, '').substring(0, 12);
+        username = 'user' + userIdSuffix;
+        password = generateSecurePassword();
+        
+        const retryUserData = {
+          userName: username,
+          name: username,
+          email: email,
+          password: password,
+          isAdmin: false
+        };
+
+        try {
+          const retryResponse = await axios.post(
+            `${NAVIDROME_URL}/api/user`,
+            retryUserData,
+            {
+              headers: {
+                'X-ND-Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+              }
+            }
+          );
+
+          if (retryResponse.status === 200 || retryResponse.status === 201) {
+            console.log('[AUTH] [Auth Service] OAuth user created successfully (retry):', username);
+            return res.json({
+              success: true,
+              username: username,
+              password: password,
+              message: 'Account created successfully'
+            });
+          }
+        } catch (retryError) {
+          console.error('[AUTH] [Auth Service] Retry also failed:', retryError.message);
+        }
+      }
+      
+      throw createError;
     }
 
   } catch (error) {

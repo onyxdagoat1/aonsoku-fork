@@ -49,7 +49,11 @@ export function OAuthButtons() {
       const { error } = await supabase.auth.signInWithOAuth({
         provider,
         options: {
-          redirectTo: `${window.location.origin}/#/auth/callback`,
+          redirectTo: `${window.location.origin}${window.location.pathname}#/auth/callback`,
+          queryParams: provider === 'google' ? {
+            access_type: 'offline',
+            prompt: 'consent',
+          } : undefined,
         },
       });
 

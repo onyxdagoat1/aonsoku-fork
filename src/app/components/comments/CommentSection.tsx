@@ -6,6 +6,7 @@ import type { ContentType } from '@/types/comments';
 import { Loader2, MessageSquare } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Separator } from '../ui/separator';
+import { useAuth } from '@/app/hooks/use-auth';
 
 interface CommentSectionProps {
   contentType: ContentType;
@@ -20,12 +21,19 @@ interface CommentSectionProps {
 export function CommentSection({
   contentType,
   contentId,
-  userId,
-  username,
-  userAvatar,
+  userId: propUserId,
+  username: propUsername,
+  userAvatar: propUserAvatar,
   title = 'Comments',
   placeholder = 'Add a comment...',
 }: CommentSectionProps) {
+  const { user } = useAuth();
+  
+  // Use props if provided, otherwise fall back to auth hook
+  const userId = propUserId || user?.id || undefined;
+  const username = propUsername || user?.username || undefined;
+  const userAvatar = propUserAvatar || user?.avatar || undefined;
+  
   const [showForm, setShowForm] = useState(false);
   const { comments, isLoading, createComment, isCreating } = useComments({
     contentType,

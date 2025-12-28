@@ -41,7 +41,7 @@ export function AuthCallback() {
 
         // If credentials don't exist, create Navidrome account via auth service
         if (!navidromeUsername || !navidromePassword) {
-          console.log('[OAuth] Creating Navidrome account...')
+          console.log('[OAuth] Setting up Navidrome account...')
           setStatus('Creating music server account...')
 
           const authServiceUrl = import.meta.env.VITE_ACCOUNT_API_URL || 'http://localhost:3005/api'
@@ -61,13 +61,20 @@ export function AuthCallback() {
             const data = await response.json()
 
             if (!response.ok || !data.success) {
-              throw new Error(data.error || 'Failed to create Navidrome account')
+              throw new Error(data.error || 'Failed to set up Navidrome account')
             }
 
             navidromeUsername = data.username
+
+            // Auth service always creates a new account for OAuth users
+            // Password is always returned for new accounts
             navidromePassword = data.password
 
-            // Store credentials in Supabase user metadata
+            if (!navidromePassword) {
+              throw new Error('Failed to get Navidrome password')
+            }
+
+            // Always store credentials in Supabase user metadata
             if (navidromePassword) {
               console.log('[OAuth] Storing Navidrome credentials in user metadata...')
               const { error: updateError } = await supabase.auth.updateUser({
@@ -79,16 +86,19 @@ export function AuthCallback() {
 
               if (updateError) {
                 console.error('[OAuth] Failed to store credentials:', updateError)
+                // Continue anyway - we have the password in memory
+              } else {
+                console.log('[OAuth] Credentials stored successfully')
               }
             }
           } catch (error) {
-            console.error('[OAuth] Failed to create Navidrome account:', error)
-            toast.error('Failed to set up music server account')
-            navigate('/login', { replace: true })
+            console.error('[OAuth] Failed to set up Navidrome account:', error)
+            toast.error(error instanceof Error ? error.message : 'Failed to set up music server account')
+            navigate(ROUTES.SERVER_CONFIG, { replace: true })
             return
           }
         } else {
-          console.log('[OAuth] Using existing Navidrome credentials')
+          console.log('[OAuth] Using existing Navidrome credentials from metadata')
         }
 
         // Now auto-login to Navidrome
@@ -112,7 +122,7 @@ export function AuthCallback() {
           } else {
             console.error('[OAuth] Failed to login to Navidrome')
             toast.error('Failed to connect to music server')
-            navigate('/login', { replace: true })
+            navigate(ROUTES.SERVER_CONFIG, { replace: true })
           }
         } else {
           console.error('[OAuth] Missing Navidrome credentials')
