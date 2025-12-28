@@ -34,7 +34,7 @@ export default function CommentForm({
         entityId,
         content: comment.trim(),
         userId: user.id,
-        username: user.username || user.displayName || 'Anonymous',
+        username: user.username,
       },
       {
         onSuccess: () => {

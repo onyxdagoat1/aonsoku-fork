@@ -24,6 +24,8 @@ import { Albums } from '@/types/responses/album'
 import { sortRecentAlbums } from '@/utils/album'
 import { convertSecondsToHumanRead } from '@/utils/convertSecondsToTime'
 import Comments from '@/app/components/comments'
+import { RatingWidget } from '@/app/components/ratings/RatingWidget'
+import { EditCredits } from '@/app/components/credits/EditCredits'
 
 export default function Album() {
   const { albumId } = useParams() as { albumId: string }
@@ -178,6 +180,16 @@ export default function Album() {
               })}
             />
           )}
+        </div>
+
+        {/* Ratings Section */}
+        <div className="mt-6">
+          <RatingWidget contentType="album" contentId={album.id} showAggregate={true} />
+        </div>
+
+        {/* Edit Credits Section */}
+        <div className="mt-6">
+          <EditCredits contentType="album" contentId={album.id} />
         </div>
 
         {/* Comments Section */}

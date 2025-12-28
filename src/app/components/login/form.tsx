@@ -160,10 +160,11 @@ export function LoginForm() {
     autoConnectNavidrome()
   }, [supabaseConfigured, user, profile, saveConfig, queryClient, navigate])
 
-  // If Supabase is configured but user not authenticated, show Supabase login
-  if (supabaseConfigured && !user) {
-    return <SupabaseLoginForm />
-  }
+  // Always show Navidrome login form for testing
+  // If Supabase is configured but user not authenticated, show both options
+  // if (supabaseConfigured && !user) {
+  //   return <SupabaseLoginForm />
+  // }
 
   const form = useForm<FormData>({
     resolver: zodResolver(loginSchema),
@@ -214,7 +215,11 @@ export function LoginForm() {
                   <LangToggle />
                 </div>
               </CardTitle>
-              <CardDescription>Enter your credentials twin.</CardDescription>
+              <CardDescription>
+                {supabaseConfigured && !user 
+                  ? 'Sign in with Supabase or use Navidrome credentials directly' 
+                  : 'Enter your Navidrome credentials'}
+              </CardDescription>
             </CardHeader>
 
             <CardContent className="space-y-2">
@@ -295,18 +300,29 @@ export function LoginForm() {
                     {t('login.form.connecting')}
                   </>
                 ) : (
-                  <>Login</>
+                  <>Login to Navidrome</>
                 )}
               </Button>
 
-              {supabase && <OAuthButtons />}
-
-              <div className="text-center text-sm text-muted-foreground w-full">
-                Don't have an account?{' '}
-                <Link to={ROUTES.REGISTER} className="text-primary hover:underline">
-                  Create one
-                </Link>
-              </div>
+              {supabaseConfigured && !user && (
+                <>
+                  <div className="relative w-full">
+                    <div className="absolute inset-0 flex items-center">
+                      <span className="w-full border-t" />
+                    </div>
+                    <div className="relative flex justify-center text-xs uppercase">
+                      <span className="bg-background px-2 text-muted-foreground">Or sign in with</span>
+                    </div>
+                  </div>
+                  <OAuthButtons />
+                  <div className="text-center text-sm text-muted-foreground w-full">
+                    Don't have an account?{' '}
+                    <Link to={ROUTES.REGISTER} className="text-primary hover:underline">
+                      Create one
+                    </Link>
+                  </div>
+                </>
+              )}
             </CardFooter>
           </form>
         </Form>

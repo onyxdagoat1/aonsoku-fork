@@ -2,7 +2,12 @@ import { useYouTubeAuthStore } from '@/store/youtubeAuth.store';
 
 const YOUTUBE_CLIENT_ID = import.meta.env.VITE_YOUTUBE_OAUTH_CLIENT_ID || '';
 const YOUTUBE_CLIENT_SECRET = import.meta.env.VITE_YOUTUBE_OAUTH_CLIENT_SECRET || '';
-const REDIRECT_URI = `${window.location.origin}/youtube/callback`;
+const REDIRECT_URI = `${window.location.origin}${window.location.pathname}#/youtube/callback`;
+
+// Validate client ID
+if (!YOUTUBE_CLIENT_ID) {
+  console.warn('YouTube OAuth Client ID is not configured. Set VITE_YOUTUBE_OAUTH_CLIENT_ID in your .env file.');
+}
 
 const SCOPES = [
   'https://www.googleapis.com/auth/youtube.readonly',
@@ -15,6 +20,12 @@ class YouTubeAuthService {
    * Initiate OAuth flow
    */
   initiateOAuth() {
+    if (!YOUTUBE_CLIENT_ID) {
+      console.error('YouTube OAuth Client ID is not configured');
+      alert('YouTube OAuth is not configured. Please set VITE_YOUTUBE_OAUTH_CLIENT_ID in your .env file.');
+      return;
+    }
+
     const authUrl = new URL('https://accounts.google.com/o/oauth2/v2/auth');
     authUrl.searchParams.append('client_id', YOUTUBE_CLIENT_ID);
     authUrl.searchParams.append('redirect_uri', REDIRECT_URI);

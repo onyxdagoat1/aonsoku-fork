@@ -10,53 +10,38 @@ CREATE TABLE IF NOT EXISTS public.profiles (
   bio TEXT,
   navidrome_username TEXT UNIQUE,
   navidrome_user_id TEXT,
-  navidrome_password TEXT, -- Encrypted Navidrome password
+  navidrome_password TEXT,
   is_admin BOOLEAN DEFAULT false,
   is_yeditor BOOLEAN DEFAULT false,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- Add navidrome_password column if it doesn't exist (for existing databases)
-DO $$ 
-BEGIN
-  IF NOT EXISTS (
-    SELECT 1 FROM information_schema.columns 
-    WHERE table_schema = 'public' 
-    AND table_name = 'profiles' 
-    AND column_name = 'navidrome_password'
-  ) THEN
-    ALTER TABLE public.profiles ADD COLUMN navidrome_password TEXT;
-  END IF;
-  
-  IF NOT EXISTS (
-    SELECT 1 FROM information_schema.columns 
-    WHERE table_schema = 'public' 
-    AND table_name = 'profiles' 
-    AND column_name = 'is_admin'
-  ) THEN
-    ALTER TABLE public.profiles ADD COLUMN is_admin BOOLEAN DEFAULT false;
-  END IF;
-  
-  IF NOT EXISTS (
-    SELECT 1 FROM information_schema.columns 
-    WHERE table_schema = 'public' 
-    AND table_name = 'profiles' 
-    AND column_name = 'is_yeditor'
-  ) THEN
-    ALTER TABLE public.profiles ADD COLUMN is_yeditor BOOLEAN DEFAULT false;
-  END IF;
-END $$;
-
--- Create comments table
+-- Create comments table (updated structure)
 CREATE TABLE IF NOT EXISTS public.comments (
   id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
   user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
-  song_id TEXT NOT NULL,
-  content TEXT NOT NULL,
+  content_type TEXT NOT NULL CHECK (content_type IN ('track', 'album', 'artist', 'playlist', 'youtube_video')),
+  content_id TEXT NOT NULL,
+  text TEXT NOT NULL,
   parent_id UUID REFERENCES public.comments(id) ON DELETE CASCADE,
+  username TEXT NOT NULL,
+  user_avatar TEXT,
+  pinned BOOLEAN DEFAULT false,
+  deleted BOOLEAN DEFAULT false,
+  reported BOOLEAN DEFAULT false,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Create comment_reactions table
+CREATE TABLE IF NOT EXISTS public.comment_reactions (
+  id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+  comment_id UUID REFERENCES public.comments(id) ON DELETE CASCADE NOT NULL,
+  user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
+  reaction_type TEXT NOT NULL CHECK (reaction_type IN ('like', 'love', 'laugh', 'angry', 'sad')),
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  UNIQUE(comment_id, user_id)
 );
 
 -- Create playlists table
@@ -109,24 +94,60 @@ CREATE TABLE IF NOT EXISTS public.listening_history (
   play_duration_seconds INTEGER
 );
 
+-- Create ratings table (5-star and thumbs up/down)
+CREATE TABLE IF NOT EXISTS public.ratings (
+  id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+  user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
+  content_type TEXT NOT NULL CHECK (content_type IN ('track', 'album')),
+  content_id TEXT NOT NULL,
+  rating_type TEXT NOT NULL CHECK (rating_type IN ('star', 'thumbs')),
+  star_rating INTEGER CHECK (rating_type = 'star' AND star_rating >= 1 AND star_rating <= 5),
+  thumbs_up BOOLEAN CHECK (rating_type = 'thumbs'),
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  UNIQUE(user_id, content_type, content_id, rating_type)
+);
+
+-- Create edit_credits table
+CREATE TABLE IF NOT EXISTS public.edit_credits (
+  id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+  content_type TEXT NOT NULL CHECK (content_type IN ('track', 'album')),
+  content_id TEXT NOT NULL,
+  user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
+  credit_type TEXT NOT NULL CHECK (credit_type IN ('editor', 'remixer', 'producer', 'arranger', 'contributor')),
+  role_description TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  UNIQUE(content_type, content_id, user_id, credit_type)
+);
+
 -- Enable Row Level Security
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.comments ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.comment_reactions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.playlists ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.playlist_songs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.playlist_collaborators ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.favorites ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.listening_history ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.ratings ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.edit_credits ENABLE ROW LEVEL SECURITY;
 
--- Drop existing policies if they exist (to allow re-running script)
+-- Drop existing policies if they exist
 DROP POLICY IF EXISTS "Public profiles are viewable by everyone" ON public.profiles;
 DROP POLICY IF EXISTS "Users can insert their own profile" ON public.profiles;
 DROP POLICY IF EXISTS "Users can update their own profile" ON public.profiles;
+DROP POLICY IF EXISTS "Admins can update any profile" ON public.profiles;
 
 DROP POLICY IF EXISTS "Comments are viewable by everyone" ON public.comments;
 DROP POLICY IF EXISTS "Authenticated users can create comments" ON public.comments;
 DROP POLICY IF EXISTS "Users can update their own comments" ON public.comments;
 DROP POLICY IF EXISTS "Users can delete their own comments" ON public.comments;
+DROP POLICY IF EXISTS "Admins can manage all comments" ON public.comments;
+
+DROP POLICY IF EXISTS "Comment reactions are viewable by everyone" ON public.comment_reactions;
+DROP POLICY IF EXISTS "Users can add their own reactions" ON public.comment_reactions;
+DROP POLICY IF EXISTS "Users can remove their own reactions" ON public.comment_reactions;
 
 DROP POLICY IF EXISTS "Public playlists are viewable by everyone" ON public.playlists;
 DROP POLICY IF EXISTS "Users can create their own playlists" ON public.playlists;
@@ -144,6 +165,17 @@ DROP POLICY IF EXISTS "Users can remove their own favorites" ON public.favorites
 DROP POLICY IF EXISTS "Users can view their own listening history" ON public.listening_history;
 DROP POLICY IF EXISTS "Users can add to their own listening history" ON public.listening_history;
 
+DROP POLICY IF EXISTS "Ratings are viewable by everyone" ON public.ratings;
+DROP POLICY IF EXISTS "Users can create their own ratings" ON public.ratings;
+DROP POLICY IF EXISTS "Users can update their own ratings" ON public.ratings;
+DROP POLICY IF EXISTS "Users can delete their own ratings" ON public.ratings;
+
+DROP POLICY IF EXISTS "Edit credits are viewable by everyone" ON public.edit_credits;
+DROP POLICY IF EXISTS "Users can create edit credits" ON public.edit_credits;
+DROP POLICY IF EXISTS "Users can update their own edit credits" ON public.edit_credits;
+DROP POLICY IF EXISTS "Users can delete their own edit credits" ON public.edit_credits;
+DROP POLICY IF EXISTS "Admins can manage all edit credits" ON public.edit_credits;
+
 -- Profiles policies
 CREATE POLICY "Public profiles are viewable by everyone"
   ON public.profiles FOR SELECT
@@ -157,10 +189,20 @@ CREATE POLICY "Users can update their own profile"
   ON public.profiles FOR UPDATE
   USING (auth.uid() = id);
 
+CREATE POLICY "Admins can update any profile"
+  ON public.profiles FOR UPDATE
+  USING (
+    EXISTS (
+      SELECT 1 FROM public.profiles
+      WHERE profiles.id = auth.uid()
+      AND profiles.is_admin = true
+    )
+  );
+
 -- Comments policies
 CREATE POLICY "Comments are viewable by everyone"
   ON public.comments FOR SELECT
-  USING (true);
+  USING (deleted = false);
 
 CREATE POLICY "Authenticated users can create comments"
   ON public.comments FOR INSERT
@@ -172,6 +214,29 @@ CREATE POLICY "Users can update their own comments"
 
 CREATE POLICY "Users can delete their own comments"
   ON public.comments FOR DELETE
+  USING (auth.uid() = user_id);
+
+CREATE POLICY "Admins can manage all comments"
+  ON public.comments
+  USING (
+    EXISTS (
+      SELECT 1 FROM public.profiles
+      WHERE profiles.id = auth.uid()
+      AND profiles.is_admin = true
+    )
+  );
+
+-- Comment reactions policies
+CREATE POLICY "Comment reactions are viewable by everyone"
+  ON public.comment_reactions FOR SELECT
+  USING (true);
+
+CREATE POLICY "Users can add their own reactions"
+  ON public.comment_reactions FOR INSERT
+  WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Users can remove their own reactions"
+  ON public.comment_reactions FOR DELETE
   USING (auth.uid() = user_id);
 
 -- Playlists policies
@@ -244,6 +309,50 @@ CREATE POLICY "Users can add to their own listening history"
   ON public.listening_history FOR INSERT
   WITH CHECK (auth.uid() = user_id);
 
+-- Ratings policies
+CREATE POLICY "Ratings are viewable by everyone"
+  ON public.ratings FOR SELECT
+  USING (true);
+
+CREATE POLICY "Users can create their own ratings"
+  ON public.ratings FOR INSERT
+  WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Users can update their own ratings"
+  ON public.ratings FOR UPDATE
+  USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can delete their own ratings"
+  ON public.ratings FOR DELETE
+  USING (auth.uid() = user_id);
+
+-- Edit credits policies
+CREATE POLICY "Edit credits are viewable by everyone"
+  ON public.edit_credits FOR SELECT
+  USING (true);
+
+CREATE POLICY "Users can create edit credits"
+  ON public.edit_credits FOR INSERT
+  WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Users can update their own edit credits"
+  ON public.edit_credits FOR UPDATE
+  USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can delete their own edit credits"
+  ON public.edit_credits FOR DELETE
+  USING (auth.uid() = user_id);
+
+CREATE POLICY "Admins can manage all edit credits"
+  ON public.edit_credits
+  USING (
+    EXISTS (
+      SELECT 1 FROM public.profiles
+      WHERE profiles.id = auth.uid()
+      AND profiles.is_admin = true
+    )
+  );
+
 -- Function to handle updated_at timestamp
 CREATE OR REPLACE FUNCTION public.handle_updated_at()
 RETURNS TRIGGER AS $$
@@ -257,6 +366,8 @@ $$ LANGUAGE plpgsql;
 DROP TRIGGER IF EXISTS set_updated_at ON public.profiles;
 DROP TRIGGER IF EXISTS set_updated_at ON public.comments;
 DROP TRIGGER IF EXISTS set_updated_at ON public.playlists;
+DROP TRIGGER IF EXISTS set_updated_at ON public.ratings;
+DROP TRIGGER IF EXISTS set_updated_at ON public.edit_credits;
 
 -- Triggers for updated_at
 CREATE TRIGGER set_updated_at
@@ -271,6 +382,16 @@ CREATE TRIGGER set_updated_at
 
 CREATE TRIGGER set_updated_at
   BEFORE UPDATE ON public.playlists
+  FOR EACH ROW
+  EXECUTE FUNCTION public.handle_updated_at();
+
+CREATE TRIGGER set_updated_at
+  BEFORE UPDATE ON public.ratings
+  FOR EACH ROW
+  EXECUTE FUNCTION public.handle_updated_at();
+
+CREATE TRIGGER set_updated_at
+  BEFORE UPDATE ON public.edit_credits
   FOR EACH ROW
   EXECUTE FUNCTION public.handle_updated_at();
 
@@ -315,6 +436,11 @@ BEGIN
   );
   
   RETURN NEW;
+EXCEPTION
+  WHEN OTHERS THEN
+    -- Log error but don't fail the user creation
+    RAISE WARNING 'Error creating profile for user %: %', NEW.id, SQLERRM;
+    RETURN NEW;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
@@ -325,10 +451,11 @@ CREATE TRIGGER on_auth_user_created
   FOR EACH ROW
   EXECUTE FUNCTION public.handle_new_user();
 
--- Indexes for performance (CREATE INDEX IF NOT EXISTS is safe to re-run)
-CREATE INDEX IF NOT EXISTS idx_comments_song_id ON public.comments(song_id);
+-- Indexes for performance
+CREATE INDEX IF NOT EXISTS idx_comments_content ON public.comments(content_type, content_id);
 CREATE INDEX IF NOT EXISTS idx_comments_user_id ON public.comments(user_id);
 CREATE INDEX IF NOT EXISTS idx_comments_parent_id ON public.comments(parent_id);
+CREATE INDEX IF NOT EXISTS idx_comment_reactions_comment_id ON public.comment_reactions(comment_id);
 CREATE INDEX IF NOT EXISTS idx_playlists_user_id ON public.playlists(user_id);
 CREATE INDEX IF NOT EXISTS idx_playlists_is_public ON public.playlists(is_public);
 CREATE INDEX IF NOT EXISTS idx_playlist_songs_playlist_id ON public.playlist_songs(playlist_id);
@@ -336,3 +463,9 @@ CREATE INDEX IF NOT EXISTS idx_favorites_user_id ON public.favorites(user_id);
 CREATE INDEX IF NOT EXISTS idx_favorites_song_id ON public.favorites(song_id);
 CREATE INDEX IF NOT EXISTS idx_listening_history_user_id ON public.listening_history(user_id);
 CREATE INDEX IF NOT EXISTS idx_listening_history_played_at ON public.listening_history(played_at DESC);
+CREATE INDEX IF NOT EXISTS idx_ratings_content ON public.ratings(content_type, content_id);
+CREATE INDEX IF NOT EXISTS idx_ratings_user_id ON public.ratings(user_id);
+CREATE INDEX IF NOT EXISTS idx_edit_credits_content ON public.edit_credits(content_type, content_id);
+CREATE INDEX IF NOT EXISTS idx_edit_credits_user_id ON public.edit_credits(user_id);
+
+

@@ -1,34 +1,25 @@
-import { useAuth as useSupabaseAuth } from '@/contexts/AuthContext'
+import { useAppData } from '@/store/app.store'
 
 /**
  * Hook to access user authentication state
- * Uses Supabase AuthContext for authentication
+ * Uses the app store to get the logged-in user's information
  */
 export function useAuth() {
-  const { user, profile, session, loading } = useSupabaseAuth()
+  const { username, isServerConfigured } = useAppData()
 
-  // Return user object if authenticated
-  if (user && profile) {
+  // Return user object if server is configured and user is logged in
+  if (isServerConfigured && username) {
     return {
       user: {
-        id: user.id,
-        username: profile.username,
-        email: user.email || '',
-        displayName: profile.display_name || profile.username,
-        avatar: profile.avatar_url,
-        profile: profile,
+        id: username, // Using username as ID since subsonic uses username for auth
+        username: username,
+        email: `${username}@subsonic.local`, // Placeholder email
       },
-      profile,
-      session,
-      loading,
     }
   }
 
   // Return null if not authenticated
   return {
     user: null,
-    profile: null,
-    session: null,
-    loading,
   }
 }

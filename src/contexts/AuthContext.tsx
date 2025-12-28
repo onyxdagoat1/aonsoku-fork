@@ -56,23 +56,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           .update({
             navidrome_username: username,
             navidrome_user_id: response.data.user?.id || null,
-            navidrome_password: navidromePassword, // Store password in profiles
+            navidrome_password: navidromePassword, // Store for future logins
           })
           .eq('id', userId)
 
         if (profileError) {
           console.error('⚠️ Failed to update profile:', profileError)
+        } else {
+          console.log('✅ Profile updated with Navidrome credentials')
         }
 
-        // Also update user_metadata for backward compatibility
+        // Also update user metadata
         await supabase.auth.updateUser({
           data: {
             navidrome_username: username,
             navidrome_password: navidromePassword,
           }
         })
-
-        console.log('✅ Profile updated with Navidrome credentials')
         
         return true
       }
@@ -85,13 +85,51 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (error?.response?.data?.message?.includes('already exists')) {
         console.log('ℹ️ Navidrome user already exists, attempting to link...')
         
-        // Update profile with existing username
-        await supabase
-          .from('profiles')
-          .update({
-            navidrome_username: username,
+        // Try to get password from auth service
+        try {
+          const authServiceUrl = import.meta.env.VITE_ACCOUNT_API_URL || 'http://localhost:3005/api'
+          const passwordResponse = await axios.post(`${authServiceUrl}/auth/get-password`, {
+            username,
+            email,
           })
-          .eq('id', userId)
+          
+          if (passwordResponse.data.password) {
+            const existingPassword = passwordResponse.data.password
+            
+            // Update profile with existing username and password
+            await supabase
+              .from('profiles')
+              .update({
+                navidrome_username: username,
+                navidrome_password: existingPassword,
+              })
+              .eq('id', userId)
+
+            // Update user metadata
+            await supabase.auth.updateUser({
+              data: {
+                navidrome_username: username,
+                navidrome_password: existingPassword,
+              }
+            })
+          } else {
+            // Just update username if password not available
+            await supabase
+              .from('profiles')
+              .update({
+                navidrome_username: username,
+              })
+              .eq('id', userId)
+          }
+        } catch (err) {
+          // Just update username if password retrieval fails
+          await supabase
+            .from('profiles')
+            .update({
+              navidrome_username: username,
+            })
+            .eq('id', userId)
+        }
           
         return false
       }

@@ -64,23 +64,11 @@ const EPISODES = {
 };
 
 const UPLOAD = '/upload';
+const PROFILE = '/profile';
+const ADMIN = '/admin';
 
 const SERVER_CONFIG = '/server-config';
 const REGISTER = '/register';
-
-const PROFILE = {
-  PAGE: (username: string) => `/profile/${username}`,
-  PATH: '/profile/:username',
-  MY_PROFILE: '/profile/me',
-};
-
-const ADMIN = {
-  HOME: '/admin',
-  USERS: '/admin/users',
-  CONTENT: '/admin/content',
-  HIGHLIGHTS: '/admin/highlights',
-  SETTINGS: '/admin/settings',
-};
 
 export const ROUTES = {
   LIBRARY,
@@ -92,8 +80,8 @@ export const ROUTES = {
   PODCASTS,
   EPISODES,
   UPLOAD,
-  SERVER_CONFIG,
-  REGISTER,
   PROFILE,
   ADMIN,
+  SERVER_CONFIG,
+  REGISTER,
 };

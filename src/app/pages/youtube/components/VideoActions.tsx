@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useYouTubeAuthStore } from '@/store/youtubeAuth.store';
+import { useAuth } from '@/contexts/AuthContext';
 import { youtubeAuthenticatedService } from '@/service/youtubeAuthenticated';
 import { Button } from '@/app/components/ui/button';
 import { ThumbsUp, ThumbsDown, MessageSquare, ListPlus, Share2 } from 'lucide-react';
@@ -21,14 +22,16 @@ interface VideoActionsProps {
 }
 
 export function VideoActions({ videoId, videoTitle }: VideoActionsProps) {
-  const { isAuthenticated } = useYouTubeAuthStore();
+  const { isAuthenticated: youtubeAuthenticated } = useYouTubeAuthStore();
+  const { user, profile, isConfigured } = useAuth();
+  const isSupabaseAuthenticated = isConfigured && user && profile;
   const [isLiking, setIsLiking] = useState(false);
   const [isDisliking, setIsDisliking] = useState(false);
   const [showComments, setShowComments] = useState(false);
   const [showPlaylists, setShowPlaylists] = useState(false);
 
   const handleLike = async () => {
-    if (!isAuthenticated) {
+    if (!youtubeAuthenticated) {
       toast.info('Connect your YouTube account to like videos');
       return;
     }
@@ -45,7 +48,7 @@ export function VideoActions({ videoId, videoTitle }: VideoActionsProps) {
   };
 
   const handleDislike = async () => {
-    if (!isAuthenticated) {
+    if (!youtubeAuthenticated) {
       toast.info('Connect your YouTube account to dislike videos');
       return;
     }
@@ -80,8 +83,8 @@ export function VideoActions({ videoId, videoTitle }: VideoActionsProps) {
         variant="outline"
         size="sm"
         onClick={handleLike}
-        disabled={isLiking || !isAuthenticated}
-        title={!isAuthenticated ? 'Connect YouTube account to like' : 'Like this video'}
+        disabled={isLiking || !youtubeAuthenticated}
+        title={!youtubeAuthenticated ? 'Connect YouTube account to like' : 'Like this video'}
       >
         <ThumbsUp className="w-4 h-4 mr-1" />
         Like
@@ -91,8 +94,8 @@ export function VideoActions({ videoId, videoTitle }: VideoActionsProps) {
         variant="outline"
         size="sm"
         onClick={handleDislike}
-        disabled={isDisliking || !isAuthenticated}
-        title={!isAuthenticated ? 'Connect YouTube account to dislike' : 'Dislike this video'}
+        disabled={isDisliking || !youtubeAuthenticated}
+        title={!youtubeAuthenticated ? 'Connect YouTube account to dislike' : 'Dislike this video'}
       >
         <ThumbsDown className="w-4 h-4 mr-1" />
         Dislike
@@ -103,8 +106,8 @@ export function VideoActions({ videoId, videoTitle }: VideoActionsProps) {
           <Button
             variant="outline"
             size="sm"
-            disabled={!isAuthenticated}
-            title={!isAuthenticated ? 'Connect YouTube account to comment' : 'Add a comment'}
+            disabled={!isSupabaseAuthenticated}
+            title={!isSupabaseAuthenticated ? 'Log in to comment' : 'Add a comment'}
           >
             <MessageSquare className="w-4 h-4 mr-1" />
             Comment
@@ -126,8 +129,8 @@ export function VideoActions({ videoId, videoTitle }: VideoActionsProps) {
           <Button
             variant="outline"
             size="sm"
-            disabled={!isAuthenticated}
-            title={!isAuthenticated ? 'Connect YouTube account to add to playlist' : 'Add to playlist'}
+            disabled={!youtubeAuthenticated}
+            title={!youtubeAuthenticated ? 'Connect YouTube account to add to playlist' : 'Add to playlist'}
           >
             <ListPlus className="w-4 h-4 mr-1" />
             Save
@@ -153,9 +156,10 @@ export function VideoActions({ videoId, videoTitle }: VideoActionsProps) {
         Share
       </Button>
 
-      {!isAuthenticated && (
+      {(!youtubeAuthenticated || !isSupabaseAuthenticated) && (
         <p className="text-xs text-muted-foreground ml-2">
-          Connect your account to interact with videos
+          {!isSupabaseAuthenticated && 'Log in to comment. '}
+          {!youtubeAuthenticated && 'Connect YouTube account for likes and playlists.'}
         </p>
       )}
     </div>

@@ -10,7 +10,7 @@ import { YouTubeVideoView } from '@/app/pages/youtube/components/VideoView';
 import { YouTubeAuthButton } from '@/app/pages/youtube/components/YouTubeAuthButton';
 import { PlaylistImport } from '@/app/pages/youtube/components/PlaylistImport';
 import { useYouTubeAuthStore } from '@/store/youtubeAuth.store';
-import { useAuth } from '@/app/hooks/use-auth';
+import { useAuth } from '@/contexts/AuthContext';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/app/components/ui/tabs';
 import { Input } from '@/app/components/ui/input';
 import { Card, CardContent } from '@/app/components/ui/card';
@@ -23,9 +23,9 @@ type DurationFilter = 'all' | 'short' | 'medium' | 'long';
 type ViewMode = 'grid' | 'list';
 
 export default function YouTubePage() {
-  const { isAuthenticated: isYouTubeAuthenticated } = useYouTubeAuthStore();
-  const { user: supabaseUser } = useAuth();
-  const isAuthenticated = isYouTubeAuthenticated && !!supabaseUser;
+  const { isAuthenticated: youtubeAuthenticated } = useYouTubeAuthStore();
+  const { user, profile, isConfigured } = useAuth();
+  const isSupabaseAuthenticated = isConfigured && user && profile;
   const [channelInfo, setChannelInfo] = useState<YouTubeChannelInfo | null>(null);
   const [videos, setVideos] = useState<YouTubeVideo[]>([]);
   const [playlists, setPlaylists] = useState<YouTubePlaylist[]>([]);
@@ -230,7 +230,7 @@ export default function YouTubePage() {
             <TabsTrigger value="playlists">
               Playlists ({playlists.length})
             </TabsTrigger>
-            {isAuthenticated && (
+            {isSupabaseAuthenticated && (
               <TabsTrigger value="myaccount">
                 <Youtube className="w-4 h-4 mr-1" />
                 My Account
@@ -239,7 +239,7 @@ export default function YouTubePage() {
           </TabsList>
           
           <div className="flex gap-2">
-            {isAuthenticated && activeTab === 'playlists' && (
+            {isSupabaseAuthenticated && youtubeAuthenticated && activeTab === 'playlists' && (
               <PlaylistImport onImportComplete={(ids) => console.log('Imported:', ids)} />
             )}
             <Button
@@ -317,28 +317,41 @@ export default function YouTubePage() {
           )}
         </TabsContent>
 
-        {isAuthenticated && (
+        {isSupabaseAuthenticated && (
           <TabsContent value="myaccount" className="mt-0">
             <div className="space-y-4">
-              <Card>
-                <CardContent className="pt-6">
-                  <h3 className="text-lg font-semibold mb-4">YouTube Account Features</h3>
-                  <div className="space-y-3 text-sm text-muted-foreground">
-                    <p>With your YouTube account connected, you can:</p>
-                    <ul className="list-disc list-inside space-y-2 ml-2">
-                      <li>Like and dislike videos directly from yedits.net</li>
-                      <li>Comment on videos and engage with the community</li>
-                      <li>Import your YouTube playlists</li>
-                      <li>Add videos to your YouTube playlists</li>
-                      <li>Create new playlists on YouTube</li>
-                      <li>Subscribe to channels</li>
-                    </ul>
-                    <p className="mt-4 text-xs">
-                      Click on any video to watch it and access interactive features like liking, commenting, and saving to playlists.
+              {!youtubeAuthenticated ? (
+                <Card>
+                  <CardContent className="pt-6">
+                    <h3 className="text-lg font-semibold mb-4">Connect YouTube Account</h3>
+                    <p className="text-sm text-muted-foreground mb-4">
+                      To use YouTube features like liking videos, commenting, and managing playlists, 
+                      please connect your YouTube account.
                     </p>
-                  </div>
-                </CardContent>
-              </Card>
+                    <YouTubeAuthButton />
+                  </CardContent>
+                </Card>
+              ) : (
+                <Card>
+                  <CardContent className="pt-6">
+                    <h3 className="text-lg font-semibold mb-4">YouTube Account Features</h3>
+                    <div className="space-y-3 text-sm text-muted-foreground">
+                      <p>With your YouTube account connected, you can:</p>
+                      <ul className="list-disc list-inside space-y-2 ml-2">
+                        <li>Like and dislike videos directly from yedits.net</li>
+                        <li>Comment on videos and engage with the community</li>
+                        <li>Import your YouTube playlists</li>
+                        <li>Add videos to your YouTube playlists</li>
+                        <li>Create new playlists on YouTube</li>
+                        <li>Subscribe to channels</li>
+                      </ul>
+                      <p className="mt-4 text-xs">
+                        Click on any video to watch it and access interactive features like liking, commenting, and saving to playlists.
+                      </p>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
             </div>
           </TabsContent>
         )}

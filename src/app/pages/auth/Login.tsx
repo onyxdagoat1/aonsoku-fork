@@ -38,9 +38,9 @@ export function Login() {
     async function setupNavidromeLogin() {
       if (!user || !profile) return
 
-      // Check if Navidrome credentials are stored
-      const navidromeUsername = user.user_metadata?.navidrome_username || profile.navidrome_username
-      const navidromePassword = user.user_metadata?.navidrome_password
+      // Check if Navidrome credentials are stored (prefer profile table, fallback to metadata)
+      const navidromeUsername = profile?.navidrome_username || user.user_metadata?.navidrome_username
+      const navidromePassword = profile?.navidrome_password || user.user_metadata?.navidrome_password
 
       if (navidromeUsername && navidromePassword) {
         console.log('[Login] Setting up Navidrome login...')

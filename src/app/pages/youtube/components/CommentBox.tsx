@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { youtubeAuthenticatedService } from '@/service/youtubeAuthenticated';
+import { useAuth } from '@/contexts/AuthContext';
+import { commentsService } from '@/service/comments.service';
 import { Button } from '@/app/components/ui/button';
 import { Textarea } from '@/app/components/ui/textarea';
 import { toast } from 'react-toastify';
@@ -10,11 +11,17 @@ interface CommentBoxProps {
 }
 
 export function CommentBox({ videoId, onSuccess }: CommentBoxProps) {
+  const { user, profile } = useAuth();
   const [comment, setComment] = useState('');
   const [isPosting, setIsPosting] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!user || !profile) {
+      toast.error('Please log in to comment');
+      return;
+    }
 
     if (!comment.trim()) {
       toast.error('Please enter a comment');
@@ -22,15 +29,26 @@ export function CommentBox({ videoId, onSuccess }: CommentBoxProps) {
     }
 
     setIsPosting(true);
-    const result = await youtubeAuthenticatedService.commentOnVideo(videoId, comment);
-    setIsPosting(false);
+    try {
+      await commentsService.createComment(
+        {
+          content_type: 'youtube_video',
+          content_id: videoId,
+          text: comment.trim(),
+        },
+        profile.id,
+        profile.username,
+        profile.avatar_url || undefined
+      );
 
-    if (result.success) {
       toast.success('Comment posted successfully!');
       setComment('');
       onSuccess?.();
-    } else {
-      toast.error(result.error || 'Failed to post comment');
+    } catch (error: any) {
+      console.error('Error posting comment:', error);
+      toast.error(error.message || 'Failed to post comment');
+    } finally {
+      setIsPosting(false);
     }
   };
 

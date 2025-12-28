@@ -21,12 +21,14 @@ class CommentsService {
   ): Promise<CommentWithReactions[]> {
     try {
       // Get top-level comments with reactions
+      // First get top-level comments
       const { data: comments, error } = await supabase
-        .from('comments_with_reactions')
+        .from('comments')
         .select('*')
         .eq('content_type', contentType)
         .eq('content_id', contentId)
         .is('parent_id', null)
+        .eq('deleted', false)
         .order('pinned', { ascending: false })
         .order('created_at', { ascending: false });
 
@@ -34,36 +36,52 @@ class CommentsService {
 
       // Get user's reactions if userId provided
       let userReactions: CommentReaction[] = [];
-      if (userId) {
+      if (userId && comments && comments.length > 0) {
         const { data } = await supabase
           .from('comment_reactions')
           .select('*')
           .eq('user_id', userId)
           .in(
             'comment_id',
-            comments?.map((c) => c.id) || []
+            comments.map((c) => c.id)
           );
         userReactions = data || [];
       }
 
-      // Get replies for each comment
-      const commentsWithReplies = await Promise.all(
+      // Get reaction counts for each comment
+      const commentsWithReactions = await Promise.all(
         (comments || []).map(async (comment) => {
-          const replies = await this.getReplies(comment.id, userId);
+          // Get reaction counts
+          const { data: reactions } = await supabase
+            .from('comment_reactions')
+            .select('reaction_type')
+            .eq('comment_id', comment.id);
+
+          const reactionCounts: Record<string, number> = {};
+          reactions?.forEach((r) => {
+            reactionCounts[r.reaction_type] = (reactionCounts[r.reaction_type] || 0) + 1;
+          });
+
           const userReaction = userReactions.find(
             (r) => r.comment_id === comment.id
           );
 
+          // Get replies
+          const replies = await this.getReplies(comment.id, userId);
+
           return {
             ...comment,
-            reaction_counts: comment.reaction_counts || {},
+            reaction_counts: reactionCounts as any,
+            total_reactions: reactions?.length || 0,
             user_reaction: userReaction?.reaction_type || null,
             replies,
+            reply_count: replies.length,
+            edited: comment.updated_at !== comment.created_at,
           } as CommentWithReactions;
         })
       );
 
-      return commentsWithReplies;
+      return commentsWithReactions;
     } catch (error) {
       console.error('Error fetching comments:', error);
       throw error;
@@ -79,9 +97,10 @@ class CommentsService {
   ): Promise<CommentWithReactions[]> {
     try {
       const { data: replies, error } = await supabase
-        .from('comments_with_reactions')
+        .from('comments')
         .select('*')
         .eq('parent_id', parentId)
+        .eq('deleted', false)
         .order('created_at', { ascending: true });
 
       if (error) throw error;
@@ -100,18 +119,33 @@ class CommentsService {
         userReactions = data || [];
       }
 
-      return (
-        replies?.map((reply) => {
+      // Get reaction counts for each reply
+      return await Promise.all(
+        (replies || []).map(async (reply) => {
+          const { data: reactions } = await supabase
+            .from('comment_reactions')
+            .select('reaction_type')
+            .eq('comment_id', reply.id);
+
+          const reactionCounts: Record<string, number> = {};
+          reactions?.forEach((r) => {
+            reactionCounts[r.reaction_type] = (reactionCounts[r.reaction_type] || 0) + 1;
+          });
+
           const userReaction = userReactions.find(
             (r) => r.comment_id === reply.id
           );
+
           return {
             ...reply,
-            reaction_counts: reply.reaction_counts || {},
+            reaction_counts: reactionCounts as any,
+            total_reactions: reactions?.length || 0,
             user_reaction: userReaction?.reaction_type || null,
             replies: [],
+            reply_count: 0,
+            edited: reply.updated_at !== reply.created_at,
           } as CommentWithReactions;
-        }) || []
+        })
       );
     } catch (error) {
       console.error('Error fetching replies:', error);
@@ -132,7 +166,10 @@ class CommentsService {
       const { data, error } = await supabase
         .from('comments')
         .insert({
-          ...input,
+          content_type: input.content_type,
+          content_id: input.content_id,
+          text: input.text,
+          parent_id: input.parent_id || null,
           user_id: userId,
           username,
           user_avatar: userAvatar,
@@ -247,27 +284,33 @@ class CommentsService {
   ): Promise<CommentStats> {
     try {
       const { data: comments, error } = await supabase
-        .from('comments_with_reactions')
-        .select('id, total_reactions, reaction_counts')
+        .from('comments')
+        .select('id')
         .eq('content_type', contentType)
-        .eq('content_id', contentId);
+        .eq('content_id', contentId)
+        .eq('deleted', false);
 
       if (error) throw error;
 
       const totalComments = comments?.length || 0;
-      const totalReactions =
-        comments?.reduce((sum, c) => sum + (c.total_reactions || 0), 0) || 0;
-
-      // Aggregate reaction counts
+      
+      // Get all reactions for these comments
+      const commentIds = comments?.map((c) => c.id) || [];
+      let totalReactions = 0;
       const reactionMap: Record<string, number> = {};
-      comments?.forEach((comment) => {
-        const counts = comment.reaction_counts as Record<string, number>;
-        if (counts) {
-          Object.entries(counts).forEach(([type, count]) => {
-            reactionMap[type] = (reactionMap[type] || 0) + count;
-          });
-        }
-      });
+      
+      if (commentIds.length > 0) {
+        const { data: reactions } = await supabase
+          .from('comment_reactions')
+          .select('reaction_type')
+          .in('comment_id', commentIds);
+        
+        totalReactions = reactions?.length || 0;
+        
+        reactions?.forEach((r) => {
+          reactionMap[r.reaction_type] = (reactionMap[r.reaction_type] || 0) + 1;
+        });
+      }
 
       const topReactions = Object.entries(reactionMap)
         .map(([type, count]) => ({ type: type as ReactionType, count }))

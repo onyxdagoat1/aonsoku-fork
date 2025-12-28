@@ -15,7 +15,8 @@
     "music-metadata": "^8.1.4",
     "axios": "^1.6.0",
     "dotenv": "^16.3.1",
-    "flac-metadata": "^1.0.4"
+    "flac-metadata": "^1.0.4",
+    "@supabase/supabase-js": "^2.39.0"
   },
   "devDependencies": {
     "nodemon": "^3.0.1"

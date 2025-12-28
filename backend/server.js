@@ -4,6 +4,7 @@ const NodeID3 = require('node-id3');
 const fs = require('fs').promises;
 const path = require('path');
 const axios = require('axios');
+const { createClient } = require('@supabase/supabase-js');
 require('dotenv').config();
 
 const app = express();
@@ -22,8 +23,15 @@ const config = {
   navidromeUrl: process.env.NAVIDROME_URL || 'http://localhost:4533',
   navidromeUsername: process.env.NAVIDROME_USERNAME,
   navidromePassword: process.env.NAVIDROME_PASSWORD,
-  musicLibraryPath: process.env.MUSIC_LIBRARY_PATH
+  musicLibraryPath: process.env.MUSIC_LIBRARY_PATH,
+  supabaseUrl: process.env.SUPABASE_URL,
+  supabaseServiceKey: process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY
 };
+
+// Initialize Supabase client (use service role key if available, otherwise anon key)
+const supabase = config.supabaseUrl && config.supabaseServiceKey
+  ? createClient(config.supabaseUrl, config.supabaseServiceKey)
+  : null;
 
 // Helper: Get file path from song ID via Navidrome API
 async function getSongFilePath(songId) {
@@ -226,6 +234,95 @@ app.get('/api/test-navidrome', async (req, res) => {
     res.status(500).json({
       success: false,
       error: error.message
+    });
+  }
+});
+
+// API: Get users list for admin panel (requires authentication)
+app.get('/api/admin/users', async (req, res) => {
+  try {
+    if (!supabase) {
+      return res.status(503).json({
+        error: 'Supabase not configured'
+      });
+    }
+
+    // Get auth token from Authorization header
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({
+        error: 'Unauthorized - No token provided'
+      });
+    }
+
+    const token = authHeader.replace('Bearer ', '');
+
+    // Verify token and get user
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    
+    if (authError || !user) {
+      return res.status(401).json({
+        error: 'Unauthorized - Invalid token'
+      });
+    }
+
+    // Check if user is admin
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('is_admin')
+      .eq('id', user.id)
+      .single();
+
+    if (profileError || !profile || !profile.is_admin) {
+      return res.status(403).json({
+        error: 'Forbidden - Admin access required'
+      });
+    }
+
+    // Get all profiles with user emails
+    const { data: profiles, error: profilesError } = await supabase
+      .from('profiles')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (profilesError) {
+      throw profilesError;
+    }
+
+    // Get emails from auth.users (requires service role key)
+    // If we only have anon key, we'll return profiles without emails
+    let usersWithEmails = profiles || [];
+    
+    if (config.supabaseServiceKey && config.supabaseServiceKey !== process.env.SUPABASE_ANON_KEY) {
+      // We have service role key, can get emails
+      try {
+        const { data: { users }, error: usersError } = await supabase.auth.admin.listUsers();
+        
+        if (!usersError && users) {
+          usersWithEmails = (profiles || []).map(profile => {
+            const authUser = users.find(u => u.id === profile.id);
+            return {
+              ...profile,
+              email: authUser?.email || 'N/A'
+            };
+          });
+        }
+      } catch (err) {
+        console.error('Error fetching user emails:', err);
+        // Continue without emails
+      }
+    }
+
+    res.json({
+      success: true,
+      users: usersWithEmails
+    });
+
+  } catch (error) {
+    console.error('Error fetching users:', error);
+    res.status(500).json({
+      error: 'Failed to fetch users',
+      details: error.message
     });
   }
 });

@@ -1,4 +1,4 @@
-export type ContentType = 'artist' | 'album' | 'song' | 'compilation' | 'single';
+export type ContentType = 'track' | 'album' | 'artist' | 'playlist' | 'youtube_video';
 
 export type ReactionType = 'like' | 'love' | 'fire' | 'laugh' | 'sad' | 'angry';
 
