@@ -469,3 +469,4 @@ CREATE INDEX IF NOT EXISTS idx_edit_credits_content ON public.edit_credits(conte
 CREATE INDEX IF NOT EXISTS idx_edit_credits_user_id ON public.edit_credits(user_id);
 
 
+
