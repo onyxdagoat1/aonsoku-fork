@@ -3,6 +3,7 @@ import { supabase, isSupabaseConfigured } from '@/lib/supabase'
 import type { User, Session } from '@supabase/supabase-js'
 import type { Database } from '@/lib/database.types'
 import axios from 'axios'
+import { useAppStore } from '@/store/app.store'
 
 type Profile = Database['public']['Tables']['profiles']['Row']
 
@@ -20,6 +21,8 @@ interface AuthContextType {
   signOut: () => Promise<void>
   updateProfile: (updates: Partial<Profile>) => Promise<{ error: Error | null }>
   isConfigured: boolean
+  isAuthenticated: boolean
+  navidromeUsername: string | null
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -28,16 +31,16 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined)
 const MOCK_AUTH_MODE = import.meta.env.VITE_MOCK_AUTH === 'true'
 
 // Mock user data for testing
-const createMockUser = (): User => ({
-  id: 'mock-user-id-123',
+const createMockUser = (username: string): User => ({
+  id: `mock-user-${username}`,
   app_metadata: {},
   user_metadata: {
-    username: 'testuser',
-    full_name: 'Test User',
+    username: username,
+    full_name: username,
   },
   aud: 'authenticated',
   created_at: new Date().toISOString(),
-  email: 'test@example.com',
+  email: `${username}@navidrome.local`,
   email_confirmed_at: new Date().toISOString(),
   phone: '',
   confirmed_at: new Date().toISOString(),
@@ -46,28 +49,28 @@ const createMockUser = (): User => ({
   updated_at: new Date().toISOString(),
 })
 
-const createMockProfile = (): Profile => ({
-  id: 'mock-user-id-123',
-  username: 'testuser',
-  display_name: 'Test User',
+const createMockProfile = (username: string): Profile => ({
+  id: `mock-user-${username}`,
+  username: username,
+  display_name: username,
   avatar_url: null,
-  bio: 'This is a mock user for testing',
-  navidrome_username: null,
+  bio: `Navidrome user: ${username}`,
+  navidrome_username: username,
   navidrome_user_id: null,
   navidrome_password: null,
-  is_admin: true, // Mock user is admin for full testing
-  is_yeditor: true,
+  is_admin: false,
+  is_yeditor: false,
   created_at: new Date().toISOString(),
   updated_at: new Date().toISOString(),
 })
 
-const createMockSession = (): Session => ({
-  access_token: 'mock-access-token',
+const createMockSession = (username: string): Session => ({
+  access_token: `mock-access-token-${username}`,
   refresh_token: 'mock-refresh-token',
   expires_in: 3600,
   expires_at: Math.floor(Date.now() / 1000) + 3600,
   token_type: 'bearer',
-  user: createMockUser(),
+  user: createMockUser(username),
 })
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
@@ -75,6 +78,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [profile, setProfile] = useState<Profile | null>(null)
   const [session, setSession] = useState<Session | null>(null)
   const [loading, setLoading] = useState(true)
+  const [navidromeUsername, setNavidromeUsername] = useState<string | null>(null)
+
+  // Get Navidrome authentication state
+  const navidromeConfig = useAppStore((state) => state.data)
 
   // Create Navidrome user for new Supabase user (legacy - for email signup)
   const createNavidromeUser = async (userId: string, username: string, email: string) => {
@@ -102,7 +109,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           .update({
             navidrome_username: username,
             navidrome_user_id: response.data.user?.id || null,
-            navidrome_password: navidromePassword, // Store for future logins
+            navidrome_password: navidromePassword,
           })
           .eq('id', userId)
 
@@ -127,60 +134,96 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch (error: any) {
       console.error('⚠️ Failed to create Navidrome user:', error)
       
-      // If user already exists, try to use existing username
+      // If user already exists, try to link
       if (error?.response?.data?.message?.includes('already exists')) {
         console.log('ℹ️ Navidrome user already exists, attempting to link...')
         
-        // Try to get password from auth service
-        try {
-          const authServiceUrl = import.meta.env.VITE_ACCOUNT_API_URL || 'http://localhost:3005/api'
-          const passwordResponse = await axios.post(`${authServiceUrl}/auth/get-password`, {
-            username,
-            email,
+        await supabase
+          .from('profiles')
+          .update({
+            navidrome_username: username,
           })
-          
-          if (passwordResponse.data.password) {
-            const existingPassword = passwordResponse.data.password
-            
-            // Update profile with existing username and password
-            await supabase
-              .from('profiles')
-              .update({
-                navidrome_username: username,
-                navidrome_password: existingPassword,
-              })
-              .eq('id', userId)
-
-            // Update user metadata
-            await supabase.auth.updateUser({
-              data: {
-                navidrome_username: username,
-                navidrome_password: existingPassword,
-              }
-            })
-          } else {
-            // Just update username if password not available
-            await supabase
-              .from('profiles')
-              .update({
-                navidrome_username: username,
-              })
-              .eq('id', userId)
-          }
-        } catch (err) {
-          // Just update username if password retrieval fails
-          await supabase
-            .from('profiles')
-            .update({
-              navidrome_username: username,
-            })
-            .eq('id', userId)
-        }
+          .eq('id', userId)
           
         return false
       }
       
       return false
+    }
+  }
+
+  // Auto-create Supabase profile for Navidrome user
+  const autoCreateSupabaseProfile = async (navidromeUser: string) => {
+    if (!isSupabaseConfigured) {
+      console.log('ℹ️ Supabase not configured, using fallback authentication')
+      // Create mock user for Navidrome username
+      setUser(createMockUser(navidromeUser))
+      setProfile(createMockProfile(navidromeUser))
+      setSession(createMockSession(navidromeUser))
+      return
+    }
+
+    try {
+      console.log('🔄 Auto-creating Supabase profile for Navidrome user:', navidromeUser)
+
+      // Check if profile already exists
+      const { data: existingProfile, error: fetchError } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('navidrome_username', navidromeUser)
+        .maybeSingle()
+
+      if (fetchError) {
+        console.error('Error fetching profile:', fetchError)
+      }
+
+      if (existingProfile) {
+        console.log('✅ Found existing Supabase profile for Navidrome user')
+        setProfile(existingProfile)
+        
+        // Create a pseudo-user for display purposes
+        setUser(createMockUser(navidromeUser))
+        setSession(createMockSession(navidromeUser))
+        return
+      }
+
+      // Create new profile for Navidrome user
+      console.log('📝 Creating new Supabase profile for Navidrome user')
+      
+      const newProfile: Partial<Profile> = {
+        id: `navidrome-${navidromeUser}-${Date.now()}`,
+        username: navidromeUser,
+        display_name: navidromeUser,
+        navidrome_username: navidromeUser,
+        bio: `Navidrome user`,
+        is_admin: false,
+        is_yeditor: false,
+      }
+
+      const { data: createdProfile, error: createError } = await supabase
+        .from('profiles')
+        .insert([newProfile])
+        .select()
+        .single()
+
+      if (createError) {
+        console.error('⚠️ Failed to create profile:', createError)
+        // Fall back to mock mode
+        setUser(createMockUser(navidromeUser))
+        setProfile(createMockProfile(navidromeUser))
+        setSession(createMockSession(navidromeUser))
+      } else {
+        console.log('✅ Supabase profile created successfully')
+        setProfile(createdProfile)
+        setUser(createMockUser(navidromeUser))
+        setSession(createMockSession(navidromeUser))
+      }
+    } catch (error) {
+      console.error('⚠️ Error in auto-create profile:', error)
+      // Fall back to mock mode
+      setUser(createMockUser(navidromeUser))
+      setProfile(createMockProfile(navidromeUser))
+      setSession(createMockSession(navidromeUser))
     }
   }
 
@@ -214,51 +257,79 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // Initialize auth state
   useEffect(() => {
-    // Mock authentication mode
-    if (MOCK_AUTH_MODE) {
-      console.log('🧪 Mock authentication mode enabled')
-      setUser(createMockUser())
-      setProfile(createMockProfile())
-      setSession(createMockSession())
-      setLoading(false)
-      return
-    }
-
-    if (!isSupabaseConfigured) {
-      setLoading(false)
-      return
-    }
-
-    // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session)
-      setUser(session?.user ?? null)
-      if (session?.user) {
-        fetchProfile(session.user.id)
+    const initializeAuth = async () => {
+      // Mock authentication mode
+      if (MOCK_AUTH_MODE) {
+        console.log('🧪 Mock authentication mode enabled')
+        const mockUsername = 'testuser'
+        setUser(createMockUser(mockUsername))
+        setProfile(createMockProfile(mockUsername))
+        setSession(createMockSession(mockUsername))
+        setLoading(false)
+        return
       }
-      setLoading(false)
-    })
 
-    // Listen for auth changes
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      console.log('🔐 Auth state changed:', _event)
+      // Check if Navidrome is configured and user is logged in
+      if (navidromeConfig.isServerConfigured && navidromeConfig.username) {
+        console.log('🎵 Navidrome user detected:', navidromeConfig.username)
+        setNavidromeUsername(navidromeConfig.username)
+        
+        if (!isSupabaseConfigured) {
+          // If Supabase not configured, use Navidrome auth only
+          console.log('ℹ️ Supabase not configured, using Navidrome authentication')
+          await autoCreateSupabaseProfile(navidromeConfig.username)
+          setLoading(false)
+          return
+        }
+      }
+
+      if (!isSupabaseConfigured) {
+        setLoading(false)
+        return
+      }
+
+      // Get initial session
+      const { data: { session } } = await supabase.auth.getSession()
       
       setSession(session)
       setUser(session?.user ?? null)
       
       if (session?.user) {
         await fetchProfile(session.user.id)
-      } else {
-        setProfile(null)
+      } else if (navidromeConfig.username) {
+        // User logged into Navidrome but not Supabase - auto-create profile
+        await autoCreateSupabaseProfile(navidromeConfig.username)
       }
       
       setLoading(false)
-    })
 
-    return () => subscription.unsubscribe()
-  }, [isSupabaseConfigured])
+      // Listen for auth changes
+      const {
+        data: { subscription },
+      } = supabase.auth.onAuthStateChange(async (_event, session) => {
+        console.log('🔐 Auth state changed:', _event)
+        
+        setSession(session)
+        setUser(session?.user ?? null)
+        
+        if (session?.user) {
+          await fetchProfile(session.user.id)
+        } else {
+          setProfile(null)
+          // Check if still logged into Navidrome
+          if (navidromeConfig.username) {
+            await autoCreateSupabaseProfile(navidromeConfig.username)
+          }
+        }
+        
+        setLoading(false)
+      })
+
+      return () => subscription.unsubscribe()
+    }
+
+    initializeAuth()
+  }, [navidromeConfig.isServerConfigured, navidromeConfig.username])
 
   // Sign in with OAuth provider (Google, Discord, GitHub)
   const signInWithProvider = async (provider: 'google' | 'discord' | 'github') => {
@@ -369,22 +440,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       console.error('Error signing out:', error)
       throw error
     }
+    
+    // Clear local state
+    setUser(null)
+    setProfile(null)
+    setSession(null)
   }
 
   // Update profile
   const updateProfile = async (updates: Partial<Profile>) => {
-    if (!user) return { error: new Error('No user logged in') }
+    if (!user && !profile) return { error: new Error('No user logged in') }
 
-    if (MOCK_AUTH_MODE) {
+    if (MOCK_AUTH_MODE || !isSupabaseConfigured) {
       console.log('🧪 Mock update profile:', updates)
       setProfile((prev) => (prev ? { ...prev, ...updates } : null))
       return { error: null }
     }
 
+    const userId = user?.id || profile?.id
+    if (!userId) return { error: new Error('No user ID found') }
+
     const { error } = await supabase
       .from('profiles')
       .update(updates)
-      .eq('id', user.id)
+      .eq('id', userId)
 
     if (!error) {
       setProfile((prev) => (prev ? { ...prev, ...updates } : null))
@@ -392,6 +471,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     return { error }
   }
+
+  const isAuthenticated = !!(user || profile || navidromeUsername)
 
   const value = {
     user,
@@ -406,7 +487,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     signUpWithEmail,
     signOut,
     updateProfile,
-    isConfigured: MOCK_AUTH_MODE || isSupabaseConfigured,
+    isConfigured: MOCK_AUTH_MODE || isSupabaseConfigured || !!navidromeUsername,
+    isAuthenticated,
+    navidromeUsername,
   }
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
