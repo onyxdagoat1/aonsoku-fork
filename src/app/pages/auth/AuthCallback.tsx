@@ -5,54 +5,56 @@ import { Loader2 } from 'lucide-react'
 
 export function AuthCallback() {
   const navigate = useNavigate()
-  const [error, setError] = useState<string | null>(null)
+  const [status, setStatus] = useState<string>('Initializing...')
 
   useEffect(() => {
     const handleAuth = async () => {
+      console.log("AuthCallback: Starting auth check...")
+      console.log("AuthCallback: Current URL:", window.location.href)
+
       try {
+        setStatus('Checking existing session...')
         // Check if we have a session first
         const { data: { session } } = await supabase.auth.getSession()
         
         if (session) {
-          console.log("Session found, redirecting...")
+          console.log("AuthCallback: Session found via getSession")
           navigate('/', { replace: true })
           return
         }
 
-        // If no session, check URL for tokens (Supabase + HashRouter workaround)
-        // The URL might look like: http://localhost:3000/#/auth/callback#access_token=...
-        // or http://localhost:3000/auth/callback#access_token=...
-        const hash = window.location.hash
-        const params = new URLSearchParams(hash.replace(/^#\/?/, '')) // Remove leading # or #/
-        
-        // Also check if the params are "hidden" after the route hash
-        // e.g. #/auth/callback#access_token=...
-        const parts = hash.split('#')
-        let accessToken = params.get('access_token')
-        let refreshToken = params.get('refresh_token')
+        setStatus('Parsing URL for tokens...')
+        // Robust regex to find tokens anywhere in the URL (hash, query, or multiple hashes)
+        const url = window.location.href
+        const accessTokenMatch = url.match(/access_token=([^&]+)/)
+        const refreshTokenMatch = url.match(/refresh_token=([^&]+)/)
+        const typeMatch = url.match(/type=([^&]+)/)
 
-        if (!accessToken && parts.length > 2) {
-            // Handle double hash case
-            const tokenPart = parts.find(p => p.includes('access_token'))
-            if (tokenPart) {
-                const tokenParams = new URLSearchParams(tokenPart)
-                accessToken = tokenParams.get('access_token')
-                refreshToken = tokenParams.get('refresh_token')
-            }
-        }
-
-        if (accessToken && refreshToken) {
+        if (accessTokenMatch && refreshTokenMatch) {
+            console.log("AuthCallback: Tokens found in URL")
+            const accessToken = accessTokenMatch[1]
+            const refreshToken = refreshTokenMatch[1]
+            
+            setStatus('Setting session...')
             const { error } = await supabase.auth.setSession({
                 access_token: accessToken,
                 refresh_token: refreshToken,
             })
-            if (error) throw error
+            
+            if (error) {
+                console.error("AuthCallback: setSession error", error)
+                throw error
+            }
+            
+            console.log("AuthCallback: Session set successfully")
             navigate('/', { replace: true })
             return
         }
 
-        // Setup listener for delayed auth events
+        setStatus('Waiting for auth state change...')
+        // Fallback: Listen for auth events (Supabase might process the hash async)
         const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+          console.log("AuthCallback: Auth state changed:", event)
           if (event === 'SIGNED_IN' && session) {
             navigate('/', { replace: true })
           }
@@ -63,31 +65,23 @@ export function AuthCallback() {
         }
 
       } catch (err: any) {
-        console.error("Auth callback error:", err)
-        setError(err.message || "Authentication failed")
-        setTimeout(() => navigate('/auth/login'), 3000)
+        console.error("AuthCallback error:", err)
+        setStatus(`Error: ${err.message || "Authentication failed"}`)
+        // Do not redirect immediately on error, let user see it
       }
     }
 
     handleAuth()
   }, [navigate])
 
-  if (error) {
-    return (
-        <div className="flex min-h-screen items-center justify-center bg-background">
-            <div className="flex flex-col items-center space-y-4 text-red-500">
-                <p>Error: {error}</p>
-                <p className="text-sm text-muted-foreground">Redirecting to login...</p>
-            </div>
-        </div>
-    )
-  }
-
   return (
     <div className="flex min-h-screen items-center justify-center bg-background">
       <div className="flex flex-col items-center space-y-4">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        <p className="text-sm text-muted-foreground">Completing sign in...</p>
+        <p className="text-sm text-muted-foreground">{status}</p>
+        <p className="text-xs text-muted-foreground max-w-md break-all text-center px-4">
+            {window.location.href.substring(0, 100)}...
+        </p>
       </div>
     </div>
   )
