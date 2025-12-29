@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { supabase, isSupabaseConfigured } from '@/lib/supabase';
+import { supabase } from '@/lib/supabase';
 import { Star, ThumbsUp, ThumbsDown } from 'lucide-react';
 import { Button } from '@/app/components/ui/button';
 import { Card, CardContent } from '@/app/components/ui/card';
@@ -37,25 +37,8 @@ export function RatingWidget({ contentType, contentId, showAggregate = true }: R
     }
   }, [user, profile, contentType, contentId]);
 
-  const getStorageKey = (type: 'star' | 'thumbs') => 
-    `rating_${profile?.id}_${contentType}_${contentId}_${type}`;
-
   const loadUserRating = async () => {
     if (!user || !profile) return;
-
-    if (!isSupabaseConfigured) {
-      // Local Storage Fallback
-      try {
-        const storedStar = localStorage.getItem(getStorageKey('star'));
-        if (storedStar) setStarRating(parseInt(storedStar));
-
-        const storedThumbs = localStorage.getItem(getStorageKey('thumbs'));
-        if (storedThumbs) setThumbsUp(storedThumbs === 'true');
-      } catch (e) {
-        console.error("Local storage load error", e);
-      }
-      return;
-    }
 
     try {
       // Get star rating
@@ -91,8 +74,6 @@ export function RatingWidget({ contentType, contentId, showAggregate = true }: R
   };
 
   const loadAggregate = async () => {
-    if (!isSupabaseConfigured) return; // Cannot aggregate local storage
-
     try {
       // Get star ratings aggregate
       const { data: starRatings } = await supabase
@@ -140,16 +121,6 @@ export function RatingWidget({ contentType, contentId, showAggregate = true }: R
     }
 
     setLoading(true);
-    
-    if (!isSupabaseConfigured) {
-      // Local Storage Save
-      localStorage.setItem(getStorageKey('star'), rating.toString());
-      setStarRating(rating);
-      toast.success('Rating saved (Local)!');
-      setLoading(false);
-      return;
-    }
-
     try {
       const { error } = await supabase
         .from('ratings')
@@ -170,7 +141,7 @@ export function RatingWidget({ contentType, contentId, showAggregate = true }: R
       loadAggregate();
     } catch (error: any) {
       console.error('Error saving rating:', error);
-      toast.error('Failed to save rating');
+      toast.error('Failed to save rating: ' + (error.message || 'Unknown error'));
     } finally {
       setLoading(false);
     }
@@ -183,23 +154,9 @@ export function RatingWidget({ contentType, contentId, showAggregate = true }: R
     }
 
     setLoading(true);
-    const newValue = thumbsUp === up ? null : up; // Toggle if same, otherwise set
-
-    if (!isSupabaseConfigured) {
-      // Local Storage Save
-      if (newValue === null) {
-        localStorage.removeItem(getStorageKey('thumbs'));
-        setThumbsUp(null);
-      } else {
-        localStorage.setItem(getStorageKey('thumbs'), String(newValue));
-        setThumbsUp(newValue);
-      }
-      toast.success('Rating saved (Local)!');
-      setLoading(false);
-      return;
-    }
-
     try {
+      const newValue = thumbsUp === up ? null : up; // Toggle if same, otherwise set
+
       if (newValue === null) {
         // Remove rating
         const { error } = await supabase
@@ -234,7 +191,7 @@ export function RatingWidget({ contentType, contentId, showAggregate = true }: R
       loadAggregate();
     } catch (error: any) {
       console.error('Error saving rating:', error);
-      toast.error('Failed to save rating');
+      toast.error('Failed to save rating: ' + (error.message || 'Unknown error'));
     } finally {
       setLoading(false);
     }
