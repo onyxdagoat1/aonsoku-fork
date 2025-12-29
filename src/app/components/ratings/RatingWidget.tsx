@@ -5,6 +5,7 @@ import { Star, ThumbsUp, ThumbsDown } from 'lucide-react';
 import { Button } from '@/app/components/ui/button';
 import { Card, CardContent } from '@/app/components/ui/card';
 import { toast } from 'react-toastify';
+import { useLocation } from 'react-router-dom';
 
 interface RatingWidgetProps {
   contentType: 'track' | 'album';
@@ -23,6 +24,9 @@ export function RatingWidget({ contentType, contentId, showAggregate = true }: R
     thumbsUpCount: 0,
     thumbsDownCount: 0,
   });
+
+  const location = useLocation();
+  const isCompPage = location.pathname.includes('/library/albums');
 
   useEffect(() => {
     if (user && profile) {
@@ -223,7 +227,9 @@ export function RatingWidget({ contentType, contentId, showAggregate = true }: R
           </div>
 
           <div>
-            <h4 className="text-sm font-medium mb-2">Thumbs Rating</h4>
+            <h4 className="text-sm font-medium mb-2">
+              {isCompPage ? 'Sob rating' : 'Thumbs Rating'}
+            </h4>
             <div className="flex items-center gap-2">
               <Button
                 variant={thumbsUp === true ? 'default' : 'outline'}
@@ -231,7 +237,11 @@ export function RatingWidget({ contentType, contentId, showAggregate = true }: R
                 onClick={() => handleThumbs(true)}
                 disabled={loading || !user}
               >
-                <ThumbsUp className="w-4 h-4 mr-1" />
+                {isCompPage ? (
+                  <span className="mr-1">👍</span>
+                ) : (
+                  <ThumbsUp className="w-4 h-4 mr-1" />
+                )}
                 {showAggregate && aggregate.thumbsUpCount > 0 && aggregate.thumbsUpCount}
               </Button>
               <Button
@@ -240,7 +250,11 @@ export function RatingWidget({ contentType, contentId, showAggregate = true }: R
                 onClick={() => handleThumbs(false)}
                 disabled={loading || !user}
               >
-                <ThumbsDown className="w-4 h-4 mr-1" />
+                {isCompPage ? (
+                  <span className="mr-1">😭</span>
+                ) : (
+                  <ThumbsDown className="w-4 h-4 mr-1" />
+                )}
                 {showAggregate && aggregate.thumbsDownCount > 0 && aggregate.thumbsDownCount}
               </Button>
             </div>
@@ -250,4 +264,3 @@ export function RatingWidget({ contentType, contentId, showAggregate = true }: R
     </Card>
   );
 }
-
