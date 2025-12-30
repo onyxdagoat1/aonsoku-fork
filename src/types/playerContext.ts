@@ -25,6 +25,7 @@ export interface IPlayerState {
   loopState: LoopState
   isShuffleActive: boolean
   isSongStarred: boolean
+  isScrobbled: boolean
   volume: number
   currentDuration: number
   mediaType: 'song' | 'radio' | 'podcast'
