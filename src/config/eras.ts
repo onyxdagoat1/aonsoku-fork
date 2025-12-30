@@ -38,6 +38,8 @@ export const ERAS: Era[] = [
   { id: 'bbpb', label: 'Bad Bitch Play Book', color: '#554e3d' },
   { id: 'vultures', label: 'Vultures', color: '#715b47' },
   { id: 'vultures2', label: 'Vultures 2', color: '#d79d12' },
+  { id: 'vultures3', label: 'Vultures 3', color: '#8b6f47' },
+  { id: 'wolves', label: 'Wolves', color: '#2d3436' },
   { id: 'bully', label: 'Bully', color: '#434343' },
   { id: 'other', label: 'Other', color: '#808080' },
 ]
