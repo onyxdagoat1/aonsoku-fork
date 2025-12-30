@@ -98,6 +98,8 @@ export interface Database {
           navidrome_username: string | null
           navidrome_user_id: string | null
           navidrome_password: string | null
+          lastfm_session_key: string | null
+          lastfm_enabled: boolean
           created_at: string
           updated_at: string | null
         }
@@ -113,6 +115,8 @@ export interface Database {
           navidrome_username?: string | null
           navidrome_user_id?: string | null
           navidrome_password?: string | null
+          lastfm_session_key?: string | null
+          lastfm_enabled?: boolean
           created_at?: string
           updated_at?: string | null
         }
@@ -128,6 +132,8 @@ export interface Database {
           navidrome_username?: string | null
           navidrome_user_id?: string | null
           navidrome_password?: string | null
+          lastfm_session_key?: string | null
+          lastfm_enabled?: boolean
           created_at?: string
           updated_at?: string | null
         }
