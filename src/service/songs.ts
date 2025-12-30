@@ -105,10 +105,23 @@ async function updateSong(params: UpdateSongMetadataParams) {
   return response
 }
 
+async function getRecentlyAdded(size: number = 50) {
+  const response = await httpClient<any>('/getAlbumList2', {
+    method: 'GET',
+    query: {
+      type: 'newest',
+      size: size.toString(),
+    },
+  })
+
+  return response?.data.albumList2.album || []
+}
+
 export const songs = {
   getAllSongs,
   getRandomSongs,
   getTopSongs,
   getSong,
   updateSong,
+  getRecentlyAdded,
 }

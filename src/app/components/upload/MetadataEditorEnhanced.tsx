@@ -1,48 +1,55 @@
-import { useState, useEffect } from 'react';
-import { Label } from '@/app/components/ui/label';
-import { Input } from '@/app/components/ui/input';
-import { Button } from '@/app/components/ui/button';
-import { Textarea } from '@/app/components/ui/textarea';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/app/components/ui/tabs';
-import { CoverArtUpload } from './CoverArtUpload';
-import { GenreSelector } from './GenreSelector';
-import type { MusicMetadata } from '@/types/upload';
-import { Save, X, Music, Image, FileText, Settings } from 'lucide-react';
+import { FileText, Image, Music, Save, Settings, X } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { Button } from '@/app/components/ui/button'
+import { Input } from '@/app/components/ui/input'
+import { Label } from '@/app/components/ui/label'
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from '@/app/components/ui/tabs'
+import { Textarea } from '@/app/components/ui/textarea'
+import { ERAS } from '@/config/eras'
+import type { MusicMetadata } from '@/types/upload'
+import { YeditorSelector } from '../yeditor/YeditorSelector'
+import { CoverArtUpload } from './CoverArtUpload'
+import { GenreSelector } from './GenreSelector'
 
 interface MetadataEditorEnhancedProps {
-  initialMetadata?: MusicMetadata;
-  onSave: (metadata: MusicMetadata, coverArt?: File) => void;
-  onCancel?: () => void;
-  fileName?: string;
+  initialMetadata?: MusicMetadata
+  onSave: (metadata: MusicMetadata, coverArt?: File) => void
+  onCancel?: () => void
+  fileName?: string
 }
 
-export function MetadataEditorEnhanced({ 
-  initialMetadata, 
-  onSave, 
+export function MetadataEditorEnhanced({
+  initialMetadata,
+  onSave,
   onCancel,
-  fileName 
+  fileName,
 }: MetadataEditorEnhancedProps) {
-  const [metadata, setMetadata] = useState<MusicMetadata>(initialMetadata || {});
-  const [coverArtFile, setCoverArtFile] = useState<File | null>(null);
-  const [activeTab, setActiveTab] = useState('basic');
+  const [metadata, setMetadata] = useState<MusicMetadata>(initialMetadata || {})
+  const [coverArtFile, setCoverArtFile] = useState<File | null>(null)
+  const [activeTab, setActiveTab] = useState('basic')
 
   useEffect(() => {
     if (initialMetadata) {
-      setMetadata(initialMetadata);
+      setMetadata(initialMetadata)
     }
-  }, [initialMetadata]);
+  }, [initialMetadata])
 
   const handleChange = (field: keyof MusicMetadata, value: string | number) => {
     setMetadata((prev) => ({
       ...prev,
       [field]: value,
-    }));
-  };
+    }))
+  }
 
   const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    onSave(metadata, coverArtFile || undefined);
-  };
+    e.preventDefault()
+    onSave(metadata, coverArtFile || undefined)
+  }
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
@@ -84,7 +91,6 @@ export function MetadataEditorEnhanced({
                 required
               />
             </div>
-
             <div className="space-y-2">
               <Label htmlFor="artist">Artist *</Label>
               <Input
@@ -95,7 +101,6 @@ export function MetadataEditorEnhanced({
                 required
               />
             </div>
-
             <div className="space-y-2">
               <Label htmlFor="album">Album</Label>
               <Input
@@ -105,7 +110,6 @@ export function MetadataEditorEnhanced({
                 placeholder="Album name"
               />
             </div>
-
             <div className="space-y-2">
               <Label htmlFor="albumArtist">Album Artist</Label>
               <Input
@@ -115,7 +119,6 @@ export function MetadataEditorEnhanced({
                 placeholder="Album artist (if different)"
               />
             </div>
-
             <div className="space-y-2">
               <Label htmlFor="year">Year</Label>
               <Input
@@ -124,17 +127,51 @@ export function MetadataEditorEnhanced({
                 min="1900"
                 max="2100"
                 value={metadata.year || ''}
-                onChange={(e) => handleChange('year', parseInt(e.target.value) || 0)}
+                onChange={(e) =>
+                  handleChange('year', parseInt(e.target.value) || 0)
+                }
                 placeholder="2024"
               />
             </div>
-
             <div className="space-y-2">
               <Label htmlFor="genre">Genre</Label>
               <GenreSelector
                 value={metadata.genre}
                 onChange={(genre) => handleChange('genre', genre)}
               />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="era">Era</Label>
+              <select
+                id="era"
+                value={metadata.era || ''}
+                onChange={(e) => handleChange('era', e.target.value)}
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <option value="">Select Era</option>
+                {ERAS.map((era) => (
+                  <option key={era.id} value={era.id}>
+                    {era.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="space-y-2 md:col-span-2">
+              <Label htmlFor="yeditor">Editor (Yeditor) *</Label>
+              <YeditorSelector
+                value={metadata.yeditorId}
+                onChange={(yeditorId, yeditorName) => {
+                  setMetadata((prev) => ({
+                    ...prev,
+                    yeditorId,
+                    yeditorName,
+                  }))
+                }}
+                required
+              />
+              <p className="text-xs text-muted-foreground">
+                Select who edited/created this comp. Required for all uploads.
+              </p>
             </div>
           </div>
         </TabsContent>
@@ -148,7 +185,9 @@ export function MetadataEditorEnhanced({
                 type="number"
                 min="1"
                 value={metadata.track || ''}
-                onChange={(e) => handleChange('track', parseInt(e.target.value) || 0)}
+                onChange={(e) =>
+                  handleChange('track', parseInt(e.target.value) || 0)
+                }
                 placeholder="1"
               />
             </div>
@@ -160,7 +199,9 @@ export function MetadataEditorEnhanced({
                 type="number"
                 min="1"
                 value={metadata.disc || ''}
-                onChange={(e) => handleChange('disc', parseInt(e.target.value) || 0)}
+                onChange={(e) =>
+                  handleChange('disc', parseInt(e.target.value) || 0)
+                }
                 placeholder="1"
               />
             </div>
@@ -183,7 +224,9 @@ export function MetadataEditorEnhanced({
                 min="1"
                 max="300"
                 value={metadata.bpm || ''}
-                onChange={(e) => handleChange('bpm', parseInt(e.target.value) || 0)}
+                onChange={(e) =>
+                  handleChange('bpm', parseInt(e.target.value) || 0)
+                }
                 placeholder="120"
               />
             </div>
@@ -205,15 +248,18 @@ export function MetadataEditorEnhanced({
           <div className="space-y-2">
             <Label>Album Artwork</Label>
             <p className="text-sm text-muted-foreground mb-4">
-              Upload custom cover art for this track. Supports drag & drop, file selection, or paste from clipboard.
+              Upload custom cover art for this track. Supports drag & drop, file
+              selection, or paste from clipboard.
             </p>
-            <CoverArtUpload 
+            <CoverArtUpload
               onCoverArtSelected={setCoverArtFile}
               currentCoverArt={metadata.coverArt}
             />
             {coverArtFile && (
               <div className="p-3 border rounded-lg bg-muted/50">
-                <p className="text-sm font-medium">Selected: {coverArtFile.name}</p>
+                <p className="text-sm font-medium">
+                  Selected: {coverArtFile.name}
+                </p>
                 <p className="text-xs text-muted-foreground">
                   Size: {(coverArtFile.size / 1024).toFixed(2)} KB
                 </p>
@@ -258,5 +304,5 @@ export function MetadataEditorEnhanced({
         </Button>
       </div>
     </form>
-  );
+  )
 }

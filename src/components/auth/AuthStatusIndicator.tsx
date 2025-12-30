@@ -1,12 +1,12 @@
-import { useAuth } from '@/contexts/AuthContext'
-import { useAppData } from '@/store/app.store'
-import { CheckCircle2, AlertCircle } from 'lucide-react'
+import { AlertCircle, CheckCircle2 } from 'lucide-react'
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
+import { useAuth } from '@/contexts/AuthContext'
+import { useAppData } from '@/store/app.store'
 
 export function AuthStatusIndicator() {
   const { isAuthenticated, profile, navidromeUsername, loading } = useAuth()
@@ -27,8 +27,10 @@ export function AuthStatusIndicator() {
           </TooltipTrigger>
           <TooltipContent>
             <p className="text-xs">
-              <span className="font-semibold">Navidrome:</span> {navidromeUser}<br />
-              <span className="font-semibold">Profile:</span> {profile.username}<br />
+              <span className="font-semibold">Server:</span> {navidromeUser}
+              <br />
+              <span className="font-semibold">Profile:</span> {profile.username}
+              <br />
               <span className="text-green-500">✓ All features available</span>
             </p>
           </TooltipContent>
@@ -50,9 +52,15 @@ export function AuthStatusIndicator() {
           </TooltipTrigger>
           <TooltipContent>
             <p className="text-xs">
-              <span className="font-semibold">Navidrome:</span> {navidromeUser}<br />
-              <span className="text-yellow-500">⚠ Creating social profile...</span><br />
-              <span className="text-muted-foreground">Refresh if this persists</span>
+              <span className="font-semibold">Navidrome:</span> {navidromeUser}
+              <br />
+              <span className="text-yellow-500">
+                ⚠ Creating social profile...
+              </span>
+              <br />
+              <span className="text-muted-foreground">
+                Refresh if this persists
+              </span>
             </p>
           </TooltipContent>
         </Tooltip>
@@ -73,7 +81,8 @@ export function AuthStatusIndicator() {
           </TooltipTrigger>
           <TooltipContent>
             <p className="text-xs">
-              <span className="font-semibold">User:</span> {navidromeUsername}<br />
+              <span className="font-semibold">User:</span> {navidromeUsername}
+              <br />
               <span className="text-blue-500">✓ Social features available</span>
             </p>
           </TooltipContent>

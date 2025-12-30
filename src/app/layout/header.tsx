@@ -1,6 +1,5 @@
 import { NavigationButtons } from '@/app/components/header/navigation-buttons'
 import { ThemeToggle } from '@/app/components/header/theme-toggle'
-import { UserDropdown } from '@/app/components/header/user-dropdown'
 import { HeaderSongInfo } from '@/app/components/header-song'
 import { SettingsButton } from '@/app/components/settings/header-button'
 import { MainSidebarTrigger } from '@/app/components/ui/main-sidebar'
@@ -23,7 +22,6 @@ export function Header() {
         <UserMenu />
         <ThemeToggle />
         <SettingsButton />
-        <UserDropdown />
         {isWindows && !isFullscreen && <div className="w-[122px]" />}
         {isLinux && !isFullscreen && <div className="w-[94px]" />}
       </div>

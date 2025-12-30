@@ -1,7 +1,6 @@
 -- ============================================
 -- YEDITS.NET - MASTER SUPABASE DATABASE SCHEMA
 -- ============================================
--- Complete schema for Aonsoku music streaming platform
 -- Run this in your Supabase SQL Editor
 -- Version: 2.0 (Consolidated)
 -- Last Updated: 2025-12-28

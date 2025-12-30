@@ -1,4 +1,4 @@
-# Aonsoku - Complete Documentation
+# yedits.net - Complete Documentation
 
 *A modern music streaming platform combining Navidrome backend with advanced features including user registration, music upload, metadata editing, YouTube integration, and social features.*
 

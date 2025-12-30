@@ -1,4 +1,4 @@
-# Aonsoku Auth Service
+# Auth Service
 
 Authentication service for aonsoku that handles user registration by creating accounts directly in Navidrome.
 

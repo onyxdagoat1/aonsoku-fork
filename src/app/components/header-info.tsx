@@ -1,4 +1,4 @@
-import { Fragment } from 'react/jsx-runtime'
+import { Fragment, ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { Dot } from './dot'
 
@@ -13,7 +13,12 @@ type LinkBadge = {
   link: string
 }
 
-export type BadgesData = Array<TextBadge | LinkBadge>
+type ComponentBadge = {
+  content: ReactNode
+  type: 'component'
+}
+
+export type BadgesData = Array<TextBadge | LinkBadge | ComponentBadge>
 
 interface HeaderInfoProps {
   showFirstDot?: boolean
@@ -25,7 +30,7 @@ export function HeaderInfoGenerator({
   badges,
 }: HeaderInfoProps) {
   return (
-    <div className="flex text-sm">
+    <div className="flex text-sm items-center">
       <Fragment>
         {badges
           .filter((item) => item.content)
@@ -37,10 +42,14 @@ export function HeaderInfoGenerator({
                   to={item.link}
                   className="flex opacity-80 text-shadow-md hover:opacity-100 hover:underline"
                 >
-                  {item.content}
+                  {item.content as string}
                 </Link>
+              ) : item.type === 'component' ? (
+                <div className="flex items-center">{item.content}</div>
               ) : (
-                <p className="opacity-80 text-shadow-md">{item.content}</p>
+                <p className="opacity-80 text-shadow-md">
+                  {item.content as string}
+                </p>
               )}
               {index < array.length - 1 && <Dot />}
             </Fragment>

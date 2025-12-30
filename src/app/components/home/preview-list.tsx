@@ -11,12 +11,25 @@ import {
 } from '@/app/components/ui/carousel'
 import { CarouselButton } from '@/app/components/ui/carousel-button'
 import { ROUTES } from '@/routes/routesList'
+import { collectionService } from '@/service/collectionService'
 import { subsonic } from '@/service/subsonic'
 import { usePlayerActions } from '@/store/player.store'
-import { Albums } from '@/types/responses/album'
+import { ISong } from '@/types/responses/song'
+
+export interface PreviewItem {
+  id: string
+  name: string
+  artist: string
+  coverArt: string
+  artistId?: string
+  type?: string
+  isCollection?: boolean
+  isSong?: boolean
+  countdownDate?: string
+}
 
 interface PreviewListProps {
-  list: Albums[]
+  list: PreviewItem[]
   title: string
   showMore?: boolean
   moreTitle?: string
@@ -42,8 +55,46 @@ export default function PreviewList({
     list = list.slice(0, 16)
   }
 
-  async function handlePlayAlbum(album: Albums) {
-    const response = await subsonic.albums.getOne(album.id)
+  async function handlePlayAlbum(item: PreviewItem) {
+    if (item.isCollection || item.type === 'collection') {
+      // For collections, we need to fetch items first
+      try {
+        const data = await collectionService.getCollectionWithItems(item.id)
+        if (data && data.items.length > 0) {
+          // Flatten items into songs
+          const songs: ISong[] = []
+          for (const collectionItem of data.items) {
+            if (collectionItem.content_type === 'song') {
+              const song = await subsonic.songs.getSong(
+                collectionItem.content_id,
+              )
+              if (song) songs.push(song)
+            } else {
+              const album = await subsonic.albums.getOne(
+                collectionItem.content_id,
+              )
+              if (album && album.song) songs.push(...album.song)
+            }
+          }
+          if (songs.length > 0) {
+            setSongList(songs, 0)
+          }
+        }
+      } catch (error) {
+        console.error('Error playing collection:', error)
+      }
+      return
+    }
+
+    if (item.isSong || item.type === 'song') {
+      const song = await subsonic.songs.getSong(item.id)
+      if (song) {
+        setSongList([song], 0)
+      }
+      return
+    }
+
+    const response = await subsonic.albums.getOne(item.id)
 
     if (response) {
       setSongList(response.song, 0)
@@ -108,36 +159,54 @@ export default function PreviewList({
           data-testid="preview-list-carousel"
         >
           <CarouselContent>
-            {list.map((album, index) => (
-              <CarouselItem
-                key={album.id}
-                className="basis-1/6 2xl:basis-1/8"
-                data-testid={`preview-list-carousel-item-${index}`}
-              >
-                <PreviewCard.Root>
-                  <PreviewCard.ImageWrapper link={ROUTES.ALBUM.PAGE(album.id)}>
-                    <PreviewCard.Image
-                      src={getCoverArtUrl(album.coverArt, 'album')}
-                      alt={album.name}
-                    />
-                    <PreviewCard.PlayButton
-                      onClick={() => handlePlayAlbum(album)}
-                    />
-                  </PreviewCard.ImageWrapper>
-                  <PreviewCard.InfoWrapper>
-                    <PreviewCard.Title link={ROUTES.ALBUM.PAGE(album.id)}>
-                      {album.name}
-                    </PreviewCard.Title>
-                    <PreviewCard.Subtitle
-                      enableLink={album.artistId !== undefined}
-                      link={ROUTES.ARTIST.PAGE(album.artistId ?? '')}
-                    >
-                      {album.artist}
-                    </PreviewCard.Subtitle>
-                  </PreviewCard.InfoWrapper>
-                </PreviewCard.Root>
-              </CarouselItem>
-            ))}
+            {list.map((item: PreviewItem, index) => {
+              const isCollection =
+                item.type === 'collection' || item.isCollection
+              const isSong = item.type === 'song' || item.isSong
+
+              let itemLink = ROUTES.ALBUM.PAGE(item.id)
+              if (isCollection) itemLink = ROUTES.COLLECTION.PAGE(item.id)
+              if (isSong) itemLink = '#' // Will play song on click
+
+              return (
+                <CarouselItem
+                  key={item.id}
+                  className="basis-1/6 2xl:basis-1/8"
+                  data-testid={`preview-list-carousel-item-${index}`}
+                >
+                  <PreviewCard.Root>
+                    <PreviewCard.ImageWrapper link={itemLink}>
+                      {item.countdownDate && (
+                        <div className="absolute top-2 right-2 bg-black/60 backdrop-blur-md px-2 py-1 rounded text-[10px] font-mono text-white z-10">
+                          Upcoming
+                        </div>
+                      )}
+                      <PreviewCard.Image
+                        src={getCoverArtUrl(
+                          item.coverArt,
+                          isSong ? 'song' : 'album',
+                        )}
+                        alt={item.name}
+                      />
+                      <PreviewCard.PlayButton
+                        onClick={() => handlePlayAlbum(item)}
+                      />
+                    </PreviewCard.ImageWrapper>
+                    <PreviewCard.InfoWrapper>
+                      <PreviewCard.Title link={itemLink}>
+                        {item.name}
+                      </PreviewCard.Title>
+                      <PreviewCard.Subtitle
+                        enableLink={item.artistId !== undefined}
+                        link={ROUTES.ARTIST.PAGE(item.artistId ?? '')}
+                      >
+                        {item.artist}
+                      </PreviewCard.Subtitle>
+                    </PreviewCard.InfoWrapper>
+                  </PreviewCard.Root>
+                </CarouselItem>
+              )
+            })}
           </CarouselContent>
         </Carousel>
       </div>

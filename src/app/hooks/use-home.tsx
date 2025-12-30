@@ -1,4 +1,8 @@
 import { useQuery } from '@tanstack/react-query'
+import {
+  type HighlightType,
+  highlightsService,
+} from '@/service/highlightsService'
 import { subsonic } from '@/service/subsonic'
 import { convertMinutesToMs } from '@/utils/convertSecondsToTime'
 import { queryKeys } from '@/utils/queryKeys'
@@ -52,5 +56,12 @@ export const useGetRandomAlbums = () => {
         size: 16,
         type: 'random',
       }),
+  })
+}
+
+export const useGetHighlights = (type?: HighlightType) => {
+  return useQuery({
+    queryKey: ['highlights', type],
+    queryFn: () => highlightsService.getActiveHighlights(type),
   })
 }

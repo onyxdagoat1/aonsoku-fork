@@ -1,31 +1,36 @@
 import { useTranslation } from 'react-i18next'
 import { useParams } from 'react-router-dom'
+import { AdminEditTags } from '@/app/components/admin/AdminEditTags'
 import { AlbumComment } from '@/app/components/album/comment'
+import { EditAlbumEra } from '@/app/components/album/EditAlbumEra'
 import ImageHeader from '@/app/components/album/image-header'
 import { AlbumInfo } from '@/app/components/album/info'
 import { RecordLabelsInfo } from '@/app/components/album/record-labels'
+import Comments from '@/app/components/comments'
+import { EditCredits } from '@/app/components/credits/EditCredits'
 import { AlbumFallback } from '@/app/components/fallbacks/album-fallbacks'
 import { PreviewListFallback } from '@/app/components/fallbacks/home-fallbacks'
 import { BadgesData } from '@/app/components/header-info'
 import PreviewList from '@/app/components/home/preview-list'
 import ListWrapper from '@/app/components/list-wrapper'
+import { RatingWidget } from '@/app/components/ratings/RatingWidget'
 import { DataTable } from '@/app/components/ui/data-table'
+import { YeditorBadge } from '@/app/components/yeditor/YeditorBadge'
 import {
   useGetAlbum,
   useGetArtistAlbums,
   useGetGenreAlbums,
 } from '@/app/hooks/use-album'
+import { useGetYeditorForContent } from '@/app/hooks/use-yeditor'
 import ErrorPage from '@/app/pages/error-page'
 import { songsColumns } from '@/app/tables/songs-columns'
+import { getEraColor, getEraLabel } from '@/config/eras'
 import { ROUTES } from '@/routes/routesList'
 import { usePlayerActions } from '@/store/player.store'
 import { ColumnFilter } from '@/types/columnFilter'
 import { Albums } from '@/types/responses/album'
 import { sortRecentAlbums } from '@/utils/album'
 import { convertSecondsToHumanRead } from '@/utils/convertSecondsToTime'
-import Comments from '@/app/components/comments'
-import { RatingWidget } from '@/app/components/ratings/RatingWidget'
-import { EditCredits } from '@/app/components/credits/EditCredits'
 
 export default function Album() {
   const { albumId } = useParams() as { albumId: string }
@@ -45,6 +50,18 @@ export default function Album() {
 
   const moreAlbums = artist?.album
 
+  const isSingle = album?.songCount === 1
+  const entityType = isSingle
+    ? 'single'
+    : album?.isCompilation
+      ? 'compilation'
+      : 'album'
+
+  const { data: yeditor } = useGetYeditorForContent(
+    albumId,
+    entityType as 'album' | 'single' | 'compilation',
+  )
+
   if (albumIsLoading) return <AlbumFallback />
   if (isFetched && !album) {
     return <ErrorPage status={404} statusText="Not Found" />
@@ -57,7 +74,6 @@ export default function Album() {
     ? convertSecondsToHumanRead(album.duration)
     : null
 
-  const isSingle = album.songCount === 1
   const albumType = isSingle ? t('album.singleHeadline') : t('album.headline')
 
   const badges: BadgesData = [
@@ -120,12 +136,26 @@ export default function Album() {
 
   const albumComment = album.song.length > 0 ? album.song[0].comment : null
 
-  // Detect entity type for comments
-  const entityType = isSingle 
-    ? 'single' 
-    : album.compilation 
-      ? 'compilation' 
-      : 'album'
+  if (album.era) {
+    badges.push({
+      content: (
+        <span
+          className="px-2 py-0.5 rounded text-white text-xs font-medium"
+          style={{ backgroundColor: getEraColor(album.era) }}
+        >
+          {getEraLabel(album.era)}
+        </span>
+      ),
+      type: 'component',
+    })
+  }
+
+  if (yeditor) {
+    badges.push({
+      content: <YeditorBadge yeditor={yeditor} />,
+      type: 'component',
+    })
+  }
 
   return (
     <div className="w-full">
@@ -183,8 +213,18 @@ export default function Album() {
         </div>
 
         {/* Ratings Section */}
-        <div className="mt-6">
-          <RatingWidget contentType="album" contentId={album.id} showAggregate={true} />
+        <div className="mt-6 flex flex-wrap gap-4">
+          <RatingWidget
+            contentType="album"
+            contentId={album.id}
+            showAggregate={true}
+          />
+          <EditAlbumEra albumId={album.id} albumName={album.name} />
+          <AdminEditTags
+            contentId={album.id}
+            contentType="album"
+            contentName={album.name}
+          />
         </div>
 
         {/* Edit Credits Section */}

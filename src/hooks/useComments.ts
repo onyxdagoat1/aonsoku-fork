@@ -99,8 +99,20 @@ export function useComments({ contentType, contentId, userId }: UseCommentsOptio
       queryClient.invalidateQueries({ queryKey });
     },
     onError: (error) => {
-      console.error('Failed to remove reaction:', error);
       toast.error('Failed to remove reaction');
+    },
+  });
+
+  // Report comment mutation
+  const reportMutation = useMutation({
+    mutationFn: (commentId: string) => commentsService.reportComment(commentId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey });
+      toast.success('Comment reported to moderators');
+    },
+    onError: (error) => {
+      console.error('Failed to report comment:', error);
+      toast.error('Failed to report comment');
     },
   });
 
@@ -114,6 +126,7 @@ export function useComments({ contentType, contentId, userId }: UseCommentsOptio
     deleteComment: deleteMutation.mutate,
     addReaction: addReactionMutation.mutate,
     removeReaction: removeReactionMutation.mutate,
+    reportComment: reportMutation.mutate,
     isCreating: createMutation.isPending,
     isUpdating: updateMutation.isPending,
     isDeleting: deleteMutation.isPending,

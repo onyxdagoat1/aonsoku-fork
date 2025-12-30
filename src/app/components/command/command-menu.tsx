@@ -28,6 +28,7 @@ import { CommandPlaylists } from './playlists'
 import { CommandServer } from './server-management'
 import { CommandSongResult } from './song-result'
 import { CommandThemes } from './themes'
+import { CommandUserResult } from './user-result'
 
 export type CommandItemProps = {
   runCommand: (command: () => unknown) => void
@@ -195,6 +196,10 @@ export default function CommandMenu() {
                   artists={artists}
                   runCommand={runCommand}
                 />
+              )}
+
+              {query.length >= 2 && (
+                <CommandUserResult query={query} runCommand={runCommand} />
               )}
 
               {isHome && (

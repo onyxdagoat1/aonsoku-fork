@@ -1,55 +1,64 @@
-import { useState, useCallback } from 'react';
-import { FileUploader } from '@/app/components/upload/FileUploader';
-import { MetadataEditorEnhanced } from '@/app/components/upload/MetadataEditorEnhanced';
-import { FilePreviewCard } from '@/app/components/upload/FilePreviewCard';
-import { ExistingSongEditor } from '@/app/components/upload/ExistingSongEditor';
-import { Button } from '@/app/components/ui/button';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/app/components/ui/tabs';
-import { Input } from '@/app/components/ui/input';
-import { Label } from '@/app/components/ui/label';
-import { uploadService } from '@/api/uploadService';
-import type { UploadFile, MusicMetadata, UploadMode } from '@/types/upload';
-import { toast } from 'react-toastify';
-import { 
-  Upload, 
-  FolderTree, 
+import {
+  CheckCircle,
+  Edit3,
   Filter,
+  FolderTree,
+  Loader2,
+  Settings,
   SortAsc,
   Trash2,
-  CheckCircle,
-  Settings,
-  Edit3
-} from 'lucide-react';
+  Upload,
+} from 'lucide-react'
+
+import { Suspense, useCallback, useState, useTransition } from 'react'
+import { toast } from 'react-toastify'
+import { songService } from '@/api/songService'
+import { uploadService } from '@/api/uploadService'
+import { Button } from '@/app/components/ui/button'
 import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogHeader,
   DialogTitle,
-} from '@/app/components/ui/dialog';
+} from '@/app/components/ui/dialog'
+import { Input } from '@/app/components/ui/input'
+import { Label } from '@/app/components/ui/label'
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/app/components/ui/select';
+} from '@/app/components/ui/select'
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from '@/app/components/ui/tabs'
+import { ExistingSongEditor } from '@/app/components/upload/ExistingSongEditor'
+import { FilePreviewCard } from '@/app/components/upload/FilePreviewCard'
+import { FileUploader } from '@/app/components/upload/FileUploader'
+import { MetadataEditorEnhanced } from '@/app/components/upload/MetadataEditorEnhanced'
+import { yeditorService } from '@/service/yeditorService'
+import type { MusicMetadata, UploadFile, UploadMode } from '@/types/upload'
 
-type PageMode = 'upload' | 'batch' | 'edit';
+type PageMode = 'upload' | 'batch' | 'edit'
 
 export default function UploadPage() {
-  const [uploads, setUploads] = useState<UploadFile[]>([]);
-  const [editingFile, setEditingFile] = useState<UploadFile | null>(null);
-  const [isEditorOpen, setIsEditorOpen] = useState(false);
-  const [pageMode, setPageMode] = useState<PageMode>('upload');
-  const [filterStatus, setFilterStatus] = useState<string>('all');
-  const [sortBy, setSortBy] = useState<string>('name');
-  const [draggedId, setDraggedId] = useState<string | null>(null);
-  const [dragOverId, setDragOverId] = useState<string | null>(null);
-  const [isBatchEditing, setIsBatchEditing] = useState(false);
-  const [batchMetadata, setBatchMetadata] = useState<Partial<MusicMetadata>>({});
+  const [uploads, setUploads] = useState<UploadFile[]>([])
+  const [editingFile, setEditingFile] = useState<UploadFile | null>(null)
+  const [isEditorOpen, setIsEditorOpen] = useState(false)
+  const [pageMode, setPageMode] = useState<PageMode>('upload')
+  const [filterStatus, setFilterStatus] = useState<string>('all')
+  const [sortBy, setSortBy] = useState<string>('name')
+  const [draggedId, setDraggedId] = useState<string | null>(null)
+  const [dragOverId, setDragOverId] = useState<string | null>(null)
+  const [isBatchEditing, setIsBatchEditing] = useState(false)
+  const [batchMetadata, setBatchMetadata] = useState<Partial<MusicMetadata>>({})
 
-  const uploadMode: UploadMode = pageMode === 'batch' ? 'batch' : 'detailed';
+  const uploadMode: UploadMode = pageMode === 'batch' ? 'batch' : 'detailed'
 
   const handleFilesSelected = async (files: File[]) => {
     const newUploads: UploadFile[] = files.map((file, index) => ({
@@ -58,70 +67,143 @@ export default function UploadPage() {
       status: 'pending',
       progress: 0,
       order: uploads.length + index,
-    }));
+    }))
 
-    setUploads((prev) => [...prev, ...newUploads]);
+    setUploads((prev) => [...prev, ...newUploads])
 
     // Auto-extract metadata for each file
     if (uploadMode !== 'quick' || files.length <= 5) {
       for (const upload of newUploads) {
         try {
-          const metadataResponse = await uploadService.extractMetadata(upload.file);
+          const metadataResponse = await uploadService.extractMetadata(
+            upload.file,
+          )
           setUploads((prev) =>
             prev.map((u) =>
               u.id === upload.id
-                ? { 
-                    ...u, 
+                ? {
+                    ...u,
                     metadata: metadataResponse.common,
                     duration: metadataResponse.format.duration,
                     bitrate: metadataResponse.format.bitrate,
                   }
-                : u
-            )
-          );
+                : u,
+            ),
+          )
         } catch (error) {
-          console.error('Failed to extract metadata:', error);
+          console.error('Failed to extract metadata:', error)
         }
       }
     }
 
-    toast.success(`Added ${files.length} file${files.length > 1 ? 's' : ''} to queue`);
-  };
+    toast.success(
+      `Added ${files.length} file${files.length > 1 ? 's' : ''} to queue`,
+    )
+  }
+
+  const [, startTransition] = useTransition()
 
   const handleEditMetadata = (upload: UploadFile) => {
-    setEditingFile(upload);
-    setIsEditorOpen(true);
-  };
+    startTransition(() => {
+      setEditingFile(upload)
+      setIsEditorOpen(true)
+    })
+  }
 
   const handleSaveMetadata = (metadata: MusicMetadata, coverArt?: File) => {
     if (editingFile) {
       setUploads((prev) =>
         prev.map((u) =>
-          u.id === editingFile.id ? { ...u, metadata, coverArtFile: coverArt } : u
-        )
-      );
-      setIsEditorOpen(false);
-      setEditingFile(null);
-      toast.success('Metadata updated');
+          u.id === editingFile.id
+            ? { ...u, metadata, coverArtFile: coverArt }
+            : u,
+        ),
+      )
+      setIsEditorOpen(false)
+      setEditingFile(null)
+      toast.success('Metadata updated')
     }
-  };
+  }
 
   const handleRemoveFile = (id: string) => {
-    setUploads((prev) => prev.filter((u) => u.id !== id));
-    toast.info('File removed from queue');
-  };
+    setUploads((prev) => prev.filter((u) => u.id !== id))
+    toast.info('File removed from queue')
+  }
+
+  const linkNewlyUploadedSong = useCallback(async (upload: UploadFile) => {
+    if (
+      !upload.metadata?.yeditorId ||
+      !upload.metadata?.title ||
+      !upload.metadata?.artist
+    )
+      return
+
+    console.log(`Starting auto-link process for ${upload.metadata.title}...`)
+
+    // Wait for Navidrome to scan (approx 5-10 seconds)
+    // We try multiple times with increasing delay
+    let attempts = 0
+    const maxAttempts = 6
+
+    const tryLinking = async () => {
+      try {
+        const query = `${upload.metadata?.artist} ${upload.metadata?.title}`
+        const searchResults = await songService.searchSongs(query, 20)
+
+        // Find the match by title and artist
+        const match = searchResults.find(
+          (s) =>
+            s.title.toLowerCase().trim() ===
+              upload.metadata?.title?.toLowerCase().trim() &&
+            s.artist.toLowerCase().trim() ===
+              upload.metadata?.artist?.toLowerCase().trim(),
+        )
+
+        if (match) {
+          const success = await yeditorService.setYeditorForContent(
+            match.id,
+            'song',
+            upload.metadata!.yeditorId!,
+          )
+          if (success) {
+            console.log(`Successfully auto-linked ${match.title} to Yeditor`)
+            return true
+          }
+        }
+      } catch (e) {
+        console.error('Error during auto-linking:', e)
+      }
+      return false
+    }
+
+    // Polling loop
+    for (attempts = 1; attempts <= maxAttempts; attempts++) {
+      // Exponential-ish backoff: 5s, 10s, 15s, 20s, 25s, 30s
+      const currentDelay = attempts * 5000
+      await new Promise((r) => setTimeout(r, currentDelay))
+
+      const success = await tryLinking()
+      if (success) break
+
+      if (attempts === maxAttempts) {
+        console.warn(
+          `Failed to auto-link ${upload.metadata.title} after ${maxAttempts} attempts.`,
+        )
+      }
+    }
+  }, [])
 
   const handleUploadAll = async () => {
-    const pendingUploads = uploads.filter((u) => u.status === 'pending');
+    const pendingUploads = uploads.filter((u) => u.status === 'pending')
 
     // Detailed/Batch mode - upload with metadata
     for (const upload of pendingUploads) {
       try {
         setUploads((prev) =>
           prev.map((u) =>
-            u.id === upload.id ? { ...u, status: 'uploading', progress: 0 } : u
-          )
-        );
+            u.id === upload.id ? { ...u, status: 'uploading', progress: 0 } : u,
+          ),
+        )
 
         await uploadService.uploadFile(
           upload.file,
@@ -129,20 +211,23 @@ export default function UploadPage() {
           upload.coverArtFile,
           (progress) => {
             setUploads((prev) =>
-              prev.map((u) =>
-                u.id === upload.id ? { ...u, progress } : u
-              )
-            );
-          }
-        );
+              prev.map((u) => (u.id === upload.id ? { ...u, progress } : u)),
+            )
+          },
+        )
 
         setUploads((prev) =>
           prev.map((u) =>
-            u.id === upload.id ? { ...u, status: 'success', progress: 100 } : u
-          )
-        );
+            u.id === upload.id ? { ...u, status: 'success', progress: 100 } : u,
+          ),
+        )
 
-        toast.success(`${upload.file.name} uploaded successfully`);
+        toast.success(`${upload.file.name} uploaded successfully`)
+
+        // Trigger auto-link if Yeditor is assigned
+        if (upload.metadata?.yeditorId) {
+          linkNewlyUploadedSong(upload)
+        }
       } catch (error) {
         setUploads((prev) =>
           prev.map((u) =>
@@ -150,68 +235,71 @@ export default function UploadPage() {
               ? {
                   ...u,
                   status: 'error',
-                  error: error instanceof Error ? error.message : 'Upload failed',
+                  error:
+                    error instanceof Error ? error.message : 'Upload failed',
                 }
-              : u
-          )
-        );
+              : u,
+          ),
+        )
 
-        toast.error(`Failed to upload ${upload.file.name}`);
+        toast.error(`Failed to upload ${upload.file.name}`)
       }
     }
-  };
+  }
 
   const handleClearCompleted = () => {
-    const completedCount = uploads.filter((u) => u.status === 'success').length;
-    setUploads((prev) => prev.filter((u) => u.status !== 'success'));
-    toast.info(`Cleared ${completedCount} completed upload${completedCount > 1 ? 's' : ''}`);
-  };
+    const completedCount = uploads.filter((u) => u.status === 'success').length
+    setUploads((prev) => prev.filter((u) => u.status !== 'success'))
+    toast.info(
+      `Cleared ${completedCount} completed upload${completedCount > 1 ? 's' : ''}`,
+    )
+  }
 
   const handleClearAll = () => {
-    const pendingCount = uploads.filter((u) => u.status === 'pending').length;
-    setUploads([]);
-    toast.info(`Cleared all ${pendingCount} file${pendingCount > 1 ? 's' : ''}`);
-  };
+    const pendingCount = uploads.filter((u) => u.status === 'pending').length
+    setUploads([])
+    toast.info(`Cleared all ${pendingCount} file${pendingCount > 1 ? 's' : ''}`)
+  }
 
   // Drag and drop for queue reordering
   const handleDragStart = (e: React.DragEvent, id: string) => {
-    setDraggedId(id);
-    e.dataTransfer.effectAllowed = 'move';
-  };
+    setDraggedId(id)
+    e.dataTransfer.effectAllowed = 'move'
+  }
 
   const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
-  };
+    e.preventDefault()
+    e.dataTransfer.dropEffect = 'move'
+  }
 
   const handleDrop = (e: React.DragEvent, targetId: string) => {
-    e.preventDefault();
-    if (!draggedId || draggedId === targetId) return;
+    e.preventDefault()
+    if (!draggedId || draggedId === targetId) return
 
     setUploads((prev) => {
-      const newUploads = [...prev];
-      const draggedIndex = newUploads.findIndex((u) => u.id === draggedId);
-      const targetIndex = newUploads.findIndex((u) => u.id === targetId);
+      const newUploads = [...prev]
+      const draggedIndex = newUploads.findIndex((u) => u.id === draggedId)
+      const targetIndex = newUploads.findIndex((u) => u.id === targetId)
 
       if (draggedIndex !== -1 && targetIndex !== -1) {
-        const [removed] = newUploads.splice(draggedIndex, 1);
-        newUploads.splice(targetIndex, 0, removed);
+        const [removed] = newUploads.splice(draggedIndex, 1)
+        newUploads.splice(targetIndex, 0, removed)
       }
 
-      return newUploads.map((u, i) => ({ ...u, order: i }));
-    });
+      return newUploads.map((u, i) => ({ ...u, order: i }))
+    })
 
-    setDraggedId(null);
-    setDragOverId(null);
-  };
+    setDraggedId(null)
+    setDragOverId(null)
+  }
 
   const handleBatchEdit = () => {
-    setIsBatchEditing(true);
-  };
+    setIsBatchEditing(true)
+  }
 
   const handleApplyBatchMetadata = () => {
-    const pendingUploads = filteredUploads.filter((u) => u.status === 'pending');
-    
+    const pendingUploads = filteredUploads.filter((u) => u.status === 'pending')
+
     setUploads((prev) =>
       prev.map((u) => {
         if (u.status === 'pending' && pendingUploads.includes(u)) {
@@ -220,19 +308,23 @@ export default function UploadPage() {
             metadata: {
               ...u.metadata,
               ...Object.fromEntries(
-                Object.entries(batchMetadata).filter(([_, v]) => v !== undefined && v !== '')
+                Object.entries(batchMetadata).filter(
+                  ([_, v]) => v !== undefined && v !== '',
+                ),
               ),
             },
-          };
+          }
         }
-        return u;
-      })
-    );
+        return u
+      }),
+    )
 
-    setIsBatchEditing(false);
-    setBatchMetadata({});
-    toast.success(`Applied metadata to ${pendingUploads.length} file${pendingUploads.length > 1 ? 's' : ''}`);
-  };
+    setIsBatchEditing(false)
+    setBatchMetadata({})
+    toast.success(
+      `Applied metadata to ${pendingUploads.length} file${pendingUploads.length > 1 ? 's' : ''}`,
+    )
+  }
 
   // Filter and sort uploads
   const filteredUploads = uploads
@@ -240,20 +332,20 @@ export default function UploadPage() {
     .sort((a, b) => {
       switch (sortBy) {
         case 'name':
-          return a.file.name.localeCompare(b.file.name);
+          return a.file.name.localeCompare(b.file.name)
         case 'size':
-          return b.file.size - a.file.size;
+          return b.file.size - a.file.size
         case 'order':
-          return (a.order || 0) - (b.order || 0);
+          return (a.order || 0) - (b.order || 0)
         default:
-          return 0;
+          return 0
       }
-    });
+    })
 
-  const pendingCount = uploads.filter((u) => u.status === 'pending').length;
-  const uploadingCount = uploads.filter((u) => u.status === 'uploading').length;
-  const successCount = uploads.filter((u) => u.status === 'success').length;
-  const errorCount = uploads.filter((u) => u.status === 'error').length;
+  const pendingCount = uploads.filter((u) => u.status === 'pending').length
+  const uploadingCount = uploads.filter((u) => u.status === 'uploading').length
+  const successCount = uploads.filter((u) => u.status === 'success').length
+  const errorCount = uploads.filter((u) => u.status === 'error').length
 
   return (
     <div className="w-full p-6">
@@ -265,7 +357,12 @@ export default function UploadPage() {
         </p>
       </div>
 
-      <Tabs defaultValue="upload" value={pageMode} onValueChange={(v) => setPageMode(v as PageMode)} className="w-full">
+      <Tabs
+        defaultValue="upload"
+        value={pageMode}
+        onValueChange={(v) => setPageMode(v as PageMode)}
+        className="w-full"
+      >
         <TabsList className="mb-6">
           <TabsTrigger value="upload">Upload</TabsTrigger>
           <TabsTrigger value="batch">Batch Upload</TabsTrigger>
@@ -279,8 +376,9 @@ export default function UploadPage() {
               <div>
                 <h4 className="font-medium mb-1">Upload Mode</h4>
                 <p className="text-sm text-muted-foreground">
-                  Upload files with full metadata editing. Review and customize tags, artwork, and lyrics for each track.
-                  Ideal for single tracks or when you need precise control.
+                  Upload files with full metadata editing. Review and customize
+                  tags, artwork, and lyrics for each track. Ideal for single
+                  tracks or when you need precise control.
                 </p>
               </div>
             </div>
@@ -295,8 +393,9 @@ export default function UploadPage() {
               <div>
                 <h4 className="font-medium mb-1">Batch Upload Mode</h4>
                 <p className="text-sm text-muted-foreground">
-                  Upload multiple files and apply common metadata to all. Great for uploading albums or compilations
-                  where tracks share artist, album, and year information.
+                  Upload multiple files and apply common metadata to all. Great
+                  for uploading albums or comps where tracks share artist,
+                  album, and year information.
                 </p>
               </div>
             </div>
@@ -316,29 +415,39 @@ export default function UploadPage() {
             <div className="flex flex-wrap gap-4">
               <div className="flex items-center gap-2">
                 <span className="text-sm font-medium">Total:</span>
-                <span className="text-sm text-muted-foreground">{uploads.length}</span>
+                <span className="text-sm text-muted-foreground">
+                  {uploads.length}
+                </span>
               </div>
               {pendingCount > 0 && (
                 <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium text-blue-500">Pending:</span>
+                  <span className="text-sm font-medium text-blue-500">
+                    Pending:
+                  </span>
                   <span className="text-sm">{pendingCount}</span>
                 </div>
               )}
               {uploadingCount > 0 && (
                 <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium text-primary">Uploading:</span>
+                  <span className="text-sm font-medium text-primary">
+                    Uploading:
+                  </span>
                   <span className="text-sm">{uploadingCount}</span>
                 </div>
               )}
               {successCount > 0 && (
                 <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium text-green-500">Success:</span>
+                  <span className="text-sm font-medium text-green-500">
+                    Success:
+                  </span>
                   <span className="text-sm">{successCount}</span>
                 </div>
               )}
               {errorCount > 0 && (
                 <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium text-destructive">Failed:</span>
+                  <span className="text-sm font-medium text-destructive">
+                    Failed:
+                  </span>
                   <span className="text-sm">{errorCount}</span>
                 </div>
               )}
@@ -376,10 +485,7 @@ export default function UploadPage() {
           {/* Action Buttons */}
           <div className="flex flex-wrap gap-2 justify-end">
             {uploadMode === 'batch' && pendingCount > 0 && (
-              <Button
-                variant="outline"
-                onClick={handleBatchEdit}
-              >
+              <Button variant="outline" onClick={handleBatchEdit}>
                 <Settings className="w-4 h-4 mr-2" />
                 Batch Edit Metadata
               </Button>
@@ -418,7 +524,9 @@ export default function UploadPage() {
                 upload={upload}
                 onEdit={handleEditMetadata}
                 onRemove={handleRemoveFile}
-                isDraggable={uploadMode === 'detailed' || uploadMode === 'batch'}
+                isDraggable={
+                  uploadMode === 'detailed' || uploadMode === 'batch'
+                }
                 onDragStart={handleDragStart}
                 onDragOver={handleDragOver}
                 onDrop={handleDrop}
@@ -432,20 +540,26 @@ export default function UploadPage() {
       {/* Metadata Editor Dialog */}
       <Dialog open={isEditorOpen} onOpenChange={setIsEditorOpen}>
         <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Edit Metadata</DialogTitle>
-            <DialogDescription>
-              {editingFile?.file.name}
-            </DialogDescription>
-          </DialogHeader>
-          {editingFile && (
-            <MetadataEditorEnhanced
-              initialMetadata={editingFile.metadata}
-              onSave={handleSaveMetadata}
-              onCancel={() => setIsEditorOpen(false)}
-              fileName={editingFile.file.name}
-            />
-          )}
+          <Suspense
+            fallback={
+              <div className="flex items-center justify-center p-12">
+                <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+              </div>
+            }
+          >
+            <DialogHeader>
+              <DialogTitle>Edit Metadata</DialogTitle>
+              <DialogDescription>{editingFile?.file.name}</DialogDescription>
+            </DialogHeader>
+            {editingFile && (
+              <MetadataEditorEnhanced
+                initialMetadata={editingFile.metadata}
+                onSave={handleSaveMetadata}
+                onCancel={() => setIsEditorOpen(false)}
+                fileName={editingFile.file.name}
+              />
+            )}
+          </Suspense>
         </DialogContent>
       </Dialog>
 
@@ -455,8 +569,8 @@ export default function UploadPage() {
           <DialogHeader>
             <DialogTitle>Batch Edit Metadata</DialogTitle>
             <DialogDescription>
-              Apply common metadata to {pendingCount} pending file{pendingCount > 1 ? 's' : ''}.
-              Only filled fields will be applied.
+              Apply common metadata to {pendingCount} pending file
+              {pendingCount > 1 ? 's' : ''}. Only filled fields will be applied.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
@@ -466,7 +580,9 @@ export default function UploadPage() {
                 <Input
                   id="batch-artist"
                   value={batchMetadata.artist || ''}
-                  onChange={(e) => setBatchMetadata((p) => ({ ...p, artist: e.target.value }))}
+                  onChange={(e) =>
+                    setBatchMetadata((p) => ({ ...p, artist: e.target.value }))
+                  }
                   placeholder="Apply to all"
                 />
               </div>
@@ -475,7 +591,9 @@ export default function UploadPage() {
                 <Input
                   id="batch-album"
                   value={batchMetadata.album || ''}
-                  onChange={(e) => setBatchMetadata((p) => ({ ...p, album: e.target.value }))}
+                  onChange={(e) =>
+                    setBatchMetadata((p) => ({ ...p, album: e.target.value }))
+                  }
                   placeholder="Apply to all"
                 />
               </div>
@@ -485,7 +603,12 @@ export default function UploadPage() {
                   id="batch-year"
                   type="number"
                   value={batchMetadata.year || ''}
-                  onChange={(e) => setBatchMetadata((p) => ({ ...p, year: parseInt(e.target.value) || 0 }))}
+                  onChange={(e) =>
+                    setBatchMetadata((p) => ({
+                      ...p,
+                      year: parseInt(e.target.value) || 0,
+                    }))
+                  }
                   placeholder="Apply to all"
                 />
               </div>
@@ -494,13 +617,18 @@ export default function UploadPage() {
                 <Input
                   id="batch-genre"
                   value={batchMetadata.genre || ''}
-                  onChange={(e) => setBatchMetadata((p) => ({ ...p, genre: e.target.value }))}
+                  onChange={(e) =>
+                    setBatchMetadata((p) => ({ ...p, genre: e.target.value }))
+                  }
                   placeholder="Apply to all"
                 />
               </div>
             </div>
             <div className="flex gap-2 justify-end">
-              <Button variant="outline" onClick={() => setIsBatchEditing(false)}>
+              <Button
+                variant="outline"
+                onClick={() => setIsBatchEditing(false)}
+              >
                 Cancel
               </Button>
               <Button onClick={handleApplyBatchMetadata}>
@@ -511,5 +639,5 @@ export default function UploadPage() {
         </DialogContent>
       </Dialog>
     </div>
-  );
+  )
 }

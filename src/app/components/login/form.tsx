@@ -2,10 +2,10 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { useQueryClient } from '@tanstack/react-query'
 import clsx from 'clsx'
 import { Loader2 } from 'lucide-react'
-import { useState, useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
-import { useNavigate, Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 
 import { toast } from 'react-toastify'
 import { z } from 'zod'
@@ -39,12 +39,12 @@ import {
 } from '@/app/components/ui/form'
 import { Input } from '@/app/components/ui/input'
 import { Password } from '@/app/components/ui/password'
+import { useAuth } from '@/contexts/AuthContext'
+import { isSupabaseConfigured, supabase } from '@/lib/supabase'
 import { ROUTES } from '@/routes/routesList'
 import { useAppActions, useAppData, useAppStore } from '@/store/app.store'
 import { isDesktop } from '@/utils/desktop'
 import { removeSlashFromUrl } from '@/utils/removeSlashFromUrl'
-import { supabase, isSupabaseConfigured } from '@/lib/supabase'
-import { useAuth } from '@/contexts/AuthContext'
 import { SupabaseLoginForm } from './supabase-login-form'
 
 const loginSchema = z.object({
@@ -93,13 +93,15 @@ export function LoginForm() {
       }
 
       // Get Navidrome credentials
-      const navidromeUsername = user.user_metadata?.navidrome_username || profile.navidrome_username
+      const navidromeUsername =
+        user.user_metadata?.navidrome_username || profile.navidrome_username
       const navidromePassword = user.user_metadata?.navidrome_password
 
       if (navidromeUsername && navidromePassword) {
         console.log('[LoginForm] Auto-connecting to Navidrome...')
-        const navidromeUrl = import.meta.env.VITE_API_URL || 'http://localhost:4533'
-        
+        const navidromeUrl =
+          import.meta.env.VITE_API_URL || 'http://localhost:4533'
+
         const loginSuccess = await saveConfig({
           url: navidromeUrl,
           username: navidromeUsername,
@@ -114,17 +116,21 @@ export function LoginForm() {
       } else if (navidromeUsername) {
         // User exists but password missing - try to get it
         console.log('[LoginForm] Setting up Navidrome account...')
-        const authServiceUrl = import.meta.env.VITE_ACCOUNT_API_URL || 'http://localhost:3005/api'
-        
+        const authServiceUrl =
+          import.meta.env.VITE_ACCOUNT_API_URL || 'http://localhost:3005/api'
+
         try {
-          const response = await fetch(`${authServiceUrl}/auth/oauth-callback`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              email: user.email,
-              userId: user.id,
-            }),
-          })
+          const response = await fetch(
+            `${authServiceUrl}/auth/oauth-callback`,
+            {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                email: user.email,
+                userId: user.id,
+              }),
+            },
+          )
 
           const data = await response.json()
 
@@ -134,11 +140,12 @@ export function LoginForm() {
               data: {
                 navidrome_username: data.username,
                 navidrome_password: data.password,
-              }
+              },
             })
 
             // Connect to Navidrome
-            const navidromeUrl = import.meta.env.VITE_API_URL || 'http://localhost:4533'
+            const navidromeUrl =
+              import.meta.env.VITE_API_URL || 'http://localhost:4533'
             const loginSuccess = await saveConfig({
               url: navidromeUrl,
               username: data.username,
@@ -216,9 +223,9 @@ export function LoginForm() {
                 </div>
               </CardTitle>
               <CardDescription>
-                {supabaseConfigured && !user 
-                  ? 'Sign in with Supabase or use Navidrome credentials directly' 
-                  : 'Enter your Navidrome credentials'}
+                {supabaseConfigured && !user
+                  ? 'Sign in with Supabase or use server credentials directly'
+                  : 'Enter your server credentials'}
               </CardDescription>
             </CardHeader>
 
@@ -255,9 +262,7 @@ export function LoginForm() {
                 name="username"
                 render={({ field }) => (
                   <FormItem className={clsx(shouldHideUrlInput && '!mt-0')}>
-                    <FormLabel className="required">
-                      Username
-                    </FormLabel>
+                    <FormLabel className="required">Username</FormLabel>
                     <FormControl>
                       <Input
                         {...field}
@@ -280,9 +285,7 @@ export function LoginForm() {
                 name="password"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel className="required">
-                      Password
-                    </FormLabel>
+                    <FormLabel className="required">Password</FormLabel>
                     <FormControl>
                       <Password {...field} value={field.value ?? ''} />
                     </FormControl>
@@ -300,7 +303,7 @@ export function LoginForm() {
                     {t('login.form.connecting')}
                   </>
                 ) : (
-                  <>Login to Navidrome</>
+                  <>Login to Server</>
                 )}
               </Button>
 
@@ -311,13 +314,18 @@ export function LoginForm() {
                       <span className="w-full border-t" />
                     </div>
                     <div className="relative flex justify-center text-xs uppercase">
-                      <span className="bg-background px-2 text-muted-foreground">Or sign in with</span>
+                      <span className="bg-background px-2 text-muted-foreground">
+                        Or sign in with
+                      </span>
                     </div>
                   </div>
                   <OAuthButtons />
                   <div className="text-center text-sm text-muted-foreground w-full">
                     Don't have an account?{' '}
-                    <Link to={ROUTES.REGISTER} className="text-primary hover:underline">
+                    <Link
+                      to={ROUTES.REGISTER}
+                      className="text-primary hover:underline"
+                    >
                       Create one
                     </Link>
                   </div>

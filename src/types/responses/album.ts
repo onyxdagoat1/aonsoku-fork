@@ -46,6 +46,7 @@ export interface SingleAlbum {
   explicitStatus?: string
   version?: string
   song: ISong[]
+  era?: string
 }
 
 export type Albums = Omit<SingleAlbum, 'song'>

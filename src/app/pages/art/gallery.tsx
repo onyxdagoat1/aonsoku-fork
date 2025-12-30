@@ -1,9 +1,31 @@
-import { getCoverArtUrl } from '@/api/httpClient'
+import { useInfiniteQuery } from '@tanstack/react-query'
+import debounce from 'lodash/debounce'
+import {
+  Calendar,
+  Disc,
+  Disc3,
+  Download,
+  Download as DownloadIcon,
+  Grid2x2,
+  Grid3x3,
+  Heart,
+  Info,
+  Link as LinkIcon,
+  Plus,
+  TrendingDown,
+  User,
+} from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LazyLoadImage } from 'react-lazy-load-image-component'
 import { Link } from 'react-router-dom'
+import { getCoverArtUrl } from '@/api/httpClient'
+import { AlbumInfoModal } from '@/app/components/art/album-info-modal'
+import { ArtworkDetailModal } from '@/app/components/art/artwork-detail-modal'
+import { UploadArtworkDialog } from '@/app/components/art/upload-artwork-dialog'
+import { AddToCollectionDialog } from '@/app/components/collections/add-to-collection-dialog'
 import { Button } from '@/app/components/ui/button'
+import { Progress } from '@/app/components/ui/progress'
 import {
   Select,
   SelectContent,
@@ -11,27 +33,33 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/app/components/ui/select'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/app/components/ui/tabs'
-import { ROUTES } from '@/routes/routesList'
-import { getAlbumList } from '@/queries/albums'
-import { IAlbum } from '@/types/responses/album'
-import { Disc, Disc3, User, Calendar, Download, Info, TrendingDown, Heart, Grid3x3, Grid2x2, Link as LinkIcon, History, Download as DownloadIcon } from 'lucide-react'
-import { useInfiniteQuery } from '@tanstack/react-query'
-import debounce from 'lodash/debounce'
-import { queryKeys } from '@/utils/queryKeys'
-import { AlbumsFilters } from '@/utils/albumsFilter'
-import { getMainScrollElement } from '@/utils/scrollPageToTop'
-import { UploadArtworkDialog } from '@/app/components/art/upload-artwork-dialog'
-import { useArtworkStore, CustomArtwork, ArtworkType } from '@/store/artwork.store'
-import { ArtworkDetailModal } from '@/app/components/art/artwork-detail-modal'
-import { AlbumInfoModal } from '@/app/components/art/album-info-modal'
-import { useToast } from '@/hooks/use-toast'
-import { useFavorites } from '@/hooks/use-favorites'
-import { useViewHistory } from '@/hooks/use-view-history'
-import { useDownloadHistory } from '@/hooks/use-download-history'
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from '@/app/components/ui/tabs'
+import { YeditorInline } from '@/app/components/yeditor/YeditorBadge'
+import { useGetYeditorForContent } from '@/app/hooks/use-yeditor'
+import { ERAS, getEraColor, getEraLabel } from '@/config/eras'
 import { useBulkDownload } from '@/hooks/use-bulk-download'
+import { useDownloadHistory } from '@/hooks/use-download-history'
+import { useFavorites } from '@/hooks/use-favorites'
+import { useToast } from '@/hooks/use-toast'
+import { useViewHistory } from '@/hooks/use-view-history'
 import { cn } from '@/lib/utils'
-import { Progress } from '@/app/components/ui/progress'
+import { getAlbumList } from '@/queries/albums'
+import { ROUTES } from '@/routes/routesList'
+import { eraService } from '@/service/eraService'
+import {
+  ArtworkType,
+  CustomArtwork,
+  useArtworkStore,
+} from '@/store/artwork.store'
+import { Albums } from '@/types/responses/album'
+import { AlbumsFilters } from '@/utils/albumsFilter'
+import { queryKeys } from '@/utils/queryKeys'
+import { getMainScrollElement } from '@/utils/scrollPageToTop'
 
 type ArtType = 'all' | 'album' | 'single'
 type SortType = 'recent' | 'popular'
@@ -44,19 +72,25 @@ const typeLabels: Record<ArtworkType, string> = {
 }
 
 const gridSizeClasses: Record<GridSize, string> = {
-  small: 'grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 xl:grid-cols-10 2xl:grid-cols-12',
-  medium: 'grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-8',
-  large: 'grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6',
+  small:
+    'grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 xl:grid-cols-10 2xl:grid-cols-12',
+  medium:
+    'grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-8',
+  large:
+    'grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6',
 }
 
 export default function ArtGallery() {
-  const { t } = useTranslation()
+  useTranslation()
   const [selectedArtist, setSelectedArtist] = useState<string>('all')
   const [selectedType, setSelectedType] = useState<ArtType>('all')
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedCustomType, setSelectedCustomType] = useState<string>('all')
-  const [selectedArtwork, setSelectedArtwork] = useState<CustomArtwork | null>(null)
-  const [selectedAlbum, setSelectedAlbum] = useState<IAlbum | null>(null)
+  const [selectedEra, setSelectedEra] = useState<string>('all')
+  const [selectedArtwork, setSelectedArtwork] = useState<CustomArtwork | null>(
+    null,
+  )
+  const [selectedAlbum, setSelectedAlbum] = useState<Albums | null>(null)
   const [showDetailModal, setShowDetailModal] = useState(false)
   const [showAlbumModal, setShowAlbumModal] = useState(false)
   const [sortType, setSortType] = useState<SortType>('recent')
@@ -65,18 +99,27 @@ export default function ArtGallery() {
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false)
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set())
   const [selectionMode, setSelectionMode] = useState(false)
+  const [albumEras, setAlbumEras] = useState<Record<string, string>>({})
   const scrollDivRef = useRef<HTMLDivElement | null>(null)
-  const { toast, success, error } = useToast()
+  const { success } = useToast()
 
-  const { artworks, loadArtworks, incrementDownload, incrementAlbumDownload, getAlbumDownloads } = useArtworkStore()
+  const {
+    artworks,
+    loadArtworks,
+    incrementDownload,
+    incrementAlbumDownload,
+    getAlbumDownloads,
+  } = useArtworkStore()
   const { toggleFavorite, isFavorite, count: favoritesCount } = useFavorites()
   const { addToHistory, count: historyCount } = useViewHistory()
-  const { recordDownload, getDownloadCount, getTotalDownloads } = useDownloadHistory()
-  const { progress, downloadAlbums, downloadCustomArtworks, isDownloading } = useBulkDownload()
+  const { recordDownload, getDownloadCount, getTotalDownloads } =
+    useDownloadHistory()
+  const { progress, downloadAlbums, downloadCustomArtworks, isDownloading } =
+    useBulkDownload()
 
   useEffect(() => {
     loadArtworks()
-  }, [])
+  }, [loadArtworks])
 
   const defaultOffset = 128
   const oldestYear = '0001'
@@ -110,9 +153,25 @@ export default function ArtGallery() {
     return data.pages.flatMap((page) => page.albums)
   }, [data])
 
+  useEffect(() => {
+    if (albums.length > 0) {
+      const ids = albums.map((a) => a.id)
+      eraService.getErasForContent(ids, 'album').then((eras) => {
+        setAlbumEras((prev) => ({ ...prev, ...eras }))
+      })
+    }
+  }, [albums])
+
+  const albumsWithEras = useMemo(() => {
+    return albums.map((a) => ({
+      ...a,
+      era: albumEras[a.id],
+    }))
+  }, [albums, albumEras])
+
   const albumArtists = useMemo(() => {
     const artistMap = new Map<string, string>()
-    albums.forEach((album) => {
+    albumsWithEras.forEach((album) => {
       if (album.artistId && album.artist) {
         artistMap.set(album.artistId, album.artist)
       }
@@ -120,7 +179,7 @@ export default function ArtGallery() {
     return Array.from(artistMap, ([id, name]) => ({ id, name })).sort((a, b) =>
       a.name.localeCompare(b.name),
     )
-  }, [albums])
+  }, [albumsWithEras])
 
   const customArtists = useMemo(() => {
     const artistSet = new Set(artworks.map((art) => art.artistName))
@@ -128,7 +187,7 @@ export default function ArtGallery() {
   }, [artworks])
 
   const filteredAlbums = useMemo(() => {
-    let filtered = albums.filter((album) => {
+    let filtered = albumsWithEras.filter((album) => {
       if (showFavoritesOnly && !isFavorite(album.id, 'album')) {
         return false
       }
@@ -143,6 +202,10 @@ export default function ArtGallery() {
         if (selectedType === 'album' && isSingle) return false
       }
 
+      if (selectedEra !== 'all' && album.era !== selectedEra) {
+        return false
+      }
+
       if (searchQuery) {
         const query = searchQuery.toLowerCase()
         return (
@@ -155,11 +218,23 @@ export default function ArtGallery() {
     })
 
     if (albumSortType === 'popular') {
-      filtered = filtered.sort((a, b) => getAlbumDownloads(b.id) - getAlbumDownloads(a.id))
+      filtered = filtered.sort(
+        (a, b) => getAlbumDownloads(b.id) - getAlbumDownloads(a.id),
+      )
     }
 
     return filtered
-  }, [albums, selectedArtist, selectedType, searchQuery, albumSortType, getAlbumDownloads, showFavoritesOnly, isFavorite])
+  }, [
+    albumsWithEras,
+    selectedArtist,
+    selectedType,
+    selectedEra,
+    searchQuery,
+    albumSortType,
+    getAlbumDownloads,
+    showFavoritesOnly,
+    isFavorite,
+  ])
 
   const filteredCustomArtworks = useMemo(() => {
     let filtered = artworks.filter((artwork) => {
@@ -172,6 +247,10 @@ export default function ArtGallery() {
       }
 
       if (selectedCustomType !== 'all' && artwork.type !== selectedCustomType) {
+        return false
+      }
+
+      if (selectedEra !== 'all' && artwork.compEra !== selectedEra) {
         return false
       }
 
@@ -188,66 +267,103 @@ export default function ArtGallery() {
     })
 
     if (sortType === 'popular') {
-      filtered = filtered.sort((a, b) => (b.downloads || 0) - (a.downloads || 0))
+      filtered = filtered.sort(
+        (a, b) => (b.downloads || 0) - (a.downloads || 0),
+      )
     } else {
       filtered = filtered.sort((a, b) => b.uploadedAt - a.uploadedAt)
     }
 
     return filtered
-  }, [artworks, selectedArtist, selectedCustomType, searchQuery, sortType, showFavoritesOnly, isFavorite])
+  }, [
+    artworks,
+    selectedArtist,
+    selectedCustomType,
+    searchQuery,
+    sortType,
+    showFavoritesOnly,
+    isFavorite,
+    selectedEra,
+  ])
 
   const handleBulkDownload = useCallback(async () => {
-    const selectedAlbums = filteredAlbums.filter(album => selectedItems.has(`album-${album.id}`))
-    const selectedCustom = filteredCustomArtworks.filter(art => selectedItems.has(`custom-${art.id}`))
-    
+    const selectedAlbums = filteredAlbums.filter((album) =>
+      selectedItems.has(`album-${album.id}`),
+    )
+    const selectedCustom = filteredCustomArtworks.filter((art) =>
+      selectedItems.has(`custom-${art.id}`),
+    )
+
     if (selectedAlbums.length > 0) {
       await downloadAlbums(selectedAlbums)
-      selectedAlbums.forEach(album => {
+      selectedAlbums.forEach((album) => {
         recordDownload(album.id, 'album', album.name, album.artist)
         incrementAlbumDownload(album.id)
       })
     }
-    
+
     if (selectedCustom.length > 0) {
       await downloadCustomArtworks(selectedCustom)
-      selectedCustom.forEach(art => {
+      selectedCustom.forEach((art) => {
         recordDownload(art.id, 'custom', art.artworkName, art.artistName)
         incrementDownload(art.id)
       })
     }
-    
+
     setSelectedItems(new Set())
     setSelectionMode(false)
-    success('Download complete', `Downloaded ${selectedAlbums.length + selectedCustom.length} items`)
-  }, [selectedItems, filteredAlbums, filteredCustomArtworks, downloadAlbums, downloadCustomArtworks, recordDownload, incrementAlbumDownload, incrementDownload, success])
+    success(
+      'Download complete',
+      `Downloaded ${selectedAlbums.length + selectedCustom.length} items`,
+    )
+  }, [
+    selectedItems,
+    filteredAlbums,
+    filteredCustomArtworks,
+    downloadAlbums,
+    downloadCustomArtworks,
+    recordDownload,
+    incrementAlbumDownload,
+    incrementDownload,
+    success,
+  ])
 
   const handleBulkFavorite = useCallback(() => {
     let favoriteCount = 0
     let unfavoriteCount = 0
-    
-    selectedItems.forEach(key => {
+
+    selectedItems.forEach((key) => {
       const [type, id] = key.split('-')
       const itemType = type as 'album' | 'custom'
       const currentlyFavorited = isFavorite(id, itemType)
-      
+
       if (!currentlyFavorited) {
         favoriteCount++
       } else {
         unfavoriteCount++
       }
-      
+
       toggleFavorite(id, itemType)
     })
-    
+
     setSelectedItems(new Set())
     setSelectionMode(false)
-    
+
     if (favoriteCount > 0 && unfavoriteCount > 0) {
-      success('Updated favorites', `Added ${favoriteCount}, removed ${unfavoriteCount} items`)
+      success(
+        'Updated favorites',
+        `Added ${favoriteCount}, removed ${unfavoriteCount} items`,
+      )
     } else if (favoriteCount > 0) {
-      success('Added to favorites', `${favoriteCount} item${favoriteCount !== 1 ? 's' : ''} added`)
+      success(
+        'Added to favorites',
+        `${favoriteCount} item${favoriteCount !== 1 ? 's' : ''} added`,
+      )
     } else {
-      success('Removed from favorites', `${unfavoriteCount} item${unfavoriteCount !== 1 ? 's' : ''} removed`)
+      success(
+        'Removed from favorites',
+        `${unfavoriteCount} item${unfavoriteCount !== 1 ? 's' : ''} removed`,
+      )
     }
   }, [selectedItems, isFavorite, toggleFavorite, success])
 
@@ -368,7 +484,8 @@ export default function ArtGallery() {
         <div className="mb-4 p-4 border rounded-lg bg-muted">
           <div className="flex items-center justify-between mb-2">
             <span className="text-sm font-medium">
-              {progress.status === 'downloading' && `Downloading ${progress.current}/${progress.total}...`}
+              {progress.status === 'downloading' &&
+                `Downloading ${progress.current}/${progress.total}...`}
               {progress.status === 'zipping' && 'Creating ZIP file...'}
               {progress.status === 'complete' && 'Complete!'}
             </span>
@@ -427,6 +544,23 @@ export default function ArtGallery() {
             </div>
 
             <div className="flex-1 min-w-[200px]">
+              <label className="text-sm font-medium mb-2 block">Era</label>
+              <Select value={selectedEra} onValueChange={setSelectedEra}>
+                <SelectTrigger>
+                  <SelectValue placeholder="All Eras" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Eras</SelectItem>
+                  {ERAS.map((era) => (
+                    <SelectItem key={era.id} value={era.id}>
+                      {era.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="flex-1 min-w-[200px]">
               <label className="text-sm font-medium mb-2 block">Sort By</label>
               <Select
                 value={albumSortType}
@@ -458,12 +592,15 @@ export default function ArtGallery() {
               onClick={() => setShowFavoritesOnly(!showFavoritesOnly)}
               className="flex items-center gap-2"
             >
-              <Heart className={cn('h-4 w-4', showFavoritesOnly && 'fill-current')} />
+              <Heart
+                className={cn('h-4 w-4', showFavoritesOnly && 'fill-current')}
+              />
               Favorites
             </Button>
 
             {(selectedArtist !== 'all' ||
               selectedType !== 'all' ||
+              selectedEra !== 'all' ||
               searchQuery ||
               albumSortType !== 'recent' ||
               showFavoritesOnly) && (
@@ -472,6 +609,7 @@ export default function ArtGallery() {
                 onClick={() => {
                   setSelectedArtist('all')
                   setSelectedType('all')
+                  setSelectedEra('all')
                   setSearchQuery('')
                   setAlbumSortType('recent')
                   setShowFavoritesOnly(false)
@@ -501,7 +639,7 @@ export default function ArtGallery() {
                 selectionMode={selectionMode}
                 onToggleSelection={() => {
                   const key = `album-${album.id}`
-                  setSelectedItems(prev => {
+                  setSelectedItems((prev) => {
                     const next = new Set(prev)
                     if (next.has(key)) next.delete(key)
                     else next.add(key)
@@ -582,6 +720,23 @@ export default function ArtGallery() {
             </div>
 
             <div className="flex-1 min-w-[200px]">
+              <label className="text-sm font-medium mb-2 block">Era</label>
+              <Select value={selectedEra} onValueChange={setSelectedEra}>
+                <SelectTrigger>
+                  <SelectValue placeholder="All Eras" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Eras</SelectItem>
+                  {ERAS.map((era) => (
+                    <SelectItem key={era.id} value={era.id}>
+                      {era.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="flex-1 min-w-[200px]">
               <label className="text-sm font-medium mb-2 block">Sort By</label>
               <Select
                 value={sortType}
@@ -613,12 +768,15 @@ export default function ArtGallery() {
               onClick={() => setShowFavoritesOnly(!showFavoritesOnly)}
               className="flex items-center gap-2"
             >
-              <Heart className={cn('h-4 w-4', showFavoritesOnly && 'fill-current')} />
+              <Heart
+                className={cn('h-4 w-4', showFavoritesOnly && 'fill-current')}
+              />
               Favorites
             </Button>
 
             {(selectedArtist !== 'all' ||
               selectedCustomType !== 'all' ||
+              selectedEra !== 'all' ||
               searchQuery ||
               sortType !== 'recent' ||
               showFavoritesOnly) && (
@@ -627,6 +785,7 @@ export default function ArtGallery() {
                 onClick={() => {
                   setSelectedArtist('all')
                   setSelectedCustomType('all')
+                  setSelectedEra('all')
                   setSearchQuery('')
                   setSortType('recent')
                   setShowFavoritesOnly(false)
@@ -656,7 +815,7 @@ export default function ArtGallery() {
                   selectionMode={selectionMode}
                   onToggleSelection={() => {
                     const key = `custom-${artwork.id}`
-                    setSelectedItems(prev => {
+                    setSelectedItems((prev) => {
                       const next = new Set(prev)
                       if (next.has(key)) next.delete(key)
                       else next.add(key)
@@ -677,7 +836,12 @@ export default function ArtGallery() {
                   }}
                   onDownload={() => {
                     incrementDownload(artwork.id)
-                    recordDownload(artwork.id, 'custom', artwork.artworkName, artwork.artistName)
+                    recordDownload(
+                      artwork.id,
+                      'custom',
+                      artwork.artworkName,
+                      artwork.artistName,
+                    )
                   }}
                   onCopyUrl={(url) => {
                     navigator.clipboard.writeText(url)
@@ -727,7 +891,7 @@ function AlbumArtCard({
   onDownload,
   onCopyUrl,
 }: {
-  album: IAlbum
+  album: Albums & { era?: string }
   downloads: number
   personalDownloads: number
   isFavorite: boolean
@@ -735,12 +899,19 @@ function AlbumArtCard({
   selectionMode: boolean
   onToggleSelection: () => void
   onToggleFavorite: () => void
-  onInfoClick: (album: IAlbum) => void
+  onInfoClick: (album: Albums & { era?: string }) => void
   onDownload: () => void
   onCopyUrl: (url: string) => void
 }) {
   const isSingle = album.songCount === 1
+  const contentType = isSingle
+    ? 'single'
+    : album.isCompilation
+      ? 'compilation'
+      : 'album'
+  const { data: yeditor } = useGetYeditorForContent(album.id, contentType)
   const { success, error } = useToast()
+  const [showAddDialog, setShowAddDialog] = useState(false)
 
   const handleDownload = async (e: React.MouseEvent) => {
     e.preventDefault()
@@ -797,7 +968,7 @@ function AlbumArtCard({
       onClick={handleClick}
       className={cn(
         'group relative aspect-square rounded-lg overflow-hidden bg-muted hover:ring-2 hover:ring-primary transition-all',
-        isSelected && 'ring-2 ring-primary'
+        isSelected && 'ring-2 ring-primary',
       )}
     >
       <LazyLoadImage
@@ -827,7 +998,9 @@ function AlbumArtCard({
           className="absolute top-2 left-2 p-2 rounded-full bg-black/50 hover:bg-black/70 text-white transition-colors z-10"
           title={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
         >
-          <Heart className={cn('w-4 h-4', isFavorite && 'fill-red-500 text-red-500')} />
+          <Heart
+            className={cn('w-4 h-4', isFavorite && 'fill-red-500 text-red-500')}
+          />
         </button>
       )}
 
@@ -854,7 +1027,24 @@ function AlbumArtCard({
           >
             <Download className="w-4 h-4" />
           </button>
+          <button
+            onClick={(e) => {
+              e.preventDefault()
+              e.stopPropagation()
+              setShowAddDialog(true)
+            }}
+            className="p-2 rounded-full bg-black/50 hover:bg-black/70 text-white transition-colors"
+            title="Add to Collection"
+          >
+            <Plus className="w-4 h-4" />
+          </button>
         </div>
+        <AddToCollectionDialog
+          contentId={album.id}
+          contentType={contentType}
+          open={showAddDialog}
+          onOpenChange={setShowAddDialog}
+        />
         <div className="absolute bottom-0 left-0 right-0 p-3">
           <div className="flex items-center gap-1 mb-1">
             <TrendingDown className="w-3 h-3 text-white/80" />
@@ -868,14 +1058,30 @@ function AlbumArtCard({
             ) : (
               <Disc3 className="w-3 h-3 text-white/80" />
             )}
-            <span className="text-xs text-white/80">
+            <span className="text-xs text-white/80 mr-2">
               {isSingle ? 'Single' : 'Comp'}
             </span>
+            {album.era && (
+              <span
+                className="px-1.5 py-0.5 rounded text-[10px] font-bold text-white uppercase tracking-wider"
+                style={{ backgroundColor: getEraColor(album.era) }}
+              >
+                {getEraLabel(album.era)}
+              </span>
+            )}
           </div>
           <p className="text-sm font-medium text-white line-clamp-1">
             {album.name}
           </p>
-          <p className="text-xs text-white/80 line-clamp-1">{album.artist}</p>
+          <div className="flex items-center gap-2 truncate text-white/80">
+            <p className="text-xs line-clamp-1">{album.artist}</p>
+            {yeditor && (
+              <YeditorInline
+                yeditor={yeditor}
+                className="text-[10px] text-white/60"
+              />
+            )}
+          </div>
         </div>
       </div>
     </Link>
@@ -947,7 +1153,7 @@ function CustomArtCard({
       onClick={handleClick}
       className={cn(
         'group relative aspect-square rounded-lg overflow-hidden bg-muted hover:ring-2 hover:ring-primary transition-all text-left',
-        isSelected && 'ring-2 ring-primary'
+        isSelected && 'ring-2 ring-primary',
       )}
     >
       <img
@@ -976,7 +1182,9 @@ function CustomArtCard({
           className="absolute top-2 left-2 p-2 rounded-full bg-black/50 hover:bg-black/70 text-white transition-colors z-10"
           title={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
         >
-          <Heart className={cn('w-4 h-4', isFavorite && 'fill-red-500 text-red-500')} />
+          <Heart
+            className={cn('w-4 h-4', isFavorite && 'fill-red-500 text-red-500')}
+          />
         </button>
       )}
 
@@ -1012,7 +1220,12 @@ function CustomArtCard({
           </div>
           <div className="flex items-center gap-1">
             <Calendar className="w-3 h-3 text-white/80" />
-            <span className="text-xs text-white/80">{artwork.compEra}</span>
+            <span
+              className="text-xs text-white px-2 py-0.5 rounded-full"
+              style={{ backgroundColor: getEraColor(artwork.compEra) }}
+            >
+              {getEraLabel(artwork.compEra) || artwork.compEra}
+            </span>
           </div>
           <p className="text-sm font-medium text-white line-clamp-1">
             {artwork.artworkName}

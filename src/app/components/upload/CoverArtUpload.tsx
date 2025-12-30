@@ -1,138 +1,158 @@
-import { useState, useCallback, useRef } from 'react';
-import { Button } from '@/app/components/ui/button';
-import { Input } from '@/app/components/ui/input';
-import { Label } from '@/app/components/ui/label';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/app/components/ui/tabs';
-import { Upload, Link as LinkIcon, Image as ImageIcon, X, Loader2 } from 'lucide-react';
-import { toast } from 'react-toastify';
+import {
+  Image as ImageIcon,
+  Link as LinkIcon,
+  Loader2,
+  Upload,
+  X,
+} from 'lucide-react'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { toast } from 'react-toastify'
+import { Button } from '@/app/components/ui/button'
+import { Input } from '@/app/components/ui/input'
+import { Label } from '@/app/components/ui/label'
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from '@/app/components/ui/tabs'
 
 interface CoverArtUploadProps {
-  onCoverArtSelected: (file: File | null) => void;
-  currentCoverArt?: string;
+  onCoverArtSelected: (file: File | null) => void
+  currentCoverArt?: string
 }
 
-export function CoverArtUpload({ onCoverArtSelected, currentCoverArt }: CoverArtUploadProps) {
-  const [preview, setPreview] = useState<string | null>(currentCoverArt || null);
-  const [isDragging, setIsDragging] = useState(false);
-  const [urlInput, setUrlInput] = useState('');
-  const [isLoadingUrl, setIsLoadingUrl] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+export function CoverArtUpload({
+  onCoverArtSelected,
+  currentCoverArt,
+}: CoverArtUploadProps) {
+  const [preview, setPreview] = useState<string | null>(currentCoverArt || null)
+  const [isDragging, setIsDragging] = useState(false)
+  const [urlInput, setUrlInput] = useState('')
+  const [isLoadingUrl, setIsLoadingUrl] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const validateImage = (file: File): boolean => {
-    const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+    const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp']
     if (!validTypes.includes(file.type)) {
-      toast.error('Please select a valid image file (JPEG, PNG, or WebP)');
-      return false;
+      toast.error('Please select a valid image file (JPEG, PNG, or WebP)')
+      return false
     }
 
-    const maxSize = 10 * 1024 * 1024; // 10MB
+    const maxSize = 10 * 1024 * 1024 // 10MB
     if (file.size > maxSize) {
-      toast.error('Image file size must be less than 10MB');
-      return false;
+      toast.error('Image file size must be less than 10MB')
+      return false
     }
 
-    return true;
-  };
+    return true
+  }
 
-  const handleFileSelected = useCallback((file: File) => {
-    if (!validateImage(file)) return;
+  const handleFileSelected = useCallback(
+    (file: File) => {
+      if (!validateImage(file)) return
 
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      setPreview(reader.result as string);
-      onCoverArtSelected(file);
-    };
-    reader.readAsDataURL(file);
-  }, [onCoverArtSelected]);
+      const reader = new FileReader()
+      reader.onloadend = () => {
+        setPreview(reader.result as string)
+        onCoverArtSelected(file)
+      }
+      reader.readAsDataURL(file)
+    },
+    [onCoverArtSelected],
+  )
 
   const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
+    const file = e.target.files?.[0]
     if (file) {
-      handleFileSelected(file);
+      handleFileSelected(file)
     }
-  };
+  }
 
   const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsDragging(true);
-  };
+    e.preventDefault()
+    e.stopPropagation()
+    setIsDragging(true)
+  }
 
   const handleDragLeave = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsDragging(false);
-  };
+    e.preventDefault()
+    e.stopPropagation()
+    setIsDragging(false)
+  }
 
   const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsDragging(false);
+    e.preventDefault()
+    e.stopPropagation()
+    setIsDragging(false)
 
-    const file = e.dataTransfer.files?.[0];
+    const file = e.dataTransfer.files?.[0]
     if (file && file.type.startsWith('image/')) {
-      handleFileSelected(file);
+      handleFileSelected(file)
     } else {
-      toast.error('Please drop an image file');
+      toast.error('Please drop an image file')
     }
-  };
+  }
 
-  const handlePaste = useCallback((e: ClipboardEvent) => {
-    const items = e.clipboardData?.items;
-    if (!items) return;
+  const handlePaste = useCallback(
+    (e: ClipboardEvent) => {
+      const items = e.clipboardData?.items
+      if (!items) return
 
-    for (const item of Array.from(items)) {
-      if (item.type.startsWith('image/')) {
-        const file = item.getAsFile();
-        if (file) {
-          handleFileSelected(file);
-          toast.success('Image pasted from clipboard');
+      for (const item of Array.from(items)) {
+        if (item.type.startsWith('image/')) {
+          const file = item.getAsFile()
+          if (file) {
+            handleFileSelected(file)
+            toast.success('Image pasted from clipboard')
+          }
         }
       }
-    }
-  }, [handleFileSelected]);
+    },
+    [handleFileSelected],
+  )
 
   const handleUrlSubmit = async () => {
-    if (!urlInput.trim()) return;
+    if (!urlInput.trim()) return
 
-    setIsLoadingUrl(true);
+    setIsLoadingUrl(true)
     try {
-      const response = await fetch(urlInput);
-      const blob = await response.blob();
-      
+      const response = await fetch(urlInput)
+      const blob = await response.blob()
+
       // Create a file from the blob
-      const filename = urlInput.split('/').pop() || 'cover-art.jpg';
-      const file = new File([blob], filename, { type: blob.type });
+      const filename = urlInput.split('/').pop() || 'cover-art.jpg'
+      const file = new File([blob], filename, { type: blob.type })
 
       if (!validateImage(file)) {
-        setIsLoadingUrl(false);
-        return;
+        setIsLoadingUrl(false)
+        return
       }
 
-      handleFileSelected(file);
-      setUrlInput('');
-      toast.success('Cover art loaded from URL');
+      handleFileSelected(file)
+      setUrlInput('')
+      toast.success('Cover art loaded from URL')
     } catch (error) {
-      toast.error('Failed to load image from URL');
+      toast.error('Failed to load image from URL')
     } finally {
-      setIsLoadingUrl(false);
+      setIsLoadingUrl(false)
     }
-  };
+  }
 
   const handleRemove = () => {
-    setPreview(null);
-    onCoverArtSelected(null);
+    setPreview(null)
+    onCoverArtSelected(null)
     if (fileInputRef.current) {
-      fileInputRef.current.value = '';
+      fileInputRef.current.value = ''
     }
-    toast.info('Cover art removed');
-  };
+    toast.info('Cover art removed')
+  }
 
   // Add paste event listener
-  useState(() => {
-    window.addEventListener('paste', handlePaste);
-    return () => window.removeEventListener('paste', handlePaste);
-  });
+  useEffect(() => {
+    window.addEventListener('paste', handlePaste)
+    return () => window.removeEventListener('paste', handlePaste)
+  }, [handlePaste])
 
   return (
     <div className="space-y-4">
@@ -174,9 +194,10 @@ export function CoverArtUpload({ onCoverArtSelected, currentCoverArt }: CoverArt
               className={`
                 relative border-2 border-dashed rounded-lg p-8 text-center
                 transition-colors duration-200 cursor-pointer
-                ${isDragging 
-                  ? 'border-primary bg-primary/10' 
-                  : 'border-border hover:border-primary/50'
+                ${
+                  isDragging
+                    ? 'border-primary bg-primary/10'
+                    : 'border-border hover:border-primary/50'
                 }
               `}
               onDragOver={handleDragOver}
@@ -191,12 +212,12 @@ export function CoverArtUpload({ onCoverArtSelected, currentCoverArt }: CoverArt
                 onChange={handleFileInput}
                 className="hidden"
               />
-              
+
               <div className="flex flex-col items-center gap-3">
                 <div className="p-3 rounded-full bg-primary/10">
                   <ImageIcon className="w-6 h-6 text-primary" />
                 </div>
-                
+
                 <div>
                   <h4 className="font-medium mb-1">
                     {isDragging ? 'Drop image here' : 'Upload Cover Art'}
@@ -266,5 +287,5 @@ export function CoverArtUpload({ onCoverArtSelected, currentCoverArt }: CoverArt
         </TabsContent>
       </Tabs>
     </div>
-  );
+  )
 }

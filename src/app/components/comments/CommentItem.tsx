@@ -24,7 +24,7 @@ interface CommentItemProps {
 
 export function CommentItem({ comment, currentUserId, onReply }: CommentItemProps) {
   const [isEditing, setIsEditing] = useState(false);
-  const { updateComment, deleteComment, addReaction, removeReaction } = useComments({
+  const { updateComment, deleteComment, addReaction, removeReaction, reportComment } = useComments({
     contentType: comment.content_type,
     contentId: comment.content_id,
     userId: currentUserId,
@@ -156,7 +156,11 @@ export function CommentItem({ comment, currentUserId, onReply }: CommentItemProp
                     <DropdownMenuSeparator />
                   </>
                 )}
-                <DropdownMenuItem>
+                <DropdownMenuItem onClick={() => {
+                   if (window.confirm('Report this comment to moderators?')) {
+                     reportComment(comment.id);
+                   }
+                }}>
                   <Flag className="h-4 w-4 mr-2" />
                   Report
                 </DropdownMenuItem>

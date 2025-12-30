@@ -6,12 +6,14 @@ import {
   MainSidebarMenuItem,
 } from '@/app/components/ui/main-sidebar'
 import { libraryItems, SidebarItems } from '@/app/layout/sidebar'
+import { useAuth } from '@/contexts/AuthContext'
 import { useAppStore } from '@/store/app.store'
 import { SidebarMainItem } from './main-item'
 import { SidebarPodcastItem } from './podcast-item'
 
 export function NavLibrary() {
   const { t } = useTranslation()
+  const { profile } = useAuth()
   const hideRadiosSection = useAppStore().pages.hideRadiosSection
   const isPodcastsActive = useAppStore().podcasts.active
 
@@ -20,10 +22,10 @@ export function NavLibrary() {
       <MainSidebarGroupLabel>{t('sidebar.library')}</MainSidebarGroupLabel>
       <MainSidebarMenu>
         {libraryItems.map((item) => {
-          // Always hide Radios from sidebar (functionality still exists)
           if (item.id === SidebarItems.Radios) return null
           if (!isPodcastsActive && item.id === SidebarItems.Podcasts)
             return null
+          if (item.id === SidebarItems.Upload && !profile?.is_admin) return null
 
           if (item.id === SidebarItems.Podcasts) {
             return <SidebarPodcastItem key={item.id} item={item} />
