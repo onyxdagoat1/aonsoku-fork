@@ -6,6 +6,7 @@ import { devtools, persist, subscribeWithSelector } from 'zustand/middleware'
 import { immer } from 'zustand/middleware/immer'
 import { shallow } from 'zustand/shallow'
 import { createWithEqualityFn } from 'zustand/traditional'
+import { lastfmService } from '@/service/lastfmService'
 import { subsonic } from '@/service/subsonic'
 import { IPlayerContext, ISongList, LoopState } from '@/types/playerContext'
 import { ISong } from '@/types/responses/song'
@@ -46,6 +47,7 @@ export const usePlayerStore = createWithEqualityFn<IPlayerContext>()(
             loopState: LoopState.Off,
             isShuffleActive: false,
             isSongStarred: false,
+            isScrobbled: false,
             volume: 100,
             currentDuration: 0,
             mediaType: 'song',
@@ -151,6 +153,9 @@ export const usePlayerStore = createWithEqualityFn<IPlayerContext>()(
 
               if (!listsAreEqual || (listsAreEqual && songHasChanged)) {
                 get().actions.resetProgress()
+                set((state) => {
+                  state.playerState.isScrobbled = false
+                })
               }
 
               if (listsAreEqual && songHasChanged && !shuffle) {
@@ -216,6 +221,7 @@ export const usePlayerStore = createWithEqualityFn<IPlayerContext>()(
                   state.playerState.isPlaying = true
                   state.songlist.radioList = []
                   state.songlist.podcastList = []
+                  state.playerState.isScrobbled = false
                 })
               }
             },
@@ -466,10 +472,14 @@ export const usePlayerStore = createWithEqualityFn<IPlayerContext>()(
                 resetProgress()
                 set((state) => {
                   state.songlist.currentSongIndex += 1
+                  state.playerState.isScrobbled = false
                 })
               } else if (loopState === LoopState.All) {
                 resetProgress()
                 playFirstSongInQueue()
+                set((state) => {
+                  state.playerState.isScrobbled = false
+                })
               }
             },
             playPrevSong: () => {
@@ -477,6 +487,7 @@ export const usePlayerStore = createWithEqualityFn<IPlayerContext>()(
                 get().actions.resetProgress()
                 set((state) => {
                   state.songlist.currentSongIndex -= 1
+                  state.playerState.isScrobbled = false
                 })
               }
             },
@@ -500,6 +511,7 @@ export const usePlayerStore = createWithEqualityFn<IPlayerContext>()(
                 state.playerState.lyricsState = false
                 state.playerState.currentDuration = 0
                 state.playerState.audioPlayerRef = null
+                state.playerState.isScrobbled = false
                 state.settings.colors.currentSongColor = null
               })
             },
@@ -772,6 +784,7 @@ export const usePlayerStore = createWithEqualityFn<IPlayerContext>()(
             playFirstSongInQueue: () => {
               set((state) => {
                 state.songlist.currentSongIndex = 0
+                state.playerState.isScrobbled = false
               })
             },
             handleSongEnded: () => {
@@ -876,6 +889,7 @@ export const usePlayerStore = createWithEqualityFn<IPlayerContext>()(
             'playerState.mainDrawerState',
             'playerState.queueState',
             'playerState.lyricsState',
+            'playerState.isScrobbled',
             'state.settings.colors.bigPlayer.blur.settings',
           ])
 
@@ -940,12 +954,48 @@ usePlayerStore.subscribe(
     state.playerState.isPlaying,
     state.playerState.currentDuration,
   ],
-  () => {
+  ([currentSong, isPlaying, duration]) => {
     discordRpc.sendCurrentSong()
+    
+    // Update Last.fm Now Playing
+    if (isPlaying && currentSong && currentSong.title) {
+      lastfmService.updateNowPlaying(
+        currentSong.artist,
+        currentSong.title,
+        currentSong.album,
+        duration
+      )
+    }
   },
   {
     equalityFn: shallow,
   },
+)
+
+// Last.fm Scrobbler Subscriber
+usePlayerStore.subscribe(
+  (state) => [state.playerProgress.progress, state.playerState.currentDuration],
+  ([progress, duration]) => {
+    const { isScrobbled, isPlaying, mediaType } = usePlayerStore.getState().playerState
+    const { currentSong } = usePlayerStore.getState().songlist
+
+    if (mediaType !== 'song' || !isPlaying || isScrobbled || duration === 0 || !currentSong || !currentSong.title) return
+
+    // Scrobble if > 4 mins (240s) or > 50%
+    const percentage = progress / duration
+    if (percentage >= 0.5 || progress >= 240) {
+       lastfmService.scrobble(currentSong.artist, currentSong.title, currentSong.album, undefined, duration)
+       
+       usePlayerStore.setState(
+         produce((state: IPlayerContext) => {
+           state.playerState.isScrobbled = true
+         })
+       )
+    }
+  },
+  {
+    equalityFn: shallow
+  }
 )
 
 function desktopStateListener() {
