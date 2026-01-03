@@ -35,7 +35,9 @@ const radio = {
 
 const search = 'search-key'
 
-const genre = 'get-all-genres'
+const genres = {
+  all: 'get-all-genres',
+}
 
 const update = {
   serverInfo: 'get-server-info',
@@ -60,7 +62,7 @@ export const queryKeys = {
   song,
   radio,
   search,
-  genre,
+  genres,
   update,
   podcast,
   episode,

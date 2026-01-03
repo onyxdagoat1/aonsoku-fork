@@ -9,7 +9,7 @@ import {
 import { QueueItem } from './queue-item'
 
 export function FullscreenSongQueue() {
-  const { setSongList } = usePlayerActions()
+  const { setSongList, removeSongFromQueue } = usePlayerActions()
   const { currentList, currentSongIndex, currentSong } = usePlayerSonglist()
   const isPlaying = usePlayerIsPlaying()
 
@@ -69,6 +69,10 @@ export function FullscreenSongQueue() {
                 if (currentSong.id !== entry.id) {
                   setSongList(currentList, virtualRow.index)
                 }
+              }}
+              onRemove={(e) => {
+                e.stopPropagation()
+                removeSongFromQueue(entry.id)
               }}
               style={{
                 position: 'absolute',

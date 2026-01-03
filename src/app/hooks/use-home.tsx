@@ -65,3 +65,17 @@ export const useGetHighlights = (type?: HighlightType) => {
     queryFn: () => highlightsService.getActiveHighlights(type),
   })
 }
+
+export const useGetArtists = () => {
+  return useQuery({
+    queryKey: ['artists'],
+    queryFn: () => subsonic.artists.getAll(),
+  })
+}
+
+export const useGetPlaylists = () => {
+  return useQuery({
+    queryKey: ['playlists'],
+    queryFn: () => subsonic.playlists.getAll(),
+  })
+}

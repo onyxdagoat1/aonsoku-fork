@@ -1,0 +1,151 @@
+version: '3.8'
+
+services:
+  # Nginx Reverse Proxy + Frontend
+  nginx:
+    build:
+      context: .
+      dockerfile: Dockerfile.prod
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx-prod.conf:/etc/nginx/nginx.conf:ro
+      - ./ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - auth-service
+      - upload-service
+      - tag-writer-service
+      - navidrome
+    networks:
+      - yedits-network
+
+  # Rclone - Mounts Cloudflare R2 as filesystem
+  rclone:
+    image: rclone/rclone:latest
+    restart: unless-stopped
+    command: >
+      mount r2:${R2_BUCKET_NAME} /music
+      --allow-other
+      --allow-non-empty
+      --vfs-cache-mode full
+      --vfs-cache-max-size 10G
+      --vfs-read-chunk-size 32M
+      --vfs-read-chunk-size-limit 256M
+      --buffer-size 64M
+      --dir-cache-time 72h
+      --poll-interval 30s
+      --log-level INFO
+    environment:
+      - RCLONE_CONFIG_R2_TYPE=s3
+      - RCLONE_CONFIG_R2_PROVIDER=Cloudflare
+      - RCLONE_CONFIG_R2_ACCESS_KEY_ID=${R2_ACCESS_KEY_ID}
+      - RCLONE_CONFIG_R2_SECRET_ACCESS_KEY=${R2_SECRET_ACCESS_KEY}
+      - RCLONE_CONFIG_R2_ENDPOINT=${R2_ENDPOINT}
+      - RCLONE_CONFIG_R2_ACL=private
+    cap_add:
+      - SYS_ADMIN
+    devices:
+      - /dev/fuse
+    security_opt:
+      - apparmor:unconfined
+    volumes:
+      - music-r2:/music:shared
+      - rclone-cache:/root/.cache/rclone
+    networks:
+      - yedits-network
+
+  # Authentication Service
+  auth-service:
+    build:
+      context: ./auth-service
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      - PORT=3005
+      - NAVIDROME_URL=http://navidrome:4533
+      - NAVIDROME_ADMIN_USER=${NAVIDROME_ADMIN_USER}
+      - NAVIDROME_ADMIN_PASSWORD=${NAVIDROME_ADMIN_PASSWORD}
+      - FRONTEND_URL=https://yedits.net
+    networks:
+      - yedits-network
+
+  # Upload Service - uploads to R2
+  upload-service:
+    build:
+      context: ./upload-service
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      - PORT=3001
+      - UPLOAD_DIR=/tmp/uploads
+      - MUSIC_LIBRARY_PATH=/music
+      - MAX_FILE_SIZE=209715200
+      - NAVIDROME_URL=http://navidrome:4533
+      - NAVIDROME_USERNAME=${NAVIDROME_ADMIN_USER}
+      - NAVIDROME_PASSWORD=${NAVIDROME_ADMIN_PASSWORD}
+      # R2 credentials for direct upload
+      - R2_ACCESS_KEY_ID=${R2_ACCESS_KEY_ID}
+      - R2_SECRET_ACCESS_KEY=${R2_SECRET_ACCESS_KEY}
+      - R2_ENDPOINT=${R2_ENDPOINT}
+      - R2_BUCKET_NAME=${R2_BUCKET_NAME}
+    volumes:
+      - music-r2:/music:shared
+      - upload-temp:/tmp/uploads
+    depends_on:
+      - rclone
+    networks:
+      - yedits-network
+
+  # Tag Writer Service
+  tag-writer-service:
+    build:
+      context: ./tag-writer-service
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      - PORT=3002
+      - MUSIC_LIBRARY_PATH=/music
+    volumes:
+      - music-r2:/music:shared
+    depends_on:
+      - rclone
+    networks:
+      - yedits-network
+
+  # Navidrome Music Server
+  navidrome:
+    image: deluan/navidrome:latest
+    restart: unless-stopped
+    user: "1000:1000"
+    environment:
+      - ND_SCANSCHEDULE=1h
+      - ND_LOGLEVEL=info
+      - ND_SESSIONTIMEOUT=72h
+      - ND_BASEURL=
+      - ND_ENABLEDOWNLOADS=true
+      - ND_ENABLESHARING=true
+      - ND_ENABLETRANSCODINGCONFIG=true
+      - ND_DEFAULTTHEME=Dark
+    volumes:
+      - navidrome-data:/data
+      - music-r2:/music:ro
+    depends_on:
+      - rclone
+    networks:
+      - yedits-network
+
+volumes:
+  music-r2:
+    driver: local
+  navidrome-data:
+    driver: local
+  upload-temp:
+    driver: local
+  rclone-cache:
+    driver: local
+
+networks:
+  yedits-network:
+    driver: bridge

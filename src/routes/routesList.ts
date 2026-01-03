@@ -10,8 +10,14 @@ const LIBRARY = {
   PODCASTS: '/library/podcasts',
   EPISODES: '/library/episodes',
   RADIOS: '/library/radios',
+  GENRES: '/library/genres',
+  SMART_RADIO: '/library/smart-radio',
   ART: '/library/art',
   YOUTUBE: '/library/youtube',
+  CHARTS: '/charts',
+  RELEASES: '/releases',
+  MESSAGES: '/messages',
+  ADVANCED_SEARCH: '/search/advanced',
 }
 
 const ARTIST = {
@@ -48,6 +54,7 @@ const SONGS = {
 }
 
 const PLAYLIST = {
+  BROWSE: `${LIBRARY.PLAYLISTS}/browse`,
   PAGE: (playlistId: string) => `${LIBRARY.PLAYLISTS}/${playlistId}`,
   PATH: `${LIBRARY.PLAYLISTS}/:playlistId`,
 }
@@ -66,6 +73,10 @@ const EPISODES = {
 const UPLOAD = '/upload'
 const PROFILE = '/profile/:id?'
 const ADMIN = '/admin'
+const PARTY_LOBBY = '/party/lobby'
+const SOCIAL = '/social'
+const EOTW = '/charts/eotw'
+const PARTY_ROOM = (partyId: string) => `/party/${partyId}`
 
 const YEDITOR = {
   PAGE: (yeditorId: string) => `/yeditor/${yeditorId}`,
@@ -79,6 +90,8 @@ const COLLECTION = {
 
 const SERVER_CONFIG = '/login'
 const REGISTER = '/register'
+const NOT_FOUND = '/404'
+const HIDDEN_LINKS = '/aGlkZGVubGlua3M='
 
 export const ROUTES = {
   LIBRARY,
@@ -96,4 +109,13 @@ export const ROUTES = {
   COLLECTION,
   SERVER_CONFIG,
   REGISTER,
+  PARTY_LOBBY,
+  SOCIAL,
+  EOTW,
+  PARTY_ROOM,
+  NOT_FOUND,
+  HIDDEN_LINKS,
+  AUTH: {
+    LOGIN: SERVER_CONFIG,
+  },
 }

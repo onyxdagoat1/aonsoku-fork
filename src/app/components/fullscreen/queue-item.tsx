@@ -1,8 +1,10 @@
 import clsx from 'clsx'
+import { X } from 'lucide-react'
 import { ComponentPropsWithRef } from 'react'
 import { LazyLoadImage } from 'react-lazy-load-image-component'
 import { getCoverArtUrl } from '@/api/httpClient'
 import { EqualizerBars } from '@/app/components/icons/equalizer-bars'
+import { Button } from '@/app/components/ui/button'
 import { ISong } from '@/types/responses/song'
 import { convertSecondsToTime } from '@/utils/convertSecondsToTime'
 import { ALBUM_ARTISTS_MAX_NUMBER } from '@/utils/multipleArtists'
@@ -11,6 +13,7 @@ type QueueItemProps = ComponentPropsWithRef<'div'> & {
   song: ISong
   index: number
   isPlaying: boolean
+  onRemove?: (e: React.MouseEvent) => void
 }
 
 export function QueueItem({
@@ -18,6 +21,7 @@ export function QueueItem({
   isPlaying,
   index,
   style,
+  onRemove,
   ...props
 }: QueueItemProps) {
   const coverArtUrl = getCoverArtUrl(song.coverArt, 'song', '100')
@@ -25,7 +29,7 @@ export function QueueItem({
   return (
     <div
       className={clsx([
-        'flex items-center w-[calc(100%-10px)] h-16 text-sm rounded-md cursor-pointer',
+        'group flex items-center w-[calc(100%-10px)] h-16 text-sm rounded-md cursor-pointer',
         'bg-black/0 hover:bg-foreground/20',
         'data-[state=active]:bg-foreground data-[state=active]:text-secondary',
       ])}
@@ -49,21 +53,33 @@ export function QueueItem({
           </div>
         )}
       </div>
-      <div className="flex flex-1 items-center">
-        <div className="w-10 h-10 bg-accent rounded mr-2">
+      <div className="flex flex-1 items-center overflow-hidden">
+        <div className="w-10 h-10 bg-accent rounded mr-2 shrink-0">
           <LazyLoadImage
             src={coverArtUrl}
             className="w-10 h-10 rounded text-transparent"
             alt={`${song.title} - ${song.artist}`}
           />
         </div>
-        <div className="flex flex-col">
-          <span className="font-semibold">{song.title}</span>
+        <div className="flex flex-col overflow-hidden">
+          <span className="font-semibold truncate">{song.title}</span>
           <QueueArtists song={song} />
         </div>
       </div>
-      <div className="w-[100px] text-center">
-        {convertSecondsToTime(song.duration)}
+      <div className="w-[100px] flex justify-center items-center">
+        <span className="group-hover:hidden">
+          {convertSecondsToTime(song.duration)}
+        </span>
+        {onRemove && (
+          <Button
+            variant="ghost"
+            size="icon"
+            className="hidden group-hover:flex h-8 w-8 text-muted-foreground hover:text-destructive transition-colors"
+            onClick={onRemove}
+          >
+            <X className="w-4 h-4" />
+          </Button>
+        )}
       </div>
     </div>
   )

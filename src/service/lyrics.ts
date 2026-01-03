@@ -151,7 +151,6 @@ function getLyricsCacheKey(
   preferSyncedLyrics: boolean,
 ) {
   const { artist, title } = getLyricsData
-
   const type = preferSyncedLyrics ? 'synced' : 'plain'
 
   return `lyrics:${artist}:${title}:${type}`

@@ -13,7 +13,6 @@ import { IFeaturedArtist } from '@/types/responses/artist'
 import { getAverageColor } from '@/utils/getAverageColor'
 import { getTextSizeClass } from '@/utils/getTextSizeClass'
 import { AlbumArtistInfo, AlbumMultipleArtistsInfo } from './artists'
-import { ImageHeaderEffect } from './header-effect'
 
 interface ImageHeaderProps {
   type: string
@@ -27,6 +26,7 @@ interface ImageHeaderProps {
   coverArtAlt: string
   badges: BadgesData
   isPlaylist?: boolean
+  onColorExtracted?: (color: string) => void
 }
 
 export default function ImageHeader({
@@ -41,6 +41,7 @@ export default function ImageHeader({
   coverArtAlt,
   badges,
   isPlaylist = false,
+  onColorExtracted,
 }: ImageHeaderProps) {
   const [loaded, setLoaded] = useState(false)
   const [open, setOpen] = useState(false)
@@ -65,6 +66,7 @@ export default function ImageHeader({
     }
 
     setBgColor(color)
+    onColorExtracted?.(color)
     setLoaded(true)
   }
 
@@ -78,10 +80,11 @@ export default function ImageHeader({
   }
 
   const hasMultipleArtists = artists ? artists.length > 1 : false
+  const coverArtUrl = getCoverArtUrl(coverArtId, coverArtType, coverArtSize)
 
   return (
     <div
-      className="flex relative w-full h-[calc(3rem+200px)] 2xl:h-[calc(3rem+250px)]"
+      className="flex relative w-full h-[calc(3rem+220px)] 2xl:h-[calc(3rem+280px)]"
       key={`header-${coverArtId}`}
     >
       {!loaded && (
@@ -89,20 +92,35 @@ export default function ImageHeader({
           <AlbumHeaderFallback />
         </div>
       )}
-      <div
-        className={cn(
-          'w-full px-8 py-6 flex gap-4 absolute inset-0',
-          'bg-gradient-to-b from-background/20 to-background/50',
-        )}
-        style={{ backgroundColor: bgColor }}
-      >
+
+      {/* Blurred Background Layer */}
+      <div className="absolute inset-0 overflow-hidden">
+        <div
+          className="absolute inset-[-20%] z-0"
+          style={{
+            backgroundImage: `url(${coverArtUrl})`,
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
+            filter: 'blur(80px) saturate(150%) brightness(0.5)',
+            opacity: loaded ? 1 : 0,
+            transition: 'opacity 0.5s ease-in-out',
+          }}
+        />
+        {/* Gradient Overlay */}
+        <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-background/70 to-background z-10" />
+      </div>
+
+      {/* Content Container */}
+      <div className={cn('w-full px-8 py-6 flex gap-6 relative z-20')}>
+        {/* Album Art */}
         <div
           className={cn(
             'w-[200px] h-[200px] min-w-[200px] min-h-[200px]',
             '2xl:w-[250px] 2xl:h-[250px] 2xl:min-w-[250px] 2xl:min-h-[250px]',
-            'bg-skeleton aspect-square bg-cover bg-center rounded',
-            'shadow-header-image overflow-hidden',
-            'hover:scale-[1.02] ease-linear duration-100',
+            'bg-skeleton aspect-square bg-cover bg-center rounded-lg',
+            'shadow-2xl overflow-hidden',
+            'hover:scale-[1.02] ease-linear duration-200 transition-transform',
+            'ring-1 ring-white/10',
           )}
         >
           <LazyLoadImage
@@ -110,7 +128,7 @@ export default function ImageHeader({
             effect="opacity"
             crossOrigin="anonymous"
             id="cover-art-image"
-            src={getCoverArtUrl(coverArtId, coverArtType, coverArtSize)}
+            src={coverArtUrl}
             alt={coverArtAlt}
             className="aspect-square object-cover w-full h-full cursor-pointer"
             width="100%"
@@ -121,13 +139,14 @@ export default function ImageHeader({
           />
         </div>
 
-        <div className="flex w-full max-w-[calc(100%-216px)] 2xl:max-w-[calc(100%-266px)] flex-col justify-end z-10">
-          <p className="text-xs 2xl:text-sm font-medium text-shadow-md">
+        {/* Text Content */}
+        <div className="flex w-full max-w-[calc(100%-232px)] 2xl:max-w-[calc(100%-282px)] flex-col justify-end z-10">
+          <p className="text-xs 2xl:text-sm font-medium text-white/70 uppercase tracking-wider mb-1">
             {type}
           </p>
           <h1
             className={clsx(
-              'max-w-full scroll-m-20 font-bold tracking-tight antialiased text-shadow-md break-words line-clamp-2',
+              'max-w-full scroll-m-20 font-bold tracking-tight antialiased text-white break-words line-clamp-2 mb-3',
               getTextSizeClass(title),
             )}
           >
@@ -135,7 +154,7 @@ export default function ImageHeader({
           </h1>
 
           {!isPlaylist && artists && hasMultipleArtists && (
-            <div className="flex items-center mt-2">
+            <div className="flex items-center flex-wrap gap-2">
               <AlbumMultipleArtistsInfo artists={artists} />
               <HeaderInfoGenerator badges={badges} />
             </div>
@@ -144,7 +163,7 @@ export default function ImageHeader({
           {!isPlaylist && subtitle && !hasMultipleArtists && (
             <>
               {artistId ? (
-                <div className="flex items-center mt-2">
+                <div className="flex items-center flex-wrap gap-2">
                   <AlbumArtistInfo id={artistId} name={subtitle} />
                   <HeaderInfoGenerator badges={badges} />
                 </div>
@@ -156,7 +175,7 @@ export default function ImageHeader({
 
           {isPlaylist && subtitle && (
             <>
-              <p className="text-sm opacity-80 text-shadow-md line-clamp-2 mt-1 mb-2">
+              <p className="text-sm text-white/70 line-clamp-2 mt-1 mb-2">
                 {subtitle}
               </p>
               <HeaderInfoGenerator badges={badges} showFirstDot={false} />
@@ -171,16 +190,10 @@ export default function ImageHeader({
         </div>
       </div>
 
-      {!loaded ? (
-        <ImageHeaderEffect className="bg-muted-foreground" />
-      ) : (
-        <ImageHeaderEffect style={{ backgroundColor: bgColor }} />
-      )}
-
       <CustomLightBox
         open={open}
         close={setOpen}
-        src={getCoverArtUrl(coverArtId, coverArtType, coverArtSize)}
+        src={coverArtUrl}
         alt={coverArtAlt}
       />
     </div>

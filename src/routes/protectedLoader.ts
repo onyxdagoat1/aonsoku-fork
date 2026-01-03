@@ -1,8 +1,18 @@
 import { redirect } from 'react-router-dom'
+import { supabase } from '@/lib/supabase'
 import { ROUTES } from '@/routes/routesList'
 import { useAppStore } from '@/store/app.store'
 
 export async function protectedLoader() {
+  const {
+    data: { session },
+  } = await supabase.auth.getSession()
+
+  // Always require Supabase auth to access the app.
+  if (!session?.user) {
+    return redirect(ROUTES.SERVER_CONFIG)
+  }
+
   const { url, password, isServerConfigured, username } =
     useAppStore.getState().data
   const hasNoUrl = !url || url === ''

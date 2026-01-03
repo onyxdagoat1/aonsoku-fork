@@ -100,10 +100,11 @@ export function enterFullscreen() {
 }
 
 export function exitFullscreen() {
-  if (document.exitFullscreen) {
+  if (document.fullscreenElement && document.exitFullscreen) {
     document.exitFullscreen()
   }
-  if ('webkitExitFullscreen' in document) {
+  // @ts-expect-error no types for webkit
+  if (document.webkitFullscreenElement && 'webkitExitFullscreen' in document) {
     // @ts-expect-error no types for webkit
     document.webkitExitFullscreen()
   }

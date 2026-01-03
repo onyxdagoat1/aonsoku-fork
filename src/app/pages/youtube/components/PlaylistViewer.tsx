@@ -5,9 +5,10 @@ import { YouTubeVideoCard } from './VideoCard';
 
 interface PlaylistViewerProps {
   playlist: YouTubePlaylist;
+  onVideoSelect?: (video: YouTubeVideo) => void;
 }
 
-export function YouTubePlaylistViewer({ playlist }: PlaylistViewerProps) {
+export function YouTubePlaylistViewer({ playlist, onVideoSelect }: PlaylistViewerProps) {
   const [videos, setVideos] = useState<YouTubeVideo[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -44,7 +45,11 @@ export function YouTubePlaylistViewer({ playlist }: PlaylistViewerProps) {
       )}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {videos.map((video) => (
-          <YouTubeVideoCard key={video.id} video={video} />
+          <YouTubeVideoCard 
+            key={video.id} 
+            video={video} 
+            onClick={() => onVideoSelect?.(video)}
+          />
         ))}
       </div>
     </div>

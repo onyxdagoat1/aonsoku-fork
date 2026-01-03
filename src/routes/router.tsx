@@ -1,5 +1,5 @@
 import { lazy, Suspense } from 'react'
-import { createHashRouter } from 'react-router-dom'
+import { createHashRouter, Navigate } from 'react-router-dom'
 
 import {
   AlbumFallback,
@@ -29,7 +29,15 @@ const Artist = lazy(() => import('@/app/pages/artists/artist'))
 const ArtistsList = lazy(() => import('@/app/pages/artists/list'))
 const ErrorPage = lazy(() => import('@/app/pages/error-page'))
 const PlaylistsPage = lazy(() => import('@/app/pages/playlists/list'))
+const PlaylistBrowser = lazy(() => import('@/app/pages/playlists/browse'))
 const Playlist = lazy(() => import('@/app/pages/playlists/playlist'))
+
+// ... (lazy imports are usually at the top, I should add the import at the top first, then the route)
+
+// Wait, replace_file_content needs contiguous block. I'll do two replaces if needed or one large multi_replace if they are far apart.
+// They are far apart (lazy imports at top, routes object at bottom).
+// I will use multi_replace interaction.
+
 const Radios = lazy(() => import('@/app/pages/radios/radios-list'))
 const SongList = lazy(() => import('@/app/pages/songs/songlist'))
 const Home = lazy(() => import('@/app/pages/home'))
@@ -47,9 +55,7 @@ const YouTubeCallback = lazy(() =>
     default: m.YouTubeCallback,
   })),
 )
-const ProfilePage = lazy(() =>
-  import('@/app/pages/profile').then((m) => ({ default: m.ProfilePage })),
-)
+const ProfilePage = lazy(() => import('@/app/pages/profile'))
 const AuthPage = lazy(() => import('@/app/pages/auth/AuthPage'))
 const AuthCallback = lazy(() =>
   import('@/app/pages/auth/AuthCallback').then((m) => ({
@@ -57,10 +63,33 @@ const AuthCallback = lazy(() =>
   })),
 )
 const AdminPanel = lazy(() =>
-  import('@/app/pages/admin').then((m) => ({ default: m.AdminPanel })),
+  import('@/app/pages/admin').then((module) => ({
+    default: module.AdminPanel,
+  })),
 )
+const AdvancedSearch = lazy(() => import('@/app/pages/search/advanced'))
+const SmartPlaylistBuilder = lazy(
+  () => import('@/app/components/playlists/SmartPlaylistBuilder'),
+)
+const ExportSettings = lazy(() => import('@/app/pages/settings/export'))
+const QueueHistory = lazy(() => import('@/app/components/queue/QueueHistory'))
 const YeditorProfile = lazy(() => import('@/app/pages/yeditor'))
 const CollectionPage = lazy(() => import('@/app/pages/collection'))
+const PartyLobbyPage = lazy(() => import('@/app/pages/party/lobby'))
+const PartyRoomPage = lazy(() => import('@/app/pages/party/[id]'))
+const SocialPage = lazy(() => import('@/app/pages/social'))
+const ChartsPage = lazy(() => import('@/app/pages/charts'))
+const ReleasesPage = lazy(() => import('@/app/pages/releases'))
+const MessagesPage = lazy(() => import('@/app/pages/messages'))
+const AdvancedSearchPage = lazy(() => import('@/app/pages/search/advanced'))
+const GenreExplorer = lazy(() => import('@/app/pages/genres/list'))
+const SmartRadio = lazy(() => import('@/app/pages/radios/smart'))
+const NotFound = lazy(() => import('@/app/pages/not-found'))
+
+// Yeditor is already lazily imported but was missing content, verified below
+// const YeditorProfile = lazy(() => import('@/app/pages/yeditor'))
+// We need to add HiddenLinks lazy import
+const HiddenLinks = lazy(() => import('@/app/pages/hidden-links'))
 
 export const router = createHashRouter([
   {
@@ -130,6 +159,26 @@ export const router = createHashRouter([
         ),
       },
       {
+        id: 'genres',
+        path: ROUTES.LIBRARY.GENRES,
+        errorElement: <ErrorPage />,
+        element: (
+          <Suspense fallback={<HomeFallback />}>
+            <GenreExplorer />
+          </Suspense>
+        ),
+      },
+      {
+        id: 'smart-radio',
+        path: ROUTES.LIBRARY.SMART_RADIO,
+        errorElement: <ErrorPage />,
+        element: (
+          <Suspense fallback={<HomeFallback />}>
+            <SmartRadio />
+          </Suspense>
+        ),
+      },
+      {
         id: 'art',
         path: ROUTES.LIBRARY.ART,
         errorElement: <ErrorPage />,
@@ -166,6 +215,81 @@ export const router = createHashRouter([
         element: (
           <Suspense fallback={<HomeFallback />}>
             <ProfilePage />
+          </Suspense>
+        ),
+      },
+      {
+        id: 'party-lobby',
+        path: ROUTES.PARTY_LOBBY,
+        errorElement: <ErrorPage />,
+        element: (
+          <Suspense fallback={<HomeFallback />}>
+            <PartyLobbyPage />
+          </Suspense>
+        ),
+      },
+      {
+        id: 'party-room',
+        path: '/party/:id',
+        errorElement: <ErrorPage />,
+        element: (
+          <Suspense fallback={<HomeFallback />}>
+            <PartyRoomPage />
+          </Suspense>
+        ),
+      },
+      {
+        id: 'social',
+        path: ROUTES.SOCIAL,
+        errorElement: <ErrorPage />,
+        element: (
+          <Suspense fallback={<HomeFallback />}>
+            <SocialPage />
+          </Suspense>
+        ),
+      },
+      {
+        id: 'charts',
+        path: ROUTES.LIBRARY.CHARTS,
+        errorElement: <ErrorPage />,
+        element: (
+          <Suspense fallback={<SongListFallback />}>
+            <ChartsPage />
+          </Suspense>
+        ),
+      },
+      {
+        id: 'eotw',
+        path: ROUTES.EOTW,
+        element: <Navigate to={ROUTES.LIBRARY.CHARTS} replace />,
+      },
+      {
+        id: 'releases',
+        path: ROUTES.LIBRARY.RELEASES,
+        errorElement: <ErrorPage />,
+        element: (
+          <Suspense fallback={<HomeFallback />}>
+            <ReleasesPage />
+          </Suspense>
+        ),
+      },
+      {
+        id: 'messages',
+        path: ROUTES.LIBRARY.MESSAGES,
+        errorElement: <ErrorPage />,
+        element: (
+          <Suspense fallback={<HomeFallback />}>
+            <MessagesPage />
+          </Suspense>
+        ),
+      },
+      {
+        id: 'advanced-search',
+        path: ROUTES.LIBRARY.ADVANCED_SEARCH,
+        errorElement: <ErrorPage />,
+        element: (
+          <Suspense fallback={<HomeFallback />}>
+            <AdvancedSearchPage />
           </Suspense>
         ),
       },
@@ -216,6 +340,16 @@ export const router = createHashRouter([
         element: (
           <Suspense fallback={<AlbumFallback />}>
             <Album />
+          </Suspense>
+        ),
+      },
+      {
+        id: 'playlist-browse',
+        path: ROUTES.PLAYLIST.BROWSE,
+        errorElement: <ErrorPage />,
+        element: (
+          <Suspense fallback={<SongListFallback />}>
+            <PlaylistBrowser />
           </Suspense>
         ),
       },
@@ -273,14 +407,51 @@ export const router = createHashRouter([
           </Suspense>
         ),
       },
+      // Discovery & Library
+      {
+        id: 'advanced-search-page',
+        path: '/search/advanced',
+        errorElement: <ErrorPage />,
+        element: (
+          <Suspense fallback={<HomeFallback />}>
+            <AdvancedSearch />
+          </Suspense>
+        ),
+      },
+      {
+        id: 'smart-playlist-builder',
+        path: '/playlists/smart-builder',
+        errorElement: <ErrorPage />,
+        element: (
+          <Suspense fallback={<HomeFallback />}>
+            <SmartPlaylistBuilder />
+          </Suspense>
+        ),
+      },
+      {
+        id: 'export-settings',
+        path: '/settings/export',
+        errorElement: <ErrorPage />,
+        element: (
+          <Suspense fallback={<HomeFallback />}>
+            <ExportSettings />
+          </Suspense>
+        ),
+      },
+      {
+        id: 'queue-history',
+        path: '/queue/history',
+        errorElement: <ErrorPage />,
+        element: (
+          <Suspense fallback={<HomeFallback />}>
+            <QueueHistory />
+          </Suspense>
+        ),
+      },
       {
         id: 'error',
         path: '*',
-        element: (
-          <Suspense>
-            <ErrorPage />
-          </Suspense>
-        ),
+        element: <Navigate to="/404" replace />,
       },
     ],
   },
@@ -320,6 +491,24 @@ export const router = createHashRouter([
     element: (
       <Suspense fallback={<div>Loading...</div>}>
         <YouTubeCallback />
+      </Suspense>
+    ),
+  },
+  {
+    id: 'not-found',
+    path: ROUTES.NOT_FOUND,
+    element: (
+      <Suspense fallback={<div>Loading...</div>}>
+        <NotFound />
+      </Suspense>
+    ),
+  },
+  {
+    id: 'hidden-links',
+    path: ROUTES.HIDDEN_LINKS,
+    element: (
+      <Suspense fallback={<div>Loading...</div>}>
+        <HiddenLinks />
       </Suspense>
     ),
   },

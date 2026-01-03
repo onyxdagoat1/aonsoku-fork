@@ -106,6 +106,8 @@ export async function createWithDetails(data: CreateParams) {
       songIdToAdd: data.songIdToAdd,
     })
   }
+
+  return playlist
 }
 
 export const playlists = {

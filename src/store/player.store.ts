@@ -6,6 +6,7 @@ import { devtools, persist, subscribeWithSelector } from 'zustand/middleware'
 import { immer } from 'zustand/middleware/immer'
 import { shallow } from 'zustand/shallow'
 import { createWithEqualityFn } from 'zustand/traditional'
+import { chartsService } from '@/service/charts.service'
 import { lastfmService } from '@/service/lastfmService'
 import { subsonic } from '@/service/subsonic'
 import { IPlayerContext, ISongList, LoopState } from '@/types/playerContext'
@@ -719,6 +720,20 @@ export const usePlayerStore = createWithEqualityFn<IPlayerContext>()(
                 state.songlist.originalSongIndex = updatedOriginalIndex
               })
             },
+            reorderQueue: (newQueue: ISong[]) => {
+              const { currentSong } = get().songlist
+
+              const newIndex = newQueue.findIndex(
+                (song) => song.id === currentSong.id,
+              )
+
+              set((state) => {
+                state.songlist.currentList = newQueue
+                if (newIndex !== -1) {
+                  state.songlist.currentSongIndex = newIndex
+                }
+              })
+            },
             setMainDrawerState: (status) => {
               set((state) => {
                 state.playerState.mainDrawerState = status
@@ -949,21 +964,22 @@ usePlayerStore.subscribe(
 )
 
 usePlayerStore.subscribe(
-  (state) => [
-    state.songlist.currentSong,
-    state.playerState.isPlaying,
-    state.playerState.currentDuration,
-  ],
-  ([currentSong, isPlaying, duration]) => {
+  (state) =>
+    [
+      state.songlist.currentSong,
+      state.playerState.isPlaying,
+      state.playerState.currentDuration,
+    ] as [ISong, boolean, number],
+  ([currentSong, isPlaying, duration]: [ISong, boolean, number]) => {
     discordRpc.sendCurrentSong()
-    
+
     // Update Last.fm Now Playing
-    if (isPlaying && currentSong && currentSong.title) {
+    if (isPlaying && currentSong && (currentSong as ISong).title) {
       lastfmService.updateNowPlaying(
-        currentSong.artist,
-        currentSong.title,
-        currentSong.album,
-        duration
+        (currentSong as ISong).artist,
+        (currentSong as ISong).title,
+        (currentSong as ISong).album,
+        duration,
       )
     }
   },
@@ -976,26 +992,49 @@ usePlayerStore.subscribe(
 usePlayerStore.subscribe(
   (state) => [state.playerProgress.progress, state.playerState.currentDuration],
   ([progress, duration]) => {
-    const { isScrobbled, isPlaying, mediaType } = usePlayerStore.getState().playerState
+    const { isScrobbled, isPlaying, mediaType } =
+      usePlayerStore.getState().playerState
     const { currentSong } = usePlayerStore.getState().songlist
 
-    if (mediaType !== 'song' || !isPlaying || isScrobbled || duration === 0 || !currentSong || !currentSong.title) return
+    if (
+      mediaType !== 'song' ||
+      !isPlaying ||
+      isScrobbled ||
+      duration === 0 ||
+      !currentSong ||
+      !currentSong.title
+    )
+      return
 
     // Scrobble if > 4 mins (240s) or > 50%
     const percentage = progress / duration
     if (percentage >= 0.5 || progress >= 240) {
-       lastfmService.scrobble(currentSong.artist, currentSong.title, currentSong.album, undefined, duration)
-       
-       usePlayerStore.setState(
-         produce((state: IPlayerContext) => {
-           state.playerState.isScrobbled = true
-         })
-       )
+      lastfmService.scrobble(
+        currentSong.artist,
+        currentSong.title,
+        currentSong.album,
+        undefined,
+        duration,
+      )
+
+      // Record Stream to Supabase
+      chartsService.recordStream(
+        currentSong.id,
+        duration,
+        currentSong.albumId,
+        currentSong.artistId,
+      )
+
+      usePlayerStore.setState(
+        produce((state: IPlayerContext) => {
+          state.playerState.isScrobbled = true
+        }),
+      )
     }
   },
   {
-    equalityFn: shallow
-  }
+    equalityFn: shallow,
+  },
 )
 
 function desktopStateListener() {

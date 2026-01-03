@@ -1,21 +1,21 @@
-import { useState } from 'react';
-import { useComments } from '@/hooks/useComments';
-import { CommentForm } from './CommentForm';
-import { CommentThread } from './CommentThread';
-import type { ContentType } from '@/types/comments';
-import { Loader2, MessageSquare } from 'lucide-react';
-import { Button } from '../ui/button';
-import { Separator } from '../ui/separator';
-import { useAuth } from '@/contexts/AuthContext';
+import { Loader2, MessageSquare } from 'lucide-react'
+import { useState } from 'react'
+import { useAuth } from '@/contexts/AuthContext'
+import { useComments } from '@/hooks/useComments'
+import type { ContentType } from '@/types/comments'
+import { Button } from '../ui/button'
+import { Separator } from '../ui/separator'
+import { CommentForm } from './CommentForm'
+import { CommentThread } from './CommentThread'
 
 interface CommentSectionProps {
-  contentType: ContentType;
-  contentId: string;
-  userId?: string;
-  username?: string;
-  userAvatar?: string;
-  title?: string;
-  placeholder?: string;
+  contentType: ContentType
+  contentId: string
+  userId?: string
+  username?: string
+  userAvatar?: string
+  title?: string
+  placeholder?: string
 }
 
 export function CommentSection({
@@ -27,24 +27,32 @@ export function CommentSection({
   title = 'Comments',
   placeholder = 'Add a comment...',
 }: CommentSectionProps) {
-  const { user, profile } = useAuth();
-  
+  const { user, profile } = useAuth()
+
   // Use props if provided, otherwise fall back to auth hook
-  const userId = propUserId || user?.id || undefined;
-  const username = propUsername || profile?.username || user?.user_metadata?.username || undefined;
-  const userAvatar = propUserAvatar || profile?.avatar_url || user?.user_metadata?.avatar_url || undefined;
-  
-  const [showForm, setShowForm] = useState(false);
+  const userId = propUserId || user?.id || undefined
+  const username =
+    propUsername ||
+    profile?.username ||
+    user?.user_metadata?.username ||
+    undefined
+  const userAvatar =
+    propUserAvatar ||
+    profile?.avatar_url ||
+    user?.user_metadata?.avatar_url ||
+    undefined
+
+  const [showForm, setShowForm] = useState(false)
   const { comments, isLoading, createComment, isCreating } = useComments({
     contentType,
     contentId,
     userId,
-  });
+  })
 
   const handleSubmit = (text: string) => {
     if (!userId || !username) {
-      alert('Please log in to comment');
-      return;
+      alert('Please log in to comment')
+      return
     }
 
     createComment(
@@ -57,11 +65,11 @@ export function CommentSection({
       },
       {
         onSuccess: () => {
-          setShowForm(false);
+          setShowForm(false)
         },
-      }
-    );
-  };
+      },
+    )
+  }
 
   return (
     <div className="space-y-6">
@@ -74,11 +82,7 @@ export function CommentSection({
           </h3>
         </div>
         {userId && !showForm && (
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setShowForm(true)}
-          >
+          <Button variant="outline" size="sm" onClick={() => setShowForm(true)}>
             Add Comment
           </Button>
         )}
@@ -136,5 +140,5 @@ export function CommentSection({
         </div>
       )}
     </div>
-  );
+  )
 }

@@ -2,33 +2,44 @@ import clsx from 'clsx'
 import { RefAttributes } from 'react'
 import { Link, LinkProps } from 'react-router-dom'
 import { Dot } from '@/app/components/dot'
+import {
+  VerificationType,
+  VerifiedBadge,
+} from '@/app/components/ui/VerifiedBadge'
 import { cn } from '@/lib/utils'
 import { ROUTES } from '@/routes/routesList'
 import { IFeaturedArtist } from '@/types/responses/artist'
 import { TABLE_ARTISTS_MAX_NUMBER } from '@/utils/multipleArtists'
 
-export type LinkWithoutTo = Omit<LinkProps, 'to'> &
-  RefAttributes<HTMLAnchorElement>
-
-type ArtistLinkProps = LinkWithoutTo & {
-  artistId?: string
+interface ArtistLinkProps {
+  artistId: string
+  className?: string
+  children: React.ReactNode
+  onClick?: (e: React.MouseEvent) => void
+  verificationType?: VerificationType | null
 }
 
-export function ArtistLink({ artistId, className, ...props }: ArtistLinkProps) {
+export const ArtistLink = ({
+  artistId,
+  className,
+  children,
+  onClick,
+  verificationType,
+}: ArtistLinkProps) => {
   return (
     <Link
-      className={cn(
-        'truncate',
-        className,
-        artistId ? 'hover:underline' : 'pointer-events-none',
-      )}
-      {...props}
-      to={ROUTES.ARTIST.PAGE(artistId ?? '')}
-      onContextMenu={(e) => {
+      to={ROUTES.ARTIST.PAGE(artistId)}
+      className={`hover:underline hover:text-primary transition-colors inline-flex items-center gap-1 ${className}`}
+      onClick={(e) => {
         e.stopPropagation()
-        e.preventDefault()
+        onClick?.(e)
       }}
-    />
+    >
+      {children}
+      {verificationType && (
+        <VerifiedBadge type={verificationType} className="w-3.5 h-3.5" />
+      )}
+    </Link>
   )
 }
 

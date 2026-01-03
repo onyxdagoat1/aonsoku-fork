@@ -1,36 +1,44 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { commentsService } from '@/service/comments.service';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { toast } from 'react-toastify'
+import { commentsService } from '@/service/comments.service'
 import type {
   ContentType,
   CreateCommentInput,
-  UpdateCommentInput,
   ReactionType,
-} from '@/types/comments';
-import { toast } from 'react-toastify';
+  UpdateCommentInput,
+} from '@/types/comments'
 
 interface UseCommentsOptions {
-  contentType: ContentType;
-  contentId: string;
-  userId?: string;
+  contentType: ContentType
+  contentId: string
+  userId?: string
 }
 
 /**
  * Hook to fetch and manage comments for a specific content
  */
-export function useComments({ contentType, contentId, userId }: UseCommentsOptions) {
-  const queryClient = useQueryClient();
-  const queryKey = ['comments', contentType, contentId];
+export function useComments({
+  contentType,
+  contentId,
+  userId,
+}: UseCommentsOptions) {
+  const queryClient = useQueryClient()
+  const queryKey = ['comments', contentType, contentId]
 
   // Fetch comments
   const query = useQuery({
     queryKey,
     queryFn: () => commentsService.getComments(contentType, contentId, userId),
-    staleTime: 30000, // 30 seconds
-  });
+    staleTime: 10000, // 10 seconds - comments don't change that frequently
+    retry: 2, // Retry failed requests twice
+    refetchOnWindowFocus: false, // Don't refetch on window focus
+  })
 
   // Create comment mutation
   const createMutation = useMutation({
-    mutationFn: (input: CreateCommentInput & { username: string; userAvatar?: string }) =>
+    mutationFn: (
+      input: CreateCommentInput & { username: string; userAvatar?: string },
+    ) =>
       commentsService.createComment(
         {
           content_type: input.content_type,
@@ -40,81 +48,87 @@ export function useComments({ contentType, contentId, userId }: UseCommentsOptio
         },
         userId!,
         input.username,
-        input.userAvatar
+        input.userAvatar,
       ),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey });
-      toast.success('Comment posted!');
+      queryClient.invalidateQueries({ queryKey })
+      toast.success('Comment posted!')
     },
     onError: (error) => {
-      console.error('Failed to post comment:', error);
-      toast.error('Failed to post comment');
+      console.error('Failed to post comment:', error)
+      toast.error('Failed to post comment')
     },
-  });
+  })
 
   // Update comment mutation
   const updateMutation = useMutation({
     mutationFn: ({ id, input }: { id: string; input: UpdateCommentInput }) =>
       commentsService.updateComment(id, input),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey });
-      toast.success('Comment updated!');
+      queryClient.invalidateQueries({ queryKey })
+      toast.success('Comment updated!')
     },
     onError: (error) => {
-      console.error('Failed to update comment:', error);
-      toast.error('Failed to update comment');
+      console.error('Failed to update comment:', error)
+      toast.error('Failed to update comment')
     },
-  });
+  })
 
   // Delete comment mutation
   const deleteMutation = useMutation({
     mutationFn: (commentId: string) => commentsService.deleteComment(commentId),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey });
-      toast.success('Comment deleted');
+      queryClient.invalidateQueries({ queryKey })
+      toast.success('Comment deleted')
     },
     onError: (error) => {
-      console.error('Failed to delete comment:', error);
-      toast.error('Failed to delete comment');
+      console.error('Failed to delete comment:', error)
+      toast.error('Failed to delete comment')
     },
-  });
+  })
 
   // Add reaction mutation
   const addReactionMutation = useMutation({
-    mutationFn: ({ commentId, reactionType }: { commentId: string; reactionType: ReactionType }) =>
-      commentsService.addReaction(commentId, userId!, reactionType),
+    mutationFn: ({
+      commentId,
+      reactionType,
+    }: {
+      commentId: string
+      reactionType: ReactionType
+    }) => commentsService.addReaction(commentId, userId!, reactionType),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey });
+      queryClient.invalidateQueries({ queryKey })
     },
     onError: (error) => {
-      console.error('Failed to add reaction:', error);
-      toast.error('Failed to add reaction');
+      console.error('Failed to add reaction:', error)
+      toast.error('Failed to add reaction')
     },
-  });
+  })
 
   // Remove reaction mutation
   const removeReactionMutation = useMutation({
-    mutationFn: (commentId: string) => commentsService.removeReaction(commentId, userId!),
+    mutationFn: (commentId: string) =>
+      commentsService.removeReaction(commentId, userId!),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey });
+      queryClient.invalidateQueries({ queryKey })
     },
     onError: (error) => {
-      toast.error('Failed to remove reaction');
+      toast.error('Failed to remove reaction')
     },
-  });
+  })
 
   // Report comment mutation
   const reportMutation = useMutation({
     mutationFn: (commentId: string) => commentsService.reportComment(commentId),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey });
-      toast.success('Comment reported to moderators');
+      queryClient.invalidateQueries({ queryKey })
+      toast.success('Comment reported to moderators')
     },
     onError: (error) => {
-      console.error('Failed to report comment:', error);
-      toast.error('Failed to report comment');
+      console.error('Failed to report comment:', error)
+      toast.error('Failed to report comment')
     },
-  });
+  })
 
   return {
     comments: query.data || [],
@@ -130,7 +144,7 @@ export function useComments({ contentType, contentId, userId }: UseCommentsOptio
     isCreating: createMutation.isPending,
     isUpdating: updateMutation.isPending,
     isDeleting: deleteMutation.isPending,
-  };
+  }
 }
 
 /**
@@ -141,5 +155,5 @@ export function useCommentStats(contentType: ContentType, contentId: string) {
     queryKey: ['comment-stats', contentType, contentId],
     queryFn: () => commentsService.getCommentStats(contentType, contentId),
     staleTime: 60000, // 1 minute
-  });
+  })
 }

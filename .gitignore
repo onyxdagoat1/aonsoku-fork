@@ -51,3 +51,11 @@ account-service/.env
 auth-service/data/
 
 out
+
+# SSL Certificates - NEVER COMMIT THESE!
+ssl/
+*.pem
+*.key
+
+# Production files
+.env.production

@@ -1,5 +1,13 @@
-import { AlertCircle, Grid3x3, List, Search, Youtube } from 'lucide-react'
-import { useEffect, useMemo, useState } from 'react'
+import {
+  AlertCircle,
+  Grid3x3,
+  Heart,
+  List,
+  Search,
+  Youtube,
+} from 'lucide-react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+
 import { Button } from '@/app/components/ui/button'
 import { Card, CardContent } from '@/app/components/ui/card'
 import { Input } from '@/app/components/ui/input'
@@ -16,10 +24,11 @@ import { PlaylistImport } from '@/app/pages/youtube/components/PlaylistImport'
 import { YouTubeStats } from '@/app/pages/youtube/components/Stats'
 import { YouTubeVideoCard } from '@/app/pages/youtube/components/VideoCard'
 import { YouTubeVideoView } from '@/app/pages/youtube/components/VideoView'
-import { YouTubeAuthButton } from '@/app/pages/youtube/components/YouTubeAuthButton'
+
 import { useAuth } from '@/contexts/AuthContext'
 import { youtubeService } from '@/service/youtube'
 import { useYouTubeAuthStore } from '@/store/youtubeAuth.store'
+import { useYouTubePlayerStore } from '@/store/youtubePlayer.store'
 import {
   YouTubeChannelInfo,
   YouTubePlaylist,
@@ -48,13 +57,10 @@ export default function YouTubePage() {
   const [filterBy, setFilterBy] = useState<FilterOption>('all')
   const [durationFilter, setDurationFilter] = useState<DurationFilter>('all')
   const [viewMode, setViewMode] = useState<ViewMode>('grid')
-  const [selectedVideo, setSelectedVideo] = useState<YouTubeVideo | null>(null)
+  const { activeVideo, playVideo, minimize, closeVideo } =
+    useYouTubePlayerStore()
 
-  useEffect(() => {
-    loadChannelData()
-  }, [])
-
-  const loadChannelData = async () => {
+  const loadChannelData = useCallback(async () => {
     setLoading(true)
     setError(null)
 
@@ -99,15 +105,19 @@ export default function YouTubePage() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [])
 
-  const clearCache = () => {
+  useEffect(() => {
+    loadChannelData()
+  }, [loadChannelData])
+
+  const clearCache = useCallback(() => {
     localStorage.removeItem('youtube_cache')
     localStorage.removeItem('youtube_cache_time')
     loadChannelData()
-  }
+  }, [loadChannelData])
 
-  const parseDuration = (duration: string): number => {
+  const parseDuration = useCallback((duration: string): number => {
     const parts = duration.split(':')
     if (parts.length === 2) return parseInt(parts[0]) * 60 + parseInt(parts[1])
     if (parts.length === 3)
@@ -115,7 +125,7 @@ export default function YouTubePage() {
         parseInt(parts[0]) * 3600 + parseInt(parts[1]) * 60 + parseInt(parts[2])
       )
     return 0
-  }
+  }, [])
 
   const filteredAndSortedVideos = useMemo(() => {
     let filtered = videos
@@ -182,219 +192,240 @@ export default function YouTubePage() {
     })
 
     return sorted
-  }, [videos, searchQuery, sortBy, filterBy, durationFilter])
+  }, [videos, searchQuery, sortBy, filterBy, durationFilter, parseDuration])
 
-  if (loading) {
-    return (
-      <div className="flex flex-col items-center justify-center h-screen gap-4">
-        <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-primary"></div>
-        <p className="text-muted-foreground">Loading YouTube content...</p>
-      </div>
-    )
+  const [currentBackground, setCurrentBackground] = useState<string | null>(
+    null,
+  )
+
+  // ... (keep existing effects and loadChannelData)
+
+  const handleVideoHover = (thumbnail: string | null) => {
+    setCurrentBackground(thumbnail)
   }
 
-  if (error) {
-    return (
-      <div className="container mx-auto px-4 py-8">
-        <Card className="border-destructive">
-          <CardContent className="pt-6">
-            <div className="flex items-start gap-4">
-              <AlertCircle className="h-5 w-5 text-destructive mt-0.5" />
-              <div className="flex-1">
-                <p className="text-sm text-destructive font-medium mb-2">
-                  Error Loading YouTube Data
-                </p>
-                <p className="text-sm text-muted-foreground mb-4">{error}</p>
-                <Button onClick={clearCache} variant="outline" size="sm">
-                  Retry
-                </Button>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    )
-  }
-
-  if (selectedVideo) {
-    return (
-      <div className="h-screen overflow-hidden">
-        <YouTubeVideoView
-          video={selectedVideo}
-          onClose={() => setSelectedVideo(null)}
-        />
-      </div>
-    )
-  }
+  const dynamicBackground = currentBackground || activeVideo?.thumbnail
 
   return (
-    <div className="w-full px-6 py-6 space-y-6">
-      {channelInfo && <YouTubeChannelHeader channel={channelInfo} />}
+    <div className="relative w-full min-h-screen overflow-hidden bg-background">
+      {/* Dynamic Ambient Background */}
+      <div className="fixed inset-0 z-0 pointer-events-none overflow-hidden">
+        <div className="absolute inset-0 bg-background/30 z-10 transition-colors duration-1000" />
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <div className="lg:col-span-2">
-          <YouTubeStats
-            videos={videos}
-            playlists={playlists}
-            onRefresh={clearCache}
+        {dynamicBackground && (
+          <div
+            key={dynamicBackground}
+            className="absolute inset-[-10%] z-0 animate-in fade-in zoom-in-50 duration-1000"
+            style={{
+              backgroundImage: `url(${dynamicBackground})`,
+              backgroundSize: 'cover',
+              backgroundPosition: 'center',
+              filter: 'blur(80px) saturate(280%) brightness(1.2) contrast(1.1)',
+              transform: 'scale(1.1)',
+              opacity: 1,
+            }}
           />
-        </div>
-        <div>
-          {/* YouTubeAuthButton removed from grid to avoid duplication */}
-        </div>
+        )}
+
+        <div className="absolute inset-0 z-10 bg-gradient-to-t from-background via-background/60 to-transparent" />
+        <div className="absolute bottom-0 left-0 right-0 h-2/3 bg-gradient-to-t from-background to-transparent z-10" />
       </div>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <div className="flex items-center justify-between mb-4 flex-wrap gap-4">
-          <TabsList>
-            <TabsTrigger value="videos">
-              Videos ({filteredAndSortedVideos.length})
-            </TabsTrigger>
-            <TabsTrigger value="playlists">
-              Playlists ({playlists.length})
-            </TabsTrigger>
-            {isSupabaseAuthenticated && (
-              <TabsTrigger value="myaccount">
-                <Youtube className="w-4 h-4 mr-1" />
-                My Account
-              </TabsTrigger>
-            )}
-          </TabsList>
-
-          <div className="flex gap-2">
-            {isSupabaseAuthenticated &&
-              youtubeAuthenticated &&
-              activeTab === 'playlists' && (
-                <PlaylistImport
-                  onImportComplete={(ids) => console.log('Imported:', ids)}
-                />
-              )}
-            <Button
-              variant={viewMode === 'grid' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setViewMode('grid')}
-            >
-              <Grid3x3 className="w-4 h-4" />
-            </Button>
-            <Button
-              variant={viewMode === 'list' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setViewMode('list')}
-            >
-              <List className="w-4 h-4" />
-            </Button>
+      <div className="relative z-10 h-full">
+        {loading ? (
+          <div className="flex flex-col items-center justify-center h-screen gap-4">
+            <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-primary"></div>
+            <p className="text-muted-foreground">Loading YouTube content...</p>
           </div>
-        </div>
-
-        <TabsContent value="videos" className="space-y-4 mt-0">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
-            <Input
-              placeholder="Search videos by title or description..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10"
+        ) : error ? (
+          <div className="flex flex-col items-center justify-center h-screen gap-6">
+            <div className="p-6 bg-destructive/10 rounded-full ring-1 ring-destructive/20">
+              <AlertCircle className="h-10 w-10 text-destructive" />
+            </div>
+            <div className="text-center max-w-md px-4">
+              <h3 className="text-lg font-bold text-white mb-2">
+                Failed to load YouTube content
+              </h3>
+              <p className="text-muted-foreground mb-6">{error}</p>
+              <Button
+                onClick={clearCache}
+                variant="outline"
+                className="border-white/10 hover:bg-white/5"
+              >
+                Retry Connection
+              </Button>
+            </div>
+          </div>
+        ) : activeVideo ? (
+          <div className="h-screen overflow-hidden">
+            <YouTubeVideoView
+              video={activeVideo}
+              onClose={closeVideo}
+              onVideoChange={playVideo}
+              onVideoHover={handleVideoHover}
+              onMinimize={minimize}
             />
           </div>
+        ) : (
+          <div className="relative z-10 px-8 py-6 w-full space-y-8">
+            {channelInfo && (
+              <div className="animate-in fade-in slide-in-from-top-4 duration-700">
+                <YouTubeChannelHeader channel={channelInfo} />
+              </div>
+            )}
 
-          <YouTubeFilters
-            sortBy={sortBy}
-            setSortBy={setSortBy}
-            filterBy={filterBy}
-            setFilterBy={setFilterBy}
-            durationFilter={durationFilter}
-            setDurationFilter={setDurationFilter}
-          />
-
-          <div
-            className={
-              viewMode === 'grid'
-                ? 'grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4'
-                : 'flex flex-col gap-3'
-            }
-          >
-            {filteredAndSortedVideos.map((video) => (
-              <YouTubeVideoCard
-                key={video.id}
-                video={video}
-                viewMode={viewMode}
-                onClick={() => setSelectedVideo(video)}
-              />
-            ))}
-          </div>
-
-          {filteredAndSortedVideos.length === 0 && (
-            <div className="text-center py-12 text-muted-foreground">
-              {searchQuery ? (
-                <p>No videos found matching "{searchQuery}"</p>
-              ) : (
-                <p>No videos found. Please configure your YouTube API key.</p>
-              )}
+            <div className="w-full">
+              <div className="bg-white/5 backdrop-blur-xl rounded-2xl border border-white/10 shadow-2xl overflow-hidden animate-in fade-in slide-in-from-left-4 duration-700 delay-100">
+                <YouTubeStats
+                  videos={videos}
+                  playlists={playlists}
+                  onRefresh={clearCache}
+                />
+              </div>
             </div>
-          )}
-        </TabsContent>
 
-        <TabsContent value="playlists" className="mt-0">
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4">
-            {playlists.map((playlist) => (
-              <YouTubePlaylistCard key={playlist.id} playlist={playlist} />
-            ))}
-          </div>
-          {playlists.length === 0 && (
-            <div className="text-center py-12 text-muted-foreground">
-              No playlists found.
-            </div>
-          )}
-        </TabsContent>
+            <Tabs
+              value={activeTab}
+              onValueChange={setActiveTab}
+              className="space-y-6"
+            >
+              <div className="flex items-center justify-between flex-wrap gap-4 bg-white/5 backdrop-blur-md p-2 rounded-xl border border-white/10 animate-in fade-in slide-in-from-bottom-4 duration-700 delay-200">
+                <TabsList className="bg-transparent">
+                  <TabsTrigger
+                    value="videos"
+                    className="data-[state=active]:bg-white/10 data-[state=active]:text-white"
+                  >
+                    Videos ({filteredAndSortedVideos.length})
+                  </TabsTrigger>
+                  <TabsTrigger
+                    value="playlists"
+                    className="data-[state=active]:bg-white/10 data-[state=active]:text-white"
+                  >
+                    Playlists ({playlists.length})
+                  </TabsTrigger>
+                </TabsList>
 
-        {isSupabaseAuthenticated && (
-          <TabsContent value="myaccount" className="mt-0">
-            <div className="space-y-4">
-              {!youtubeAuthenticated ? (
-                <Card>
-                  <CardContent className="pt-6">
-                    <h3 className="text-lg font-semibold mb-4">
-                      Connect YouTube Account
-                    </h3>
-                    <p className="text-sm text-muted-foreground mb-4">
-                      To use YouTube features like liking videos, commenting,
-                      and managing playlists, please connect your YouTube
-                      account.
-                    </p>
-                    <YouTubeAuthButton />
-                  </CardContent>
-                </Card>
-              ) : (
-                <Card>
-                  <CardContent className="pt-6">
-                    <h3 className="text-lg font-semibold mb-4">
-                      YouTube Account Features
-                    </h3>
-                    <div className="space-y-3 text-sm text-muted-foreground">
-                      <p>With your YouTube account connected, you can:</p>
-                      <ul className="list-disc list-inside space-y-2 ml-2">
-                        <li>
-                          Like and dislike videos directly from yedits.net
-                        </li>
-                        <li>Comment on videos and engage with the community</li>
-                        <li>Import your YouTube playlists</li>
-                        <li>Add videos to your YouTube playlists</li>
-                        <li>Create new playlists on YouTube</li>
-                        <li>Subscribe to channels</li>
-                      </ul>
-                      <p className="mt-4 text-xs">
-                        Click on any video to watch it and access interactive
-                        features like liking, commenting, and saving to
-                        playlists.
-                      </p>
+                <div className="flex gap-2">
+                  {isSupabaseAuthenticated &&
+                    youtubeAuthenticated &&
+                    activeTab === 'playlists' && (
+                      <PlaylistImport
+                        onImportComplete={(ids) =>
+                          console.log('Imported:', ids)
+                        }
+                      />
+                    )}
+                  <div className="flex bg-black/20 rounded-lg p-1">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setViewMode('grid')}
+                      className={`h-8 w-8 p-0 rounded-md ${viewMode === 'grid' ? 'bg-white/10 text-white' : 'text-muted-foreground hover:text-white'}`}
+                    >
+                      <Grid3x3 className="w-4 h-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setViewMode('list')}
+                      className={`h-8 w-8 p-0 rounded-md ${viewMode === 'list' ? 'bg-white/10 text-white' : 'text-muted-foreground hover:text-white'}`}
+                    >
+                      <List className="w-4 h-4" />
+                    </Button>
+                  </div>
+                </div>
+              </div>
+
+              <TabsContent
+                value="videos"
+                className="space-y-6 mt-0 animate-in fade-in slide-in-from-bottom-8 duration-700 delay-300"
+              >
+                <div className="flex flex-col md:flex-row gap-4 items-center">
+                  <div className="relative flex-1 w-full">
+                    <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
+                    <Input
+                      placeholder="Search videos..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="pl-10 h-12 bg-white/5 border-white/10 rounded-xl focus:bg-white/10 transition-all text-white placeholder:text-white/40"
+                    />
+                  </div>
+                  <div className="bg-white/5 backdrop-blur-md rounded-xl border border-white/10 p-1">
+                    <YouTubeFilters
+                      sortBy={sortBy}
+                      setSortBy={setSortBy}
+                      filterBy={filterBy}
+                      setFilterBy={setFilterBy}
+                      durationFilter={durationFilter}
+                      setDurationFilter={setDurationFilter}
+                    />
+                  </div>
+                </div>
+
+                <div
+                  className={
+                    viewMode === 'grid'
+                      ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-6'
+                      : 'flex flex-col gap-4'
+                  }
+                >
+                  {filteredAndSortedVideos.map((video) => (
+                    <div
+                      key={video.id}
+                      onMouseEnter={() => handleVideoHover(video.thumbnail)}
+                      onMouseLeave={() => handleVideoHover(null)}
+                    >
+                      <YouTubeVideoCard
+                        video={video}
+                        viewMode={viewMode}
+                        onClick={() => playVideo(video)}
+                      />
                     </div>
-                  </CardContent>
-                </Card>
-              )}
-            </div>
-          </TabsContent>
+                  ))}
+                </div>
+
+                {filteredAndSortedVideos.length === 0 && (
+                  <div className="text-center py-24 bg-white/5 backdrop-blur-md rounded-3xl border border-white/5">
+                    <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-white/5 mb-4">
+                      <Search className="w-8 h-8 text-white/20" />
+                    </div>
+                    <p className="text-muted-foreground font-medium">
+                      {searchQuery
+                        ? `No videos match "${searchQuery}"`
+                        : 'No videos found'}
+                    </p>
+                  </div>
+                )}
+              </TabsContent>
+
+              <TabsContent
+                value="playlists"
+                className="mt-0 animate-in fade-in slide-in-from-bottom-8 duration-700 delay-300"
+              >
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-6">
+                  {playlists.map((playlist) => (
+                    <div
+                      key={playlist.id}
+                      onMouseEnter={() => handleVideoHover(playlist.thumbnail)}
+                      onMouseLeave={() => handleVideoHover(null)}
+                    >
+                      <YouTubePlaylistCard
+                        playlist={playlist}
+                        onVideoSelect={playVideo}
+                      />
+                    </div>
+                  ))}
+                </div>
+                {playlists.length === 0 && (
+                  <div className="text-center py-24 bg-white/5 backdrop-blur-md rounded-3xl border border-white/5 text-muted-foreground">
+                    No playlists found.
+                  </div>
+                )}
+              </TabsContent>
+            </Tabs>
+          </div>
         )}
-      </Tabs>
+      </div>
     </div>
   )
 }

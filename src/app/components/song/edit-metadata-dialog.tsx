@@ -16,7 +16,7 @@ import { Input } from '@/app/components/ui/input'
 import { Label } from '@/app/components/ui/label'
 import { ScrollArea } from '@/app/components/ui/scroll-area'
 import { Textarea } from '@/app/components/ui/textarea'
-import { useToast } from '@/app/components/ui/use-toast'
+import { useToast } from '@/hooks/use-toast'
 import { subsonic } from '@/service/subsonic'
 import { ISong } from '@/types/responses/song'
 import { queryKeys } from '@/utils/queryKeys'
@@ -72,7 +72,9 @@ export function EditMetadataDialog({ song }: EditMetadataDialogProps) {
         title: t('metadata.edit.success'),
         variant: 'default',
       })
-      queryClient.invalidateQueries({ queryKey: [queryKeys.song.info, song.id] })
+      queryClient.invalidateQueries({
+        queryKey: [queryKeys.song.info, song.id],
+      })
       queryClient.invalidateQueries({ queryKey: [queryKeys.album.single] })
       setOpen(false)
     },
@@ -100,7 +102,9 @@ export function EditMetadataDialog({ song }: EditMetadataDialogProps) {
       <DialogContent className="max-w-[600px]" aria-describedby={undefined}>
         <DialogHeader>
           <DialogTitle>{t('metadata.edit.title')}</DialogTitle>
-          <DialogDescription>{t('metadata.edit.description')}</DialogDescription>
+          <DialogDescription>
+            {t('metadata.edit.description')}
+          </DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit}>
@@ -165,7 +169,9 @@ export function EditMetadataDialog({ song }: EditMetadataDialogProps) {
                     onChange={(e) =>
                       setFormData({
                         ...formData,
-                        year: e.target.value ? parseInt(e.target.value) : undefined,
+                        year: e.target.value
+                          ? parseInt(e.target.value)
+                          : undefined,
                       })
                     }
                     min={1900}
@@ -195,7 +201,9 @@ export function EditMetadataDialog({ song }: EditMetadataDialogProps) {
                     onChange={(e) =>
                       setFormData({
                         ...formData,
-                        track: e.target.value ? parseInt(e.target.value) : undefined,
+                        track: e.target.value
+                          ? parseInt(e.target.value)
+                          : undefined,
                       })
                     }
                     min={1}
@@ -229,7 +237,9 @@ export function EditMetadataDialog({ song }: EditMetadataDialogProps) {
                     onChange={(e) =>
                       setFormData({
                         ...formData,
-                        bpm: e.target.value ? parseInt(e.target.value) : undefined,
+                        bpm: e.target.value
+                          ? parseInt(e.target.value)
+                          : undefined,
                       })
                     }
                     min={1}

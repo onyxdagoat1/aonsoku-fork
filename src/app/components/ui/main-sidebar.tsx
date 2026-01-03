@@ -21,6 +21,7 @@ import {
 } from '@/app/components/ui/tooltip'
 import { useIsMobile } from '@/app/hooks/use-mobile'
 import { cn } from '@/lib/utils'
+import { useLayoutStore } from '@/store/layout.store'
 
 const SIDEBAR_STORAGE_KEY = 'main_sidebar_state'
 const SIDEBAR_WIDTH = '17.5rem'
@@ -66,6 +67,7 @@ function MainSidebarProvider({
 }) {
   const isMobile = useIsMobile()
   const [openMobile, setOpenMobile] = React.useState(false)
+  const sidebarCompact = useLayoutStore((state) => state.sidebarCompact)
 
   // This is the internal state of the sidebar.
   // We use openProp and setOpenProp for control from outside the component.
@@ -149,13 +151,13 @@ function MainSidebarProvider({
           data-slot="sidebar-wrapper"
           style={
             {
-              '--sidebar-width': SIDEBAR_WIDTH,
+              '--sidebar-width': sidebarCompact ? '14rem' : SIDEBAR_WIDTH,
               '--sidebar-width-icon': SIDEBAR_WIDTH_ICON,
               ...style,
             } as React.CSSProperties
           }
           className={cn(
-            'group/sidebar-wrapper has-data-[variant=inset]:bg-background flex pt-header pb-player w-full h-full',
+            'group/sidebar-wrapper has-data-[variant=inset]:bg-background flex pt-header w-full h-full',
             className,
           )}
           {...props}
@@ -252,7 +254,7 @@ function MainSidebar({
           // Adjust the padding for floating and inset variants.
           variant === 'floating' || variant === 'inset'
             ? 'p-2 group-data-[collapsible=icon]:w-[calc(var(--sidebar-width-icon)+(--spacing(4))+2px)]'
-            : 'group-data-[collapsible=icon]:w-[--sidebar-width-icon] group-data-[side=left]:border-r group-data-[side=right]:border-l',
+            : 'group-data-[collapsible=icon]:w-[--sidebar-width-icon]',
           className,
         )}
         {...props}
@@ -260,7 +262,7 @@ function MainSidebar({
         <div
           data-sidebar="sidebar"
           data-slot="sidebar-inner"
-          className="bg-background group-data-[variant=floating]:border-border flex h-full w-full flex-col group-data-[variant=floating]:rounded-lg group-data-[variant=floating]:border group-data-[variant=floating]:shadow-sm"
+          className="bg-background/20 backdrop-blur-xl border-transparent flex h-full w-full flex-col group-data-[variant=floating]:rounded-2xl group-data-[variant=floating]:shadow-lg"
         >
           {children}
         </div>

@@ -11,7 +11,6 @@ import {
   Heart,
   Info,
   Link as LinkIcon,
-  Plus,
   TrendingDown,
   User,
 } from 'lucide-react'
@@ -23,7 +22,6 @@ import { getCoverArtUrl } from '@/api/httpClient'
 import { AlbumInfoModal } from '@/app/components/art/album-info-modal'
 import { ArtworkDetailModal } from '@/app/components/art/artwork-detail-modal'
 import { UploadArtworkDialog } from '@/app/components/art/upload-artwork-dialog'
-import { AddToCollectionDialog } from '@/app/components/collections/add-to-collection-dialog'
 import { Button } from '@/app/components/ui/button'
 import { Progress } from '@/app/components/ui/progress'
 import {
@@ -389,432 +387,300 @@ export default function ArtGallery() {
   }, [fetchNextPage, hasNextPage])
 
   return (
-    <div className="w-full p-6">
-      {/* Header */}
-      <div className="mb-6 flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold mb-2">Art Gallery</h1>
-          <p className="text-muted-foreground">
-            {favoritesCount > 0 && `${favoritesCount} favorites • `}
-            {historyCount > 0 && `${historyCount} viewed • `}
-            {getTotalDownloads()} total downloads
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          {/* Selection mode controls */}
-          {selectionMode && (
-            <>
-              <span className="text-sm text-muted-foreground">
-                {selectedItems.size} selected
-              </span>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => {
-                  setSelectedItems(new Set())
-                  setSelectionMode(false)
-                }}
-              >
-                Cancel
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={handleBulkFavorite}
-                disabled={selectedItems.size === 0}
-              >
-                <Heart className="h-4 w-4 mr-2" />
-                Favorite Selected
-              </Button>
-              <Button
-                size="sm"
-                onClick={handleBulkDownload}
-                disabled={selectedItems.size === 0 || isDownloading}
-              >
-                <DownloadIcon className="h-4 w-4 mr-2" />
-                Download Selected
-              </Button>
-            </>
-          )}
-          {!selectionMode && (
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => setSelectionMode(true)}
-            >
-              Select Multiple
-            </Button>
-          )}
-          {/* Grid Size Toggle */}
-          <div className="flex items-center gap-1 border rounded-md p-1">
-            <Button
-              variant={gridSize === 'small' ? 'default' : 'ghost'}
-              size="sm"
-              onClick={() => setGridSize('small')}
-              className="h-8 w-8 p-0"
-              title="Small grid"
-            >
-              <Grid3x3 className="h-4 w-4" />
-            </Button>
-            <Button
-              variant={gridSize === 'medium' ? 'default' : 'ghost'}
-              size="sm"
-              onClick={() => setGridSize('medium')}
-              className="h-8 w-8 p-0"
-              title="Medium grid"
-            >
-              <Grid2x2 className="h-4 w-4" />
-            </Button>
-            <Button
-              variant={gridSize === 'large' ? 'default' : 'ghost'}
-              size="sm"
-              onClick={() => setGridSize('large')}
-              className="h-8 w-8 p-0"
-              title="Large grid"
-            >
-              <Grid2x2 className="h-3 w-3" />
-            </Button>
-          </div>
-          <UploadArtworkDialog />
-        </div>
+    <div className="relative w-full min-h-screen overflow-hidden bg-background pb-32">
+      {/* Ambient Background */}
+      <div className="fixed inset-0 z-0 pointer-events-none">
+        <div className="absolute top-[-20%] right-[-20%] w-[70%] h-[70%] bg-emerald-900/20 rounded-full blur-[120px] animate-blob" />
+        <div className="absolute bottom-[-20%] left-[-20%] w-[70%] h-[70%] bg-blue-900/20 rounded-full blur-[120px] animate-blob animation-delay-2000" />
+        <div className="absolute inset-0 bg-background/40 backdrop-blur-3xl" />
       </div>
 
-      {/* Bulk download progress */}
-      {isDownloading && (
-        <div className="mb-4 p-4 border rounded-lg bg-muted">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-sm font-medium">
-              {progress.status === 'downloading' &&
-                `Downloading ${progress.current}/${progress.total}...`}
-              {progress.status === 'zipping' && 'Creating ZIP file...'}
-              {progress.status === 'complete' && 'Complete!'}
-            </span>
-            <span className="text-sm text-muted-foreground">
-              {Math.round((progress.current / progress.total) * 100)}%
-            </span>
+      <div className="relative z-10 w-full px-8 py-8 md:px-12 space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+        {/* Header */}
+        <div className="flex flex-col md:flex-row justify-between items-end gap-6">
+          <div>
+            <h1 className="text-5xl font-black tracking-tight text-transparent bg-clip-text bg-gradient-to-br from-white via-white/90 to-white/50 mb-4">
+              Art Gallery
+            </h1>
+            <p className="text-lg text-muted-foreground/80 font-light flex items-center gap-2">
+              {favoritesCount > 0 && <span>{favoritesCount} favorites •</span>}
+              {historyCount > 0 && <span>{historyCount} viewed •</span>}
+              <span>{getTotalDownloads()} total downloads</span>
+            </p>
           </div>
-          <Progress value={(progress.current / progress.total) * 100} />
+
+          <div className="flex items-center gap-3 bg-white/5 backdrop-blur-md rounded-2xl p-2 border border-white/10">
+            {/* Selection mode controls */}
+            {selectionMode && (
+              <>
+                <span className="text-sm font-medium px-2">
+                  {selectedItems.size} selected
+                </span>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => {
+                    setSelectedItems(new Set())
+                    setSelectionMode(false)
+                  }}
+                  className="hover:bg-white/10"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={handleBulkFavorite}
+                  disabled={selectedItems.size === 0}
+                  className="hover:bg-white/10"
+                >
+                  <Heart className="h-4 w-4 mr-2" />
+                  Favorite
+                </Button>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={handleBulkDownload}
+                  disabled={selectedItems.size === 0 || isDownloading}
+                >
+                  <DownloadIcon className="h-4 w-4 mr-2" />
+                  Download
+                </Button>
+                <div className="w-px h-6 bg-white/10 mx-1" />
+              </>
+            )}
+            {!selectionMode && (
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => setSelectionMode(true)}
+                className="hover:bg-white/10"
+              >
+                Select Multiple
+              </Button>
+            )}
+
+            {/* Grid Size Toggle */}
+            <div className="flex items-center gap-1 bg-black/20 rounded-lg p-1">
+              <Button
+                variant={gridSize === 'small' ? 'secondary' : 'ghost'}
+                size="sm"
+                onClick={() => setGridSize('small')}
+                className="h-8 w-8 p-0"
+                title="Small grid"
+              >
+                <Grid3x3 className="h-4 w-4" />
+              </Button>
+              <Button
+                variant={gridSize === 'medium' ? 'secondary' : 'ghost'}
+                size="sm"
+                onClick={() => setGridSize('medium')}
+                className="h-8 w-8 p-0"
+                title="Medium grid"
+              >
+                <Grid2x2 className="h-4 w-4" />
+              </Button>
+              <Button
+                variant={gridSize === 'large' ? 'secondary' : 'ghost'}
+                size="sm"
+                onClick={() => setGridSize('large')}
+                className="h-8 w-8 p-0"
+                title="Large grid"
+              >
+                <Grid2x2 className="h-3 w-3" />
+              </Button>
+            </div>
+
+            <div className="w-px h-6 bg-white/10 mx-1" />
+            <UploadArtworkDialog />
+          </div>
         </div>
-      )}
 
-      <Tabs defaultValue="albums" className="w-full">
-        <TabsList className="mb-6">
-          <TabsTrigger value="albums">Comp Covers</TabsTrigger>
-          <TabsTrigger value="custom">
-            Custom Artwork ({artworks.length})
-          </TabsTrigger>
-        </TabsList>
-
-        {/* Comp Covers Tab */}
-        <TabsContent value="albums" className="space-y-6">
-          {/* Filters */}
-          <div className="flex flex-wrap gap-4 items-end">
-            <div className="flex-1 min-w-[200px]">
-              <label className="text-sm font-medium mb-2 block">Artist</label>
-              <Select value={selectedArtist} onValueChange={setSelectedArtist}>
-                <SelectTrigger>
-                  <SelectValue placeholder="All Artists" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Artists</SelectItem>
-                  {albumArtists.map((artist) => (
-                    <SelectItem key={artist.id} value={artist.id}>
-                      {artist.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+        {/* Bulk download progress */}
+        {isDownloading && (
+          <div className="mb-4 p-4 border rounded-lg bg-muted">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm font-medium">
+                {progress.status === 'downloading' &&
+                  `Downloading ${progress.current}/${progress.total}...`}
+                {progress.status === 'zipping' && 'Creating ZIP file...'}
+                {progress.status === 'complete' && 'Complete!'}
+              </span>
+              <span className="text-sm text-muted-foreground">
+                {Math.round((progress.current / progress.total) * 100)}%
+              </span>
             </div>
+            <Progress value={(progress.current / progress.total) * 100} />
+          </div>
+        )}
 
-            <div className="flex-1 min-w-[200px]">
-              <label className="text-sm font-medium mb-2 block">Type</label>
-              <Select
-                value={selectedType}
-                onValueChange={(v) => setSelectedType(v as ArtType)}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="All Types" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Types</SelectItem>
-                  <SelectItem value="album">Comps Only</SelectItem>
-                  <SelectItem value="single">Singles Only</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="flex-1 min-w-[200px]">
-              <label className="text-sm font-medium mb-2 block">Era</label>
-              <Select value={selectedEra} onValueChange={setSelectedEra}>
-                <SelectTrigger>
-                  <SelectValue placeholder="All Eras" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Eras</SelectItem>
-                  {ERAS.map((era) => (
-                    <SelectItem key={era.id} value={era.id}>
-                      {era.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="flex-1 min-w-[200px]">
-              <label className="text-sm font-medium mb-2 block">Sort By</label>
-              <Select
-                value={albumSortType}
-                onValueChange={(v) => setAlbumSortType(v as SortType)}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Sort by" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="recent">Recently Added</SelectItem>
-                  <SelectItem value="popular">Most Popular</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="flex-1 min-w-[200px]">
-              <label className="text-sm font-medium mb-2 block">Search</label>
-              <input
-                type="text"
-                placeholder="Search by name..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full px-3 py-2 border rounded-md bg-background"
-              />
-            </div>
-
-            <Button
-              variant={showFavoritesOnly ? 'default' : 'outline'}
-              onClick={() => setShowFavoritesOnly(!showFavoritesOnly)}
-              className="flex items-center gap-2"
+        <Tabs defaultValue="albums" className="w-full">
+          <TabsList className="w-full md:w-auto inline-flex h-12 items-center justify-center rounded-2xl bg-white/5 p-1 text-muted-foreground backdrop-blur-md border border-white/10 mb-8">
+            <TabsTrigger
+              value="albums"
+              className="rounded-xl px-6 py-2.5 text-sm font-medium transition-all data-[state=active]:bg-white/10 data-[state=active]:text-white data-[state=active]:shadow-sm"
             >
-              <Heart
-                className={cn('h-4 w-4', showFavoritesOnly && 'fill-current')}
-              />
-              Favorites
-            </Button>
-
-            {(selectedArtist !== 'all' ||
-              selectedType !== 'all' ||
-              selectedEra !== 'all' ||
-              searchQuery ||
-              albumSortType !== 'recent' ||
-              showFavoritesOnly) && (
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setSelectedArtist('all')
-                  setSelectedType('all')
-                  setSelectedEra('all')
-                  setSearchQuery('')
-                  setAlbumSortType('recent')
-                  setShowFavoritesOnly(false)
-                }}
-              >
-                Clear Filters
-              </Button>
-            )}
-          </div>
-
-          {/* Results count */}
-          <div className="text-sm text-muted-foreground">
-            Showing {filteredAlbums.length} artwork
-            {filteredAlbums.length !== 1 ? 's' : ''}
-          </div>
-
-          {/* Art Grid */}
-          <div className={cn('grid gap-4', gridSizeClasses[gridSize])}>
-            {filteredAlbums.map((album) => (
-              <AlbumArtCard
-                key={album.id}
-                album={album}
-                downloads={getAlbumDownloads(album.id)}
-                personalDownloads={getDownloadCount(album.id, 'album')}
-                isFavorite={isFavorite(album.id, 'album')}
-                isSelected={selectedItems.has(`album-${album.id}`)}
-                selectionMode={selectionMode}
-                onToggleSelection={() => {
-                  const key = `album-${album.id}`
-                  setSelectedItems((prev) => {
-                    const next = new Set(prev)
-                    if (next.has(key)) next.delete(key)
-                    else next.add(key)
-                    return next
-                  })
-                }}
-                onToggleFavorite={() => toggleFavorite(album.id, 'album')}
-                onInfoClick={(album) => {
-                  setSelectedAlbum(album)
-                  setShowAlbumModal(true)
-                  addToHistory({
-                    id: album.id,
-                    type: 'album',
-                    name: album.name,
-                    artist: album.artist,
-                  })
-                }}
-                onDownload={() => {
-                  incrementAlbumDownload(album.id)
-                  recordDownload(album.id, 'album', album.name, album.artist)
-                }}
-                onCopyUrl={(url) => {
-                  navigator.clipboard.writeText(url)
-                  success('Copied!', 'Cover URL copied to clipboard')
-                }}
-              />
-            ))}
-          </div>
-
-          {isFetchingNextPage && (
-            <div className="text-center py-8 text-muted-foreground">
-              Loading more...
-            </div>
-          )}
-        </TabsContent>
-
-        {/* Custom Artwork Tab */}
-        <TabsContent value="custom" className="space-y-6">
-          {/* Filters */}
-          <div className="flex flex-wrap gap-4 items-end">
-            <div className="flex-1 min-w-[200px]">
-              <label className="text-sm font-medium mb-2 block">Artist</label>
-              <Select value={selectedArtist} onValueChange={setSelectedArtist}>
-                <SelectTrigger>
-                  <SelectValue placeholder="All Artists" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Artists</SelectItem>
-                  {customArtists.map((artist) => (
-                    <SelectItem key={artist} value={artist}>
-                      {artist}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="flex-1 min-w-[200px]">
-              <label className="text-sm font-medium mb-2 block">Type</label>
-              <Select
-                value={selectedCustomType}
-                onValueChange={setSelectedCustomType}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="All Types" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Types</SelectItem>
-                  <SelectItem value={ArtworkType.SingleCover}>
-                    Single Cover
-                  </SelectItem>
-                  <SelectItem value={ArtworkType.Artwork}>Artwork</SelectItem>
-                  <SelectItem value={ArtworkType.AlbumCover}>
-                    Comp Cover
-                  </SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="flex-1 min-w-[200px]">
-              <label className="text-sm font-medium mb-2 block">Era</label>
-              <Select value={selectedEra} onValueChange={setSelectedEra}>
-                <SelectTrigger>
-                  <SelectValue placeholder="All Eras" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Eras</SelectItem>
-                  {ERAS.map((era) => (
-                    <SelectItem key={era.id} value={era.id}>
-                      {era.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="flex-1 min-w-[200px]">
-              <label className="text-sm font-medium mb-2 block">Sort By</label>
-              <Select
-                value={sortType}
-                onValueChange={(v) => setSortType(v as SortType)}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Sort by" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="recent">Recently Added</SelectItem>
-                  <SelectItem value="popular">Most Popular</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="flex-1 min-w-[200px]">
-              <label className="text-sm font-medium mb-2 block">Search</label>
-              <input
-                type="text"
-                placeholder="Search..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full px-3 py-2 border rounded-md bg-background"
-              />
-            </div>
-
-            <Button
-              variant={showFavoritesOnly ? 'default' : 'outline'}
-              onClick={() => setShowFavoritesOnly(!showFavoritesOnly)}
-              className="flex items-center gap-2"
+              Comp Covers
+            </TabsTrigger>
+            <TabsTrigger
+              value="custom"
+              className="rounded-xl px-6 py-2.5 text-sm font-medium transition-all data-[state=active]:bg-white/10 data-[state=active]:text-white data-[state=active]:shadow-sm"
             >
-              <Heart
-                className={cn('h-4 w-4', showFavoritesOnly && 'fill-current')}
-              />
-              Favorites
-            </Button>
+              Custom Artwork ({artworks.length})
+            </TabsTrigger>
+          </TabsList>
 
-            {(selectedArtist !== 'all' ||
-              selectedCustomType !== 'all' ||
-              selectedEra !== 'all' ||
-              searchQuery ||
-              sortType !== 'recent' ||
-              showFavoritesOnly) && (
+          {/* Comp Covers Tab */}
+          <TabsContent value="albums" className="space-y-6">
+            {/* Filters */}
+            <div className="bg-white/5 backdrop-blur-xl rounded-2xl p-6 border border-white/10 flex flex-wrap gap-4 items-end">
+              <div className="flex-1 min-w-[180px]">
+                <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-1 block pl-1">
+                  Artist
+                </label>
+                <Select
+                  value={selectedArtist}
+                  onValueChange={setSelectedArtist}
+                >
+                  <SelectTrigger className="bg-white/5 border-white/10 text-white hover:bg-white/10 transition-colors">
+                    <SelectValue placeholder="All Artists" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-neutral-900 border-white/10 text-white">
+                    <SelectItem value="all">All Artists</SelectItem>
+                    {albumArtists.map((artist) => (
+                      <SelectItem key={artist.id} value={artist.id}>
+                        {artist.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="flex-1 min-w-[180px]">
+                <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-1 block pl-1">
+                  Type
+                </label>
+                <Select
+                  value={selectedType}
+                  onValueChange={(v) => setSelectedType(v as ArtType)}
+                >
+                  <SelectTrigger className="bg-white/5 border-white/10 text-white hover:bg-white/10 transition-colors">
+                    <SelectValue placeholder="All Types" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-neutral-900 border-white/10 text-white">
+                    <SelectItem value="all">All Types</SelectItem>
+                    <SelectItem value="album">Comps Only</SelectItem>
+                    <SelectItem value="single">Singles Only</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="flex-1 min-w-[180px]">
+                <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-1 block pl-1">
+                  Era
+                </label>
+                <Select value={selectedEra} onValueChange={setSelectedEra}>
+                  <SelectTrigger className="bg-white/5 border-white/10 text-white hover:bg-white/10 transition-colors">
+                    <SelectValue placeholder="All Eras" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-neutral-900 border-white/10 text-white">
+                    <SelectItem value="all">All Eras</SelectItem>
+                    {ERAS.map((era) => (
+                      <SelectItem key={era.id} value={era.id}>
+                        {era.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="flex-1 min-w-[180px]">
+                <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-1 block pl-1">
+                  Sort By
+                </label>
+                <Select
+                  value={albumSortType}
+                  onValueChange={(v) => setAlbumSortType(v as SortType)}
+                >
+                  <SelectTrigger className="bg-white/5 border-white/10 text-white hover:bg-white/10 transition-colors">
+                    <SelectValue placeholder="Sort by" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-neutral-900 border-white/10 text-white">
+                    <SelectItem value="recent">Recently Added</SelectItem>
+                    <SelectItem value="popular">Most Popular</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="flex-1 min-w-[200px]">
+                <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-1 block pl-1">
+                  Search
+                </label>
+                <input
+                  type="text"
+                  placeholder="Search by name..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full px-3 py-2 border border-white/10 rounded-md bg-white/5 text-white placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/50 transition-all font-medium"
+                />
+              </div>
+
               <Button
-                variant="outline"
-                onClick={() => {
-                  setSelectedArtist('all')
-                  setSelectedCustomType('all')
-                  setSelectedEra('all')
-                  setSearchQuery('')
-                  setSortType('recent')
-                  setShowFavoritesOnly(false)
-                }}
+                variant={showFavoritesOnly ? 'secondary' : 'ghost'}
+                onClick={() => setShowFavoritesOnly(!showFavoritesOnly)}
+                className="flex items-center gap-2 hover:bg-white/10"
               >
-                Clear Filters
+                <Heart
+                  className={cn(
+                    'h-4 w-4',
+                    showFavoritesOnly && 'fill-current text-red-500',
+                  )}
+                />
+                Favorites
               </Button>
-            )}
-          </div>
 
-          {/* Results count */}
-          <div className="text-sm text-muted-foreground">
-            Showing {filteredCustomArtworks.length} artwork
-            {filteredCustomArtworks.length !== 1 ? 's' : ''}
-          </div>
+              {(selectedArtist !== 'all' ||
+                selectedType !== 'all' ||
+                selectedEra !== 'all' ||
+                searchQuery ||
+                albumSortType !== 'recent' ||
+                showFavoritesOnly) && (
+                <Button
+                  variant="ghost"
+                  onClick={() => {
+                    setSelectedArtist('all')
+                    setSelectedType('all')
+                    setSelectedEra('all')
+                    setSearchQuery('')
+                    setAlbumSortType('recent')
+                    setShowFavoritesOnly(false)
+                  }}
+                  className="hover:bg-red-500/10 hover:text-red-400"
+                >
+                  Clear Filters
+                </Button>
+              )}
+            </div>
 
-          {/* Custom Art Grid */}
-          {filteredCustomArtworks.length > 0 ? (
+            {/* Results count */}
+            <div className="text-sm text-muted-foreground">
+              Showing {filteredAlbums.length} artwork
+              {filteredAlbums.length !== 1 ? 's' : ''}
+            </div>
+
+            {/* Art Grid */}
             <div className={cn('grid gap-4', gridSizeClasses[gridSize])}>
-              {filteredCustomArtworks.map((artwork) => (
-                <CustomArtCard
-                  key={artwork.id}
-                  artwork={artwork}
-                  personalDownloads={getDownloadCount(artwork.id, 'custom')}
-                  isFavorite={isFavorite(artwork.id, 'custom')}
-                  isSelected={selectedItems.has(`custom-${artwork.id}`)}
+              {filteredAlbums.map((album) => (
+                <AlbumArtCard
+                  key={album.id}
+                  album={album}
+                  downloads={getAlbumDownloads(album.id)}
+                  personalDownloads={getDownloadCount(album.id, 'album')}
+                  isFavorite={isFavorite(album.id, 'album')}
+                  isSelected={selectedItems.has(`album-${album.id}`)}
                   selectionMode={selectionMode}
                   onToggleSelection={() => {
-                    const key = `custom-${artwork.id}`
+                    const key = `album-${album.id}`
                     setSelectedItems((prev) => {
                       const next = new Set(prev)
                       if (next.has(key)) next.delete(key)
@@ -822,58 +688,242 @@ export default function ArtGallery() {
                       return next
                     })
                   }}
-                  onToggleFavorite={() => toggleFavorite(artwork.id, 'custom')}
-                  onClick={() => {
-                    setSelectedArtwork(artwork)
-                    setShowDetailModal(true)
+                  onToggleFavorite={() => toggleFavorite(album.id, 'album')}
+                  onInfoClick={(album) => {
+                    setSelectedAlbum(album)
+                    setShowAlbumModal(true)
                     addToHistory({
-                      id: artwork.id,
-                      type: 'custom',
-                      name: artwork.artworkName,
-                      artist: artwork.artistName,
-                      imageUrl: artwork.imageData,
+                      id: album.id,
+                      type: 'album',
+                      name: album.name,
+                      artist: album.artist,
                     })
                   }}
                   onDownload={() => {
-                    incrementDownload(artwork.id)
-                    recordDownload(
-                      artwork.id,
-                      'custom',
-                      artwork.artworkName,
-                      artwork.artistName,
-                    )
+                    incrementAlbumDownload(album.id)
+                    recordDownload(album.id, 'album', album.name, album.artist)
                   }}
                   onCopyUrl={(url) => {
                     navigator.clipboard.writeText(url)
-                    success('Copied!', 'Artwork URL copied to clipboard')
+                    success('Copied!', 'Cover URL copied to clipboard')
                   }}
                 />
               ))}
             </div>
-          ) : (
-            <div className="text-center py-12">
-              <p className="text-muted-foreground mb-4">
-                No custom artwork yet. Upload your first piece!
-              </p>
-              <UploadArtworkDialog />
+
+            {isFetchingNextPage && (
+              <div className="text-center py-8 text-muted-foreground">
+                Loading more...
+              </div>
+            )}
+          </TabsContent>
+
+          {/* Custom Artwork Tab */}
+          <TabsContent value="custom" className="space-y-6">
+            {/* Filters */}
+            <div className="flex flex-wrap gap-4 items-end">
+              <div className="flex-1 min-w-[200px]">
+                <label className="text-sm font-medium mb-2 block">Artist</label>
+                <Select
+                  value={selectedArtist}
+                  onValueChange={setSelectedArtist}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="All Artists" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Artists</SelectItem>
+                    {customArtists.map((artist) => (
+                      <SelectItem key={artist} value={artist}>
+                        {artist}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="flex-1 min-w-[200px]">
+                <label className="text-sm font-medium mb-2 block">Type</label>
+                <Select
+                  value={selectedCustomType}
+                  onValueChange={setSelectedCustomType}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="All Types" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Types</SelectItem>
+                    <SelectItem value={ArtworkType.SingleCover}>
+                      Single Cover
+                    </SelectItem>
+                    <SelectItem value={ArtworkType.Artwork}>Artwork</SelectItem>
+                    <SelectItem value={ArtworkType.AlbumCover}>
+                      Comp Cover
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="flex-1 min-w-[200px]">
+                <label className="text-sm font-medium mb-2 block">Era</label>
+                <Select value={selectedEra} onValueChange={setSelectedEra}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="All Eras" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Eras</SelectItem>
+                    {ERAS.map((era) => (
+                      <SelectItem key={era.id} value={era.id}>
+                        {era.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="flex-1 min-w-[200px]">
+                <label className="text-sm font-medium mb-2 block">
+                  Sort By
+                </label>
+                <Select
+                  value={sortType}
+                  onValueChange={(v) => setSortType(v as SortType)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Sort by" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="recent">Recently Added</SelectItem>
+                    <SelectItem value="popular">Most Popular</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="flex-1 min-w-[200px]">
+                <label className="text-sm font-medium mb-2 block">Search</label>
+                <input
+                  type="text"
+                  placeholder="Search..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full px-3 py-2 border rounded-md bg-background"
+                />
+              </div>
+
+              <Button
+                variant={showFavoritesOnly ? 'default' : 'outline'}
+                onClick={() => setShowFavoritesOnly(!showFavoritesOnly)}
+                className="flex items-center gap-2"
+              >
+                <Heart
+                  className={cn('h-4 w-4', showFavoritesOnly && 'fill-current')}
+                />
+                Favorites
+              </Button>
+
+              {(selectedArtist !== 'all' ||
+                selectedCustomType !== 'all' ||
+                selectedEra !== 'all' ||
+                searchQuery ||
+                sortType !== 'recent' ||
+                showFavoritesOnly) && (
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setSelectedArtist('all')
+                    setSelectedCustomType('all')
+                    setSelectedEra('all')
+                    setSearchQuery('')
+                    setSortType('recent')
+                    setShowFavoritesOnly(false)
+                  }}
+                >
+                  Clear Filters
+                </Button>
+              )}
             </div>
-          )}
-        </TabsContent>
-      </Tabs>
 
-      {/* Artwork Detail Modal */}
-      <ArtworkDetailModal
-        artwork={selectedArtwork}
-        open={showDetailModal}
-        onOpenChange={setShowDetailModal}
-      />
+            {/* Results count */}
+            <div className="text-sm text-muted-foreground">
+              Showing {filteredCustomArtworks.length} artwork
+              {filteredCustomArtworks.length !== 1 ? 's' : ''}
+            </div>
 
-      {/* Comp Info Modal */}
-      <AlbumInfoModal
-        album={selectedAlbum}
-        open={showAlbumModal}
-        onOpenChange={setShowAlbumModal}
-      />
+            {/* Custom Art Grid */}
+            {filteredCustomArtworks.length > 0 ? (
+              <div className={cn('grid gap-4', gridSizeClasses[gridSize])}>
+                {filteredCustomArtworks.map((artwork) => (
+                  <CustomArtCard
+                    key={artwork.id}
+                    artwork={artwork}
+                    personalDownloads={getDownloadCount(artwork.id, 'custom')}
+                    isFavorite={isFavorite(artwork.id, 'custom')}
+                    isSelected={selectedItems.has(`custom-${artwork.id}`)}
+                    selectionMode={selectionMode}
+                    onToggleSelection={() => {
+                      const key = `custom-${artwork.id}`
+                      setSelectedItems((prev) => {
+                        const next = new Set(prev)
+                        if (next.has(key)) next.delete(key)
+                        else next.add(key)
+                        return next
+                      })
+                    }}
+                    onToggleFavorite={() =>
+                      toggleFavorite(artwork.id, 'custom')
+                    }
+                    onClick={() => {
+                      setSelectedArtwork(artwork)
+                      setShowDetailModal(true)
+                      addToHistory({
+                        id: artwork.id,
+                        type: 'custom',
+                        name: artwork.artworkName,
+                        artist: artwork.artistName,
+                        imageUrl: artwork.imageData,
+                      })
+                    }}
+                    onDownload={() => {
+                      incrementDownload(artwork.id)
+                      recordDownload(
+                        artwork.id,
+                        'custom',
+                        artwork.artworkName,
+                        artwork.artistName,
+                      )
+                    }}
+                    onCopyUrl={(url) => {
+                      navigator.clipboard.writeText(url)
+                      success('Copied!', 'Artwork URL copied to clipboard')
+                    }}
+                  />
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-12">
+                <p className="text-muted-foreground mb-4">
+                  No custom artwork yet. Upload your first piece!
+                </p>
+                <UploadArtworkDialog />
+              </div>
+            )}
+          </TabsContent>
+        </Tabs>
+
+        {/* Artwork Detail Modal */}
+        <ArtworkDetailModal
+          artwork={selectedArtwork}
+          open={showDetailModal}
+          onOpenChange={setShowDetailModal}
+        />
+
+        {/* Comp Info Modal */}
+        <AlbumInfoModal
+          album={selectedAlbum}
+          open={showAlbumModal}
+          onOpenChange={setShowAlbumModal}
+        />
+      </div>
     </div>
   )
 }
@@ -911,7 +961,6 @@ function AlbumArtCard({
       : 'album'
   const { data: yeditor } = useGetYeditorForContent(album.id, contentType)
   const { success, error } = useToast()
-  const [showAddDialog, setShowAddDialog] = useState(false)
 
   const handleDownload = async (e: React.MouseEvent) => {
     e.preventDefault()
@@ -967,7 +1016,7 @@ function AlbumArtCard({
       to={ROUTES.ALBUM.PAGE(album.id)}
       onClick={handleClick}
       className={cn(
-        'group relative aspect-square rounded-lg overflow-hidden bg-muted hover:ring-2 hover:ring-primary transition-all',
+        'group relative aspect-square rounded-lg overflow-hidden bg-white/5 border border-white/10 hover:ring-2 hover:ring-primary transition-all',
         isSelected && 'ring-2 ring-primary',
       )}
     >
@@ -1027,24 +1076,7 @@ function AlbumArtCard({
           >
             <Download className="w-4 h-4" />
           </button>
-          <button
-            onClick={(e) => {
-              e.preventDefault()
-              e.stopPropagation()
-              setShowAddDialog(true)
-            }}
-            className="p-2 rounded-full bg-black/50 hover:bg-black/70 text-white transition-colors"
-            title="Add to Collection"
-          >
-            <Plus className="w-4 h-4" />
-          </button>
         </div>
-        <AddToCollectionDialog
-          contentId={album.id}
-          contentType={contentType}
-          open={showAddDialog}
-          onOpenChange={setShowAddDialog}
-        />
         <div className="absolute bottom-0 left-0 right-0 p-3">
           <div className="flex items-center gap-1 mb-1">
             <TrendingDown className="w-3 h-3 text-white/80" />
@@ -1152,7 +1184,7 @@ function CustomArtCard({
     <button
       onClick={handleClick}
       className={cn(
-        'group relative aspect-square rounded-lg overflow-hidden bg-muted hover:ring-2 hover:ring-primary transition-all text-left',
+        'group relative aspect-square rounded-lg overflow-hidden bg-white/5 border border-white/10 hover:ring-2 hover:ring-primary transition-all text-left',
         isSelected && 'ring-2 ring-primary',
       )}
     >

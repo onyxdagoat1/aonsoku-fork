@@ -1,19 +1,17 @@
 import { useTranslation } from 'react-i18next'
 import { useParams } from 'react-router-dom'
-import { AdminEditTags } from '@/app/components/admin/AdminEditTags'
+
 import { AlbumComment } from '@/app/components/album/comment'
-import { EditAlbumEra } from '@/app/components/album/EditAlbumEra'
 import ImageHeader from '@/app/components/album/image-header'
 import { AlbumInfo } from '@/app/components/album/info'
 import { RecordLabelsInfo } from '@/app/components/album/record-labels'
 import Comments from '@/app/components/comments'
-import { EditCredits } from '@/app/components/credits/EditCredits'
 import { AlbumFallback } from '@/app/components/fallbacks/album-fallbacks'
 import { PreviewListFallback } from '@/app/components/fallbacks/home-fallbacks'
 import { BadgesData } from '@/app/components/header-info'
 import PreviewList from '@/app/components/home/preview-list'
 import ListWrapper from '@/app/components/list-wrapper'
-import { RatingWidget } from '@/app/components/ratings/RatingWidget'
+
 import { DataTable } from '@/app/components/ui/data-table'
 import { YeditorBadge } from '@/app/components/yeditor/YeditorBadge'
 import {
@@ -100,7 +98,6 @@ export default function Album() {
   const columnsToShow: ColumnFilter[] = [
     'trackNumber',
     'title',
-    // 'artist',
     'duration',
     'playCount',
     'played',
@@ -140,8 +137,11 @@ export default function Album() {
     badges.push({
       content: (
         <span
-          className="px-2 py-0.5 rounded text-white text-xs font-medium"
-          style={{ backgroundColor: getEraColor(album.era) }}
+          className="px-3 py-1 rounded-full text-white text-sm font-semibold shadow-lg"
+          style={{
+            backgroundColor: getEraColor(album.era),
+            boxShadow: `0 0 20px ${getEraColor(album.era)}60`,
+          }}
         >
           {getEraLabel(album.era)}
         </span>
@@ -212,32 +212,14 @@ export default function Album() {
           )}
         </div>
 
-        {/* Ratings Section */}
-        <div className="mt-6 flex flex-wrap gap-4">
-          <RatingWidget
-            contentType="album"
-            contentId={album.id}
-            showAggregate={true}
-          />
-          <EditAlbumEra albumId={album.id} albumName={album.name} />
-          <AdminEditTags
-            contentId={album.id}
-            contentType="album"
-            contentName={album.name}
-          />
-        </div>
-
-        {/* Edit Credits Section */}
-        <div className="mt-6">
-          <EditCredits contentType="album" contentId={album.id} />
-        </div>
-
         {/* Comments Section */}
-        <Comments
-          entityType={entityType}
-          entityId={album.id}
-          entityName={album.name}
-        />
+        <div className="mt-6">
+          <Comments
+            entityType={entityType}
+            entityId={album.id}
+            entityName={album.name}
+          />
+        </div>
       </ListWrapper>
     </div>
   )

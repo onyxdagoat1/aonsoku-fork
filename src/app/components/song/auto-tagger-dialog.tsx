@@ -110,7 +110,9 @@ export function AutoTaggerDialog({ song, onApply }: AutoTaggerDialogProps) {
                           </Badge>
                         )}
                         <Badge
-                          variant={suggestion.confidence > 80 ? 'default' : 'neutral'}
+                          variant={
+                            suggestion.confidence > 80 ? 'default' : 'neutral'
+                          }
                           className="text-xs"
                         >
                           {suggestion.confidence}% {t('metadata.autoTag.match')}

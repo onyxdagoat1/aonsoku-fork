@@ -9,7 +9,8 @@ const BASE_URL = 'https://ws.audioscrobbler.com/2.0/'
 export const lastfmService = {
   // Get a token for authentication
   async getAuthToken() {
-    return window.location.href = `http://www.last.fm/api/auth/?api_key=${API_KEY}&cb=${window.location.origin}/profile`
+    const callbackUrl = `${window.location.origin}/profile?lastfm_callback=true`
+    return window.location.href = `http://www.last.fm/api/auth/?api_key=${API_KEY}&cb=${callbackUrl}`
   },
 
   // Create a session using the token
@@ -101,6 +102,71 @@ export const lastfmService = {
       })
     } catch (error) {
       console.error('Last.fm scrobble error:', error)
+    }
+  },
+
+  // Get user information from Last.fm
+  async getUserInfo() {
+    const sessionKey = await this.getSessionKey()
+    if (!sessionKey) return null
+
+    const params: Record<string, string> = {
+      method: 'user.getInfo',
+      api_key: API_KEY,
+      sk: sessionKey,
+    }
+
+    const signature = this.generateSignature(params)
+
+    try {
+      const response = await axios.get(BASE_URL, {
+        params: {
+          ...params,
+          api_sig: signature,
+          format: 'json',
+        },
+      })
+
+      if (response.data.user) {
+        return response.data.user
+      }
+      throw new Error('Failed to get user info')
+    } catch (error) {
+      console.error('Last.fm user info error:', error)
+      throw error
+    }
+  },
+
+  // Get user's recent tracks
+  async getRecentTracks(limit = 10) {
+    const sessionKey = await this.getSessionKey()
+    if (!sessionKey) return null
+
+    const params: Record<string, string> = {
+      method: 'user.getRecentTracks',
+      api_key: API_KEY,
+      sk: sessionKey,
+      limit: limit.toString(),
+    }
+
+    const signature = this.generateSignature(params)
+
+    try {
+      const response = await axios.get(BASE_URL, {
+        params: {
+          ...params,
+          api_sig: signature,
+          format: 'json',
+        },
+      })
+
+      if (response.data.recenttracks) {
+        return response.data.recenttracks
+      }
+      throw new Error('Failed to get recent tracks')
+    } catch (error) {
+      console.error('Last.fm recent tracks error:', error)
+      throw error
     }
   },
 

@@ -51,7 +51,7 @@ async function getOne(id: string) {
     },
   })
 
-  return response?.data.album
+  return response?.data.album ?? null
 }
 
 async function getInfo(id: string) {

@@ -339,6 +339,69 @@ app.get('/api/admin/users', async (req, res) => {
   }
 })
 
+// API: Proxy Tenor search
+app.get('/api/proxy/tenor/search', async (req, res) => {
+  try {
+    const { q, limit } = req.query
+    const apiKey = process.env.TENOR_API_KEY
+
+    if (!apiKey) {
+      return res.status(500).json({ error: 'Tenor API key not configured' })
+    }
+
+    const params = new URLSearchParams({
+      q: q || '',
+      key: apiKey,
+      client_key: 'aonsoku',
+      limit: limit || '20',
+      country: 'US',
+      locale: 'en_US',
+      contentfilter: 'medium',
+      media_filter: 'minimal',
+    })
+
+    const response = await axios.get(
+      `https://tenor.googleapis.com/v2/search?${params.toString()}`,
+    )
+
+    res.json({ results: response.data.results })
+  } catch (error) {
+    console.error('Tenor proxy error:', error.message)
+    res.status(500).json({ error: 'Failed to fetch from Tenor' })
+  }
+})
+
+// API: Proxy Tenor trending
+app.get('/api/proxy/tenor/trending', async (req, res) => {
+  try {
+    const { limit } = req.query
+    const apiKey = process.env.TENOR_API_KEY
+
+    if (!apiKey) {
+      return res.status(500).json({ error: 'Tenor API key not configured' })
+    }
+
+    const params = new URLSearchParams({
+      key: apiKey,
+      client_key: 'aonsoku',
+      limit: limit || '20',
+      country: 'US',
+      locale: 'en_US',
+      contentfilter: 'medium',
+      media_filter: 'minimal',
+    })
+
+    const response = await axios.get(
+      `https://tenor.googleapis.com/v2/featured?${params.toString()}`,
+    )
+
+    res.json({ results: response.data.results })
+  } catch (error) {
+    console.error('Tenor proxy error:', error.message)
+    res.status(500).json({ error: 'Failed to fetch from Tenor' })
+  }
+})
+
 // Start server
 app.listen(PORT, () => {
   console.log(`\n Aonsoku Tag Service`)

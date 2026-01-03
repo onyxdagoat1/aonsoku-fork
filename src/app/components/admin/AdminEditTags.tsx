@@ -39,29 +39,42 @@ export function AdminEditTags({ contentId, contentType }: AdminEditTagsProps) {
 
   const handleOpen = async () => {
     try {
-      let song: Song | null = null
       if (contentType === 'song') {
         const data = await subsonic.songs.getSong(contentId)
-        song = data as unknown as Song
-      } else {
-        const album = await subsonic.albums.getOne(contentId)
-        if (album && album.song && album.song.length > 0) {
-          song = album.song[0] as unknown as Song
+        const song = data as unknown as Song
+        if (song) {
+          setEditingSong(song)
+          setIsOpen(true)
+
+          const meta = songService.songToMetadata(song)
+          const era = await eraService.getEra(song.id, 'song')
+
+          startTransition(() => {
+            setEditorMetadata({ ...meta, era: era || undefined })
+          })
         }
-      }
-
-      if (song) {
-        setEditingSong(song)
-        setIsOpen(true)
-
-        const meta = songService.songToMetadata(song)
-        const era = await eraService.getEra(song.id, 'song')
-
-        startTransition(() => {
-          setEditorMetadata({ ...meta, era: era || undefined })
-        })
       } else {
-        toast.info('No content found to edit.')
+        // ALBUM MODE
+        const album = await subsonic.albums.getOne(contentId)
+        if (album) {
+          setEditingSong(null) // Not editing a single song
+          setIsOpen(true)
+
+          // Construct metadata from Album
+          const era = await eraService.getEra(contentId, 'album')
+
+          startTransition(() => {
+            setEditorMetadata({
+              title: album.name,
+              artist: album.artist,
+              album: album.name,
+              year: album.year,
+              genre: album.genre,
+              era: era || undefined,
+              yeditorId: undefined, // TODO: fetch yeditor for album if exists
+            })
+          })
+        }
       }
     } catch (error) {
       console.error('Error loading content for admin edit:', error)
@@ -73,33 +86,47 @@ export function AdminEditTags({ contentId, contentType }: AdminEditTagsProps) {
     metadata: MusicMetadata,
     coverArt?: File,
   ) => {
-    if (!editingSong) return
-
     try {
-      // Update metadata
-      await tagWriterService.updateSongTags(
-        editingSong.id,
-        metadata,
-        editingSong.path,
-      )
-
-      // Update cover art if provided
-      if (coverArt) {
-        await tagWriterService.updateCoverArt(editingSong.id, coverArt)
-      }
-
-      // Update Era tag if provided
-      if (metadata.era) {
-        await eraService.setEra(editingSong.id, 'song', metadata.era)
-      }
-
-      // Link to Yeditor if provided
-      if (metadata.yeditorId) {
-        await yeditorService.setYeditorForContent(
+      if (contentType === 'song' && editingSong) {
+        // Update song file tags
+        await tagWriterService.updateSongTags(
           editingSong.id,
-          'song',
-          metadata.yeditorId,
+          metadata,
+          editingSong.path,
         )
+
+        if (coverArt) {
+          await tagWriterService.updateCoverArt(editingSong.id, coverArt)
+        }
+
+        if (metadata.era) {
+          await eraService.setEra(editingSong.id, 'song', metadata.era)
+        }
+
+        if (metadata.yeditorId) {
+          await yeditorService.setYeditorForContent(
+            editingSong.id,
+            'song',
+            metadata.yeditorId,
+          )
+        }
+      } else if (contentType === 'album') {
+        // ALBUM MODE: Only update Database Era (and maybe simple album props if we had an API)
+        // For now, primary goal is ERA.
+        if (metadata.era) {
+          await eraService.setEra(contentId, 'album', metadata.era)
+        }
+
+        // If we update Yeditor for album (assuming checking fetching logic later)
+        if (metadata.yeditorId) {
+          await yeditorService.setYeditorForContent(
+            contentId,
+            'album',
+            metadata.yeditorId,
+          )
+        }
+
+        // Note: We don't bulk update file tags here yet.
       }
 
       toast.success('Tags updated successfully! Refreshing...', {

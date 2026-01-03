@@ -1,59 +1,28 @@
 import { devtools, persist, subscribeWithSelector } from 'zustand/middleware'
 import { immer } from 'zustand/middleware/immer'
-import { createWithEqualityFn } from 'zustand/traditional'
 import { shallow } from 'zustand/shallow'
+import { createWithEqualityFn } from 'zustand/traditional'
 
 export type GridSize = 'small' | 'medium' | 'large'
 export type ListDensity = 'compact' | 'comfortable' | 'spacious'
 export type SidebarWidth = 'narrow' | 'normal' | 'wide'
 
 interface ILayoutContext {
-  grid: {
-    size: GridSize
-    setSize: (size: GridSize) => void
-  }
-  list: {
-    density: ListDensity
-    setDensity: (density: ListDensity) => void
-  }
-  sidebar: {
-    width: SidebarWidth
-    setWidth: (width: SidebarWidth) => void
-    isCollapsed: boolean
-    setIsCollapsed: (collapsed: boolean) => void
-  }
-  backgrounds: {
-    enabled: boolean
-    setEnabled: (enabled: boolean) => void
-    intensity: number
-    setIntensity: (intensity: number) => void
-    animationSpeed: number
-    setAnimationSpeed: (speed: number) => void
-    blurAmount: number
-    setBlurAmount: (blur: number) => void
-  }
+  gridSize: GridSize
+  setGridSize: (size: GridSize) => void
+  listDensity: ListDensity
+  setListDensity: (density: ListDensity) => void
+  sidebarCompact: boolean
+  setSidebarCompact: (compact: boolean) => void
   actions: {
     resetToDefaults: () => void
   }
 }
 
 const defaultState = {
-  grid: {
-    size: 'medium' as GridSize,
-  },
-  list: {
-    density: 'comfortable' as ListDensity,
-  },
-  sidebar: {
-    width: 'normal' as SidebarWidth,
-    isCollapsed: false,
-  },
-  backgrounds: {
-    enabled: true,
-    intensity: 0.5,
-    animationSpeed: 1,
-    blurAmount: 60,
-  },
+  gridSize: 'medium' as GridSize,
+  listDensity: 'comfortable' as ListDensity,
+  sidebarCompact: false,
 }
 
 export const useLayoutStore = createWithEqualityFn<ILayoutContext>()(
@@ -61,92 +30,37 @@ export const useLayoutStore = createWithEqualityFn<ILayoutContext>()(
     persist(
       devtools(
         immer((set) => ({
-          grid: {
-            size: defaultState.grid.size,
-            setSize: (size) => {
-              set((state) => {
-                state.grid.size = size
-              })
-            },
-          },
-          list: {
-            density: defaultState.list.density,
-            setDensity: (density) => {
-              set((state) => {
-                state.list.density = density
-              })
-            },
-          },
-          sidebar: {
-            width: defaultState.sidebar.width,
-            setWidth: (width) => {
-              set((state) => {
-                state.sidebar.width = width
-              })
-            },
-            isCollapsed: defaultState.sidebar.isCollapsed,
-            setIsCollapsed: (collapsed) => {
-              set((state) => {
-                state.sidebar.isCollapsed = collapsed
-              })
-            },
-          },
-          backgrounds: {
-            enabled: defaultState.backgrounds.enabled,
-            setEnabled: (enabled) => {
-              set((state) => {
-                state.backgrounds.enabled = enabled
-              })
-            },
-            intensity: defaultState.backgrounds.intensity,
-            setIntensity: (intensity) => {
-              set((state) => {
-                state.backgrounds.intensity = intensity
-              })
-            },
-            animationSpeed: defaultState.backgrounds.animationSpeed,
-            setAnimationSpeed: (speed) => {
-              set((state) => {
-                state.backgrounds.animationSpeed = speed
-              })
-            },
-            blurAmount: defaultState.backgrounds.blurAmount,
-            setBlurAmount: (blur) => {
-              set((state) => {
-                state.backgrounds.blurAmount = blur
-              })
-            },
-          },
+          gridSize: defaultState.gridSize,
+          setGridSize: (size) =>
+            set((state) => {
+              state.gridSize = size
+            }),
+          listDensity: defaultState.listDensity,
+          setListDensity: (density) =>
+            set((state) => {
+              state.listDensity = density
+            }),
+          sidebarCompact: defaultState.sidebarCompact,
+          setSidebarCompact: (compact) =>
+            set((state) => {
+              state.sidebarCompact = compact
+            }),
           actions: {
             resetToDefaults: () => {
               set((state) => {
-                state.grid.size = defaultState.grid.size
-                state.list.density = defaultState.list.density
-                state.sidebar.width = defaultState.sidebar.width
-                state.sidebar.isCollapsed = defaultState.sidebar.isCollapsed
-                state.backgrounds.enabled = defaultState.backgrounds.enabled
-                state.backgrounds.intensity = defaultState.backgrounds.intensity
-                state.backgrounds.animationSpeed = defaultState.backgrounds.animationSpeed
-                state.backgrounds.blurAmount = defaultState.backgrounds.blurAmount
+                state.gridSize = defaultState.gridSize
+                state.listDensity = defaultState.listDensity
+                state.sidebarCompact = defaultState.sidebarCompact
               })
             },
           },
         })),
-        {
-          name: 'layout_store',
-        },
+        { name: 'layout_store' },
       ),
-      {
-        name: 'layout_store',
-        version: 1,
-      },
+      { name: 'layout_store', version: 2 },
     ),
   ),
   shallow,
 )
 
-export const useGridSize = () => useLayoutStore((state) => state.grid)
-export const useListDensity = () => useLayoutStore((state) => state.list)
-export const useSidebarLayout = () => useLayoutStore((state) => state.sidebar)
-export const useBackgroundSettings = () => useLayoutStore((state) => state.backgrounds)
 export const useLayoutActions = () => useLayoutStore((state) => state.actions)

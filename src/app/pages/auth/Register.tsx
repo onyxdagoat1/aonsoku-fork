@@ -223,7 +223,7 @@ export function Register() {
         {/* Sign In Link */}
         <div style={{ marginTop: '1.5rem', textAlign: 'center', fontSize: '0.875rem' }}>
           <span style={{ color: 'var(--muted-foreground)' }}>Already have an account? </span>
-          <Link to="/auth/login" style={{ color: 'var(--primary)', fontWeight: '500' }}>
+          <Link to="/login" style={{ color: 'var(--primary)', fontWeight: '500' }}>
             Sign in
           </Link>
         </div>

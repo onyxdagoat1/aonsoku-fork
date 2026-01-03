@@ -1,7 +1,9 @@
 import Autoplay from 'embla-carousel-autoplay'
+import { useEffect, useState } from 'react'
 import { HeaderItem } from '@/app/components/home/carousel/header-item'
 import {
   Carousel,
+  CarouselApi,
   CarouselContent,
   CarouselItem,
   CarouselNext,
@@ -11,14 +13,35 @@ import { ISong } from '@/types/responses/song'
 
 interface HomeHeaderProps {
   songs: ISong[]
+  onSlideChange?: (index: number) => void
 }
 
-export default function HomeHeader({ songs }: HomeHeaderProps) {
+export default function HomeHeader({ songs, onSlideChange }: HomeHeaderProps) {
+  const [api, setApi] = useState<CarouselApi>()
+
+  useEffect(() => {
+    if (!api) return
+
+    const onSelect = () => {
+      onSlideChange?.(api.selectedScrollSnap())
+    }
+
+    // Initial call
+    onSelect()
+
+    api.on('select', onSelect)
+
+    return () => {
+      api.off('select', onSelect)
+    }
+  }, [api, onSlideChange])
+
   if (songs.length === 0) return null
 
   return (
     <Carousel
-      className="w-full border rounded-lg overflow-hidden z-10"
+      setApi={setApi}
+      className="w-full rounded-lg overflow-hidden z-10"
       opts={{
         loop: true,
       }}

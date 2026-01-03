@@ -34,6 +34,7 @@ interface PreviewListProps {
   showMore?: boolean
   moreTitle?: string
   moreRoute?: string
+  onSlideChange?: (index: number) => void
 }
 
 export default function PreviewList({
@@ -42,6 +43,7 @@ export default function PreviewList({
   showMore = true,
   moreTitle,
   moreRoute,
+  onSlideChange,
 }: PreviewListProps) {
   const [api, setApi] = useState<CarouselApi>()
   const [canScrollPrev, setCanScrollPrev] = useState<boolean>()
@@ -112,8 +114,11 @@ export default function PreviewList({
     api.on('select', () => {
       setCanScrollPrev(api.canScrollPrev())
       setCanScrollNext(api.canScrollNext())
+      if (onSlideChange) {
+        onSlideChange(api.selectedScrollSnap())
+      }
     })
-  }, [api])
+  }, [api, onSlideChange])
 
   return (
     <div className="w-full flex flex-col mt-4">

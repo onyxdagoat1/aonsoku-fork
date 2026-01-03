@@ -148,20 +148,33 @@ function AlbumCard({ album }: AlbumCardProps) {
           link={ROUTES.ARTIST.PAGE(album.artistId ?? '')}
         >
           <div className="flex flex-col gap-1">
-            <span className="truncate">{album.artist}</span>
-            <div className="flex items-center gap-2">
-              {eraId && (
-                <span
-                  className="px-1.5 py-0.5 rounded text-[10px] font-bold text-white uppercase tracking-wider"
-                  style={{ backgroundColor: getEraColor(eraId) }}
-                >
-                  {getEraLabel(eraId)}
-                </span>
-              )}
-              {yeditor && (
+            {/* Year • Type • Yeditor/Artist */}
+            <span className="text-xs text-muted-foreground truncate flex items-center gap-1.5">
+              {album.year && <span>{album.year}</span>}
+              {album.year && <span>•</span>}
+              <span className="capitalize">
+                {album.songCount === 1
+                  ? 'Single'
+                  : album.isCompilation
+                    ? 'Comp'
+                    : 'Album'}
+              </span>
+              <span>•</span>
+              {yeditor ? (
                 <YeditorInline yeditor={yeditor} className="text-[10px]" />
+              ) : (
+                <span className="truncate">{album.artist}</span>
               )}
-            </div>
+            </span>
+            {/* Era tag */}
+            {eraId && (
+              <span
+                className="px-1.5 py-0.5 rounded text-[10px] font-bold text-white uppercase tracking-wider w-fit"
+                style={{ backgroundColor: getEraColor(eraId) }}
+              >
+                {getEraLabel(eraId)}
+              </span>
+            )}
           </div>
         </PreviewCard.Subtitle>
       </PreviewCard.InfoWrapper>
