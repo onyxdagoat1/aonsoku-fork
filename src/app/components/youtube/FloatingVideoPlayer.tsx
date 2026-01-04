@@ -118,6 +118,16 @@ export function FloatingVideoPlayer() {
           allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
           allowFullScreen
         />
+        {(activeVideo as any).bpm && (
+          <div className="absolute bottom-2 left-2 px-2 py-1 bg-black/60 backdrop-blur-md rounded text-[10px] font-mono text-white/90 border border-white/10 pointer-events-none">
+            {(activeVideo as any).bpm} BPM
+          </div>
+        )}
+        {(activeVideo as any).key && (
+          <div className="absolute bottom-2 right-2 px-2 py-1 bg-black/60 backdrop-blur-md rounded text-[10px] font-mono text-white/90 border border-white/10 pointer-events-none">
+            KEY: {(activeVideo as any).key}
+          </div>
+        )}
       </div>
     </div>
   )

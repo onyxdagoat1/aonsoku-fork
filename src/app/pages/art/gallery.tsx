@@ -38,6 +38,7 @@ import {
   TabsTrigger,
 } from '@/app/components/ui/tabs'
 import { YeditorInline } from '@/app/components/yeditor/YeditorBadge'
+import { useContentTags } from '@/app/hooks/use-content-tags'
 import { useGetYeditorForContent } from '@/app/hooks/use-yeditor'
 import { ERAS, getEraColor, getEraLabel } from '@/config/eras'
 import { useBulkDownload } from '@/hooks/use-bulk-download'
@@ -71,11 +72,11 @@ const typeLabels: Record<ArtworkType, string> = {
 
 const gridSizeClasses: Record<GridSize, string> = {
   small:
-    'grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 xl:grid-cols-10 2xl:grid-cols-12',
-  medium:
     'grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-8',
+  medium:
+    'grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6',
   large:
-    'grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6',
+    'grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-5',
 }
 
 export default function ArtGallery() {
@@ -98,6 +99,7 @@ export default function ArtGallery() {
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set())
   const [selectionMode, setSelectionMode] = useState(false)
   const [albumEras, setAlbumEras] = useState<Record<string, string>>({})
+  const [hoveredCover, setHoveredCover] = useState<string | null>(null)
   const scrollDivRef = useRef<HTMLDivElement | null>(null)
   const { success } = useToast()
 
@@ -150,6 +152,11 @@ export default function ArtGallery() {
     if (!data?.pages) return []
     return data.pages.flatMap((page) => page.albums)
   }, [data])
+
+  const { data: albumTags } = useContentTags(
+    useMemo(() => albums.map((a) => a.id), [albums]),
+    'album',
+  )
 
   useEffect(() => {
     if (albums.length > 0) {
@@ -388,11 +395,29 @@ export default function ArtGallery() {
 
   return (
     <div className="relative w-full min-h-screen overflow-hidden bg-background pb-32">
-      {/* Ambient Background */}
-      <div className="fixed inset-0 z-0 pointer-events-none">
-        <div className="absolute top-[-20%] right-[-20%] w-[70%] h-[70%] bg-emerald-900/20 rounded-full blur-[120px] animate-blob" />
-        <div className="absolute bottom-[-20%] left-[-20%] w-[70%] h-[70%] bg-blue-900/20 rounded-full blur-[120px] animate-blob animation-delay-2000" />
-        <div className="absolute inset-0 bg-background/40 backdrop-blur-3xl" />
+      {/* Dynamic Ambient Background */}
+      <div className="fixed inset-0 z-0 pointer-events-none overflow-hidden">
+        <div className="absolute inset-0 bg-background/30 z-10 transition-colors duration-1000" />
+        {hoveredCover ? (
+          <div
+            key={hoveredCover}
+            className="absolute inset-[-10%] z-0 animate-in fade-in zoom-in-50 duration-500"
+            style={{
+              backgroundImage: `url(${getCoverArtUrl(hoveredCover, 'album', 'original')})`,
+              backgroundSize: 'cover',
+              backgroundPosition: 'center',
+              filter: 'blur(90px) saturate(220%) brightness(0.5) contrast(1.1)',
+              transform: 'scale(1.1)',
+              opacity: 0.5,
+            }}
+          />
+        ) : (
+          <>
+            <div className="absolute top-[-20%] right-[-20%] w-[70%] h-[70%] bg-emerald-900/20 rounded-full blur-[120px] animate-blob" />
+            <div className="absolute bottom-[-20%] left-[-20%] w-[70%] h-[70%] bg-blue-900/20 rounded-full blur-[120px] animate-blob animation-delay-2000" />
+          </>
+        )}
+        <div className="absolute inset-0 z-10 bg-gradient-to-t from-background via-background/80 to-transparent" />
       </div>
 
       <div className="relative z-10 w-full px-8 py-8 md:px-12 space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
@@ -707,6 +732,8 @@ export default function ArtGallery() {
                     navigator.clipboard.writeText(url)
                     success('Copied!', 'Cover URL copied to clipboard')
                   }}
+                  onHover={setHoveredCover}
+                  tags={albumTags?.[album.id]}
                 />
               ))}
             </div>
@@ -940,6 +967,8 @@ function AlbumArtCard({
   onInfoClick,
   onDownload,
   onCopyUrl,
+  onHover,
+  tags,
 }: {
   album: Albums & { era?: string }
   downloads: number
@@ -952,6 +981,8 @@ function AlbumArtCard({
   onInfoClick: (album: Albums & { era?: string }) => void
   onDownload: () => void
   onCopyUrl: (url: string) => void
+  onHover: (coverArt: string | null) => void
+  tags?: { aiTag: 'human' | 'ai' | null; editType: string | null }
 }) {
   const isSingle = album.songCount === 1
   const contentType = isSingle
@@ -1015,6 +1046,8 @@ function AlbumArtCard({
     <Link
       to={ROUTES.ALBUM.PAGE(album.id)}
       onClick={handleClick}
+      onMouseEnter={() => onHover(album.coverArt)}
+      onMouseLeave={() => onHover(null)}
       className={cn(
         'group relative aspect-square rounded-lg overflow-hidden bg-white/5 border border-white/10 hover:ring-2 hover:ring-primary transition-all',
         isSelected && 'ring-2 ring-primary',
@@ -1053,67 +1086,71 @@ function AlbumArtCard({
         </button>
       )}
 
-      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity">
-        <div className="absolute top-2 right-2 flex gap-2">
+      <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-all duration-300 flex flex-col justify-end p-4">
+        <div className="absolute top-3 right-3 flex gap-2 translate-y-2 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-300 delay-75">
+          <div className="flex items-center gap-1 bg-black/60 backdrop-blur-md px-2 py-1 rounded-full text-xs font-medium text-white mr-auto">
+            <Download className="w-3 h-3" />
+            {downloads}
+          </div>
           <button
             onClick={handleCopyUrl}
-            className="p-2 rounded-full bg-black/50 hover:bg-black/70 text-white transition-colors"
-            title="Copy URL"
+            className="p-2 rounded-full bg-white/10 hover:bg-white/20 text-white backdrop-blur-md transition-colors"
+            title="Copy Link"
           >
             <LinkIcon className="w-4 h-4" />
           </button>
           <button
-            onClick={handleInfoClick}
-            className="p-2 rounded-full bg-black/50 hover:bg-black/70 text-white transition-colors"
-            title="Info"
-          >
-            <Info className="w-4 h-4" />
-          </button>
-          <button
             onClick={handleDownload}
-            className="p-2 rounded-full bg-black/50 hover:bg-black/70 text-white transition-colors"
+            className="p-2 rounded-full bg-white/10 hover:bg-white/20 text-white backdrop-blur-md transition-colors"
             title="Download"
           >
             <Download className="w-4 h-4" />
           </button>
+          <button
+            onClick={handleInfoClick}
+            className="p-2 rounded-full bg-white/10 hover:bg-white/20 text-white backdrop-blur-md transition-colors"
+            title="Info"
+          >
+            <Info className="w-4 h-4" />
+          </button>
         </div>
-        <div className="absolute bottom-0 left-0 right-0 p-3">
-          <div className="flex items-center gap-1 mb-1">
-            <TrendingDown className="w-3 h-3 text-white/80" />
-            <span className="text-xs text-white/80">
-              {downloads} community • {personalDownloads} you
-            </span>
-          </div>
-          <div className="flex items-center gap-1 mb-1">
-            {isSingle ? (
-              <Disc className="w-3 h-3 text-white/80" />
-            ) : (
-              <Disc3 className="w-3 h-3 text-white/80" />
+
+        <div className="space-y-1 translate-y-2 group-hover:translate-y-0 transition-transform duration-300">
+          <div className="flex flex-wrap items-center gap-1.5 mb-2">
+            {tags?.aiTag && (
+              <span
+                className={cn(
+                  'px-2 py-0.5 rounded text-[10px] font-bold text-white uppercase tracking-wider shadow-sm',
+                  tags.aiTag === 'ai' ? 'bg-purple-500/80' : 'bg-green-500/80',
+                )}
+              >
+                {tags.aiTag === 'ai' ? 'AI' : 'HUMAN'}
+              </span>
             )}
-            <span className="text-xs text-white/80 mr-2">
-              {isSingle ? 'Single' : 'Comp'}
-            </span>
+            {tags?.editType && (
+              <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-500/80 text-white uppercase tracking-wider shadow-sm">
+                {tags.editType}
+              </span>
+            )}
             {album.era && (
               <span
-                className="px-1.5 py-0.5 rounded text-[10px] font-bold text-white uppercase tracking-wider"
+                className="px-2 py-0.5 rounded text-[10px] font-bold text-white uppercase tracking-wider shadow-sm"
                 style={{ backgroundColor: getEraColor(album.era) }}
               >
                 {getEraLabel(album.era)}
               </span>
             )}
+            <span className="text-[10px] font-medium text-white/70 uppercase tracking-wider bg-white/10 px-2 py-0.5 rounded">
+              {isSingle ? 'Single' : 'Comp'}
+            </span>
           </div>
-          <p className="text-sm font-medium text-white line-clamp-1">
+
+          <p className="text-base font-bold text-white line-clamp-1 leading-tight">
             {album.name}
           </p>
-          <div className="flex items-center gap-2 truncate text-white/80">
-            <p className="text-xs line-clamp-1">{album.artist}</p>
-            {yeditor && (
-              <YeditorInline
-                yeditor={yeditor}
-                className="text-[10px] text-white/60"
-              />
-            )}
-          </div>
+          <p className="text-sm text-white/80 line-clamp-1 font-medium">
+            {album.artist}
+          </p>
         </div>
       </div>
     </Link>

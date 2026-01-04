@@ -1,4 +1,5 @@
 import { Download, Play } from 'lucide-react'
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { getCoverArtUrl } from '@/api/httpClient'
 import { Button } from '@/app/components/ui/button'
@@ -12,6 +13,7 @@ interface TrackEmbedProps {
   trackName?: string
   artistName?: string
   coverArt?: string
+  albumId?: string // Optional album ID for tracks
   className?: string
 }
 
@@ -21,9 +23,27 @@ export function TrackEmbed({
   trackName,
   artistName,
   coverArt,
+  albumId: providedAlbumId,
   className,
 }: TrackEmbedProps) {
   const { setSongList } = usePlayerActions()
+  const [resolvedAlbumId, setResolvedAlbumId] = useState<string | null>(
+    providedAlbumId || null,
+  )
+
+  // Resolve album ID for tracks if not provided
+  useEffect(() => {
+    if (contentType === 'track' && !providedAlbumId) {
+      subsonic.songs
+        .getSong(contentId)
+        .then((song) => {
+          if (song?.albumId) {
+            setResolvedAlbumId(song.albumId)
+          }
+        })
+        .catch(console.error)
+    }
+  }, [contentId, contentType, providedAlbumId])
 
   const handlePlay = async (e: React.MouseEvent) => {
     e.preventDefault()
@@ -48,14 +68,26 @@ export function TrackEmbed({
     }
   }
 
+  // For tracks, link to the album page if we have an album ID
+  // For albums, link directly
   const linkTo =
     contentType === 'track'
-      ? ROUTES.ALBUM.PAGE(contentId) // Track links to album
+      ? resolvedAlbumId
+        ? ROUTES.ALBUM.PAGE(resolvedAlbumId)
+        : '#'
       : ROUTES.ALBUM.PAGE(contentId)
+
+  const handleClick = (e: React.MouseEvent) => {
+    // Prevent navigation if we don't have a valid link
+    if (linkTo === '#') {
+      e.preventDefault()
+    }
+  }
 
   return (
     <Link
       to={linkTo}
+      onClick={handleClick}
       className={`group flex items-center gap-3 p-3 bg-black/30 backdrop-blur-sm border border-white/10 rounded-xl hover:bg-black/40 transition-all ${className}`}
     >
       {/* Cover Art */}

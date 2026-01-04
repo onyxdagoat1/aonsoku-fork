@@ -75,6 +75,12 @@ export const mainNavItems = [
     icon: Home,
   },
   {
+    id: SidebarItems.AdvancedSearch,
+    title: 'Advanced Search',
+    route: ROUTES.LIBRARY.ADVANCED_SEARCH,
+    icon: SearchCheckIcon,
+  },
+  {
     id: SidebarItems.Messages,
     title: 'Messages',
     route: ROUTES.LIBRARY.MESSAGES,

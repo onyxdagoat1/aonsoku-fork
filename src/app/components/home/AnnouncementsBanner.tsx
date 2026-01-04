@@ -73,27 +73,39 @@ export function AnnouncementsBanner() {
       {visibleAnnouncements.map((announcement) => (
         <div
           key={announcement.id}
-          className="relative overflow-hidden rounded-xl bg-gradient-to-r from-indigo-500/10 to-purple-500/10 border border-indigo-500/20 p-4"
+          className="group relative overflow-hidden rounded-xl bg-card border border-border p-4 transition-colors hover:bg-accent/5"
         >
-          <div className="absolute top-0 left-0 w-1 h-full bg-gradient-to-b from-indigo-500 to-purple-500"></div>
           <div className="flex items-start gap-4">
-            <div className="p-2 rounded-lg bg-indigo-500/20 text-indigo-400">
+            {/* Icon Box */}
+            <div className="p-2.5 rounded-lg bg-primary/10 text-primary shrink-0">
               <Megaphone className="w-5 h-5" />
             </div>
-            <div className="flex-1">
-              <h3 className="font-bold text-foreground text-sm flex items-center gap-2">
-                {announcement.title}
-                <span className="text-[10px] font-normal text-muted-foreground bg-accent/50 px-2 py-0.5 rounded-full">
-                  {new Date(announcement.created_at).toLocaleDateString()}
+
+            <div className="flex-1 min-w-0 py-0.5">
+              <div className="flex items-center justify-between gap-4 mb-1">
+                <h3 className="font-semibold text-foreground text-sm">
+                  {announcement.title}
+                </h3>
+                <span className="text-xs text-muted-foreground whitespace-nowrap">
+                  {new Date(announcement.created_at).toLocaleDateString(
+                    undefined,
+                    {
+                      month: 'short',
+                      day: 'numeric',
+                    },
+                  )}
                 </span>
-              </h3>
-              <p className="text-sm text-muted-foreground mt-1 leading-relaxed">
+              </div>
+
+              <p className="text-sm text-muted-foreground leading-relaxed line-clamp-2 hover:line-clamp-none transition-all">
                 {announcement.body}
               </p>
             </div>
+
             <button
               onClick={() => handleDismiss(announcement.id)}
-              className="p-1 text-muted-foreground hover:text-foreground hover:bg-black/10 rounded-full transition-colors"
+              className="p-1.5 -mr-1 -mt-1 text-muted-foreground hover:text-foreground hover:bg-accent rounded-md transition-colors"
+              aria-label="Dismiss announcement"
             >
               <X className="w-4 h-4" />
             </button>

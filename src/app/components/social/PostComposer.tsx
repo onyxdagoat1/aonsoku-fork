@@ -1,4 +1,5 @@
-import { Image, Loader2, Music, SendHorizontal, X } from 'lucide-react'
+import EmojiPicker, { Theme } from 'emoji-picker-react'
+import { Image, Loader2, Music, SendHorizontal, Smile, X } from 'lucide-react'
 import { useState } from 'react'
 import { toast } from 'react-toastify'
 
@@ -9,13 +10,15 @@ import { Button } from '@/app/components/ui/button'
 import { Textarea } from '@/app/components/ui/textarea'
 import { useAuth } from '@/contexts/AuthContext'
 import { supabase } from '@/lib/supabase'
-import { Post, postsService } from '@/service/posts.service'
+import { cn } from '@/lib/utils'
+import { postsService } from '@/service/posts.service'
 
 interface PostComposerProps {
   onPostCreated?: () => void
   replyToId?: string
   className?: string
   placeholder?: string
+  forcedAttachment?: MusicAttachment
 }
 
 interface MusicAttachment {
@@ -31,11 +34,13 @@ export function PostComposer({
   className,
   placeholder = "What's on your mind?",
   replyToId,
+  forcedAttachment,
 }: PostComposerProps) {
   const { user, profile } = useAuth()
   const [content, setContent] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [isExpanded, setIsExpanded] = useState(false)
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false)
 
   // Image attachment
   const [imageFile, setImageFile] = useState<File | null>(null)
@@ -43,7 +48,7 @@ export function PostComposer({
 
   // Music attachment
   const [musicAttachment, setMusicAttachment] =
-    useState<MusicAttachment | null>(null)
+    useState<MusicAttachment | null>(forcedAttachment || null)
 
   const handleImageSelect = () => {
     const input = document.createElement('input')
@@ -135,24 +140,8 @@ export function PostComposer({
       }
 
       if (replyToId) {
-        // Create reply with attachments if needed
-        // Note: reply function in postsService needs update to support attachments
-        // For now, at least we pass them if the service is updated
-        await postsService.reply(
-          replyToId,
-          content,
-          undefined,
-          musicAttachment
-            ? {
-                id: musicAttachment.id,
-                type: musicAttachment.type,
-                name: musicAttachment.name,
-                artist: musicAttachment.artist,
-                coverArt: musicAttachment.coverArt,
-              }
-            : undefined,
-          imageUrl || undefined,
-        )
+        // Create reply (note: replies don't support attachments in current schema)
+        await postsService.reply(replyToId, content)
       } else {
         // Create post with attachments
         let postType: any = 'text'
@@ -262,14 +251,16 @@ export function PostComposer({
                   {musicAttachment.artist}
                 </div>
               </div>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-6 w-6 rounded-full hover:bg-destructive/20 hover:text-destructive"
-                onClick={clearMusic}
-              >
-                <X className="w-3 h-3" />
-              </Button>
+              {!forcedAttachment && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-6 w-6 rounded-full hover:bg-destructive/20 hover:text-destructive"
+                  onClick={clearMusic}
+                >
+                  <X className="w-3 h-3" />
+                </Button>
+              )}
             </div>
           )}
 
@@ -286,17 +277,51 @@ export function PostComposer({
                   <Image className="w-4 h-4" />
                   <span className="text-xs hidden sm:inline">Image</span>
                 </Button>
-                <MusicSearchPicker onSelect={handleMusicSelect}>
+                {!forcedAttachment && (
+                  <MusicSearchPicker onSelect={handleMusicSelect}>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="text-muted-foreground hover:text-primary gap-2"
+                      disabled={!!musicAttachment}
+                    >
+                      <Music className="w-4 h-4" />
+                      <span className="text-xs hidden sm:inline">Music</span>
+                    </Button>
+                  </MusicSearchPicker>
+                )}
+                <div className="relative">
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="text-muted-foreground hover:text-primary gap-2"
-                    disabled={!!musicAttachment}
+                    className={cn(
+                      'text-muted-foreground hover:text-primary gap-2',
+                      showEmojiPicker && 'text-primary bg-primary/10',
+                    )}
+                    onClick={() => setShowEmojiPicker(!showEmojiPicker)}
                   >
-                    <Music className="w-4 h-4" />
-                    <span className="text-xs hidden sm:inline">Music</span>
+                    <Smile className="w-4 h-4" />
+                    <span className="text-xs hidden sm:inline">Emoji</span>
                   </Button>
-                </MusicSearchPicker>
+                  {showEmojiPicker && (
+                    <div className="absolute top-full left-0 mt-2 z-50 shadow-xl rounded-xl overflow-hidden">
+                      <div
+                        className="fixed inset-0 z-40"
+                        onClick={() => setShowEmojiPicker(false)}
+                      />
+                      <div className="relative z-50">
+                        <EmojiPicker
+                          onEmojiClick={(emojiData) => {
+                            setContent((prev) => prev + emojiData.emoji)
+                            setShowEmojiPicker(false)
+                          }}
+                          theme={Theme.DARK}
+                          lazyLoadEmojis={true}
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
 
               <Button

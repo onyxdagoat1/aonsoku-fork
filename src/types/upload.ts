@@ -11,6 +11,9 @@ export interface MusicMetadata {
   lyrics?: string
   composer?: string
   bpm?: number
+  key?: string
+  aiTag?: 'human' | 'ai'
+  editType?: string
   coverArt?: string // base64 encoded image
   era?: string
   yeditorId?: string // ID of the editor (Yeditor)

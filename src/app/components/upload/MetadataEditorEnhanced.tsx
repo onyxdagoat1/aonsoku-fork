@@ -15,6 +15,7 @@ import type { MusicMetadata } from '@/types/upload'
 import { YeditorSelector } from '../yeditor/YeditorSelector'
 import { CoverArtUpload } from './CoverArtUpload'
 import { GenreSelector } from './GenreSelector'
+import { MetadataImporter } from './MetadataImporter'
 
 interface MetadataEditorEnhancedProps {
   initialMetadata?: MusicMetadata
@@ -46,6 +47,10 @@ export function MetadataEditorEnhanced({
     }))
   }
 
+  const handleImport = (imported: Partial<MusicMetadata>) => {
+    setMetadata((prev) => ({ ...prev, ...imported }))
+  }
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     onSave(metadata, coverArtFile || undefined)
@@ -54,8 +59,12 @@ export function MetadataEditorEnhanced({
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       {fileName && (
-        <div className="pb-2 border-b">
+        <div className="pb-2 border-b flex items-center justify-between">
           <p className="text-sm font-medium truncate">{fileName}</p>
+          <MetadataImporter
+            currentMetadata={metadata}
+            onImport={handleImport}
+          />
         </div>
       )}
 
@@ -218,21 +227,66 @@ export function MetadataEditorEnhanced({
 
             <div className="space-y-2">
               <Label htmlFor="bpm">BPM (Tempo)</Label>
+              <div className="flex gap-2">
+                <Input
+                  id="bpm"
+                  type="number"
+                  min="1"
+                  max="300"
+                  value={metadata.bpm || ''}
+                  onChange={(e) =>
+                    handleChange('bpm', parseInt(e.target.value) || 0)
+                  }
+                  placeholder="120"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="key">Musical Key</Label>
               <Input
-                id="bpm"
-                type="number"
-                min="1"
-                max="300"
-                value={metadata.bpm || ''}
-                onChange={(e) =>
-                  handleChange('bpm', parseInt(e.target.value) || 0)
-                }
-                placeholder="120"
+                id="key"
+                value={metadata.key || ''}
+                onChange={(e) => handleChange('key', e.target.value)}
+                placeholder="e.g. Cm, 8A"
               />
             </div>
 
+            <div className="space-y-2">
+              <Label htmlFor="aiTag">AI Tag</Label>
+              <select
+                id="aiTag"
+                value={metadata.aiTag || ''}
+                onChange={(e) => handleChange('aiTag', e.target.value)}
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <option value="">None</option>
+                <option value="human">Human</option>
+                <option value="ai">AI</option>
+              </select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="editType">Edit Type</Label>
+              <select
+                id="editType"
+                value={metadata.editType || ''}
+                onChange={(e) => handleChange('editType', e.target.value)}
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <option value="">None</option>
+                <option value="highlight">Highlight</option>
+                <option value="unique">Unique</option>
+                <option value="vanilla">Vanilla</option>
+                <option value="overhaul">Overhaul</option>
+                <option value="renovation">Renovation</option>
+                <option value="extension">Extension</option>
+                <option value="remix">Remix</option>
+              </select>
+            </div>
+
             <div className="space-y-2 col-span-1 md:col-span-2">
-              <Label htmlFor="comment">Comment</Label>
+              <Label htmlFor="comment">Description / Comment</Label>
               <Textarea
                 id="comment"
                 value={metadata.comment || ''}

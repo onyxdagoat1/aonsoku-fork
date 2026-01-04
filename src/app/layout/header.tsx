@@ -1,4 +1,4 @@
-// import { NotificationsBell } from '@/app/components/header/NotificationsBell'
+import { NotificationsBell } from '@/app/components/header/NotificationsBell'
 import { NavigationButtons } from '@/app/components/header/navigation-buttons'
 import { ThemeToggle } from '@/app/components/header/theme-toggle'
 import { HeaderSongInfo } from '@/app/components/header-song'
@@ -20,6 +20,7 @@ export function Header() {
       </div>
       <HeaderSongInfo />
       <div className="flex justify-end items-center gap-2">
+        <NotificationsBell />
         <ThemeToggle />
         <UserMenu />
         {isWindows && !isFullscreen && <div className="w-[122px]" />}

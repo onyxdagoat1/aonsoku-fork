@@ -12,20 +12,32 @@ import {
   DialogTitle,
 } from '@/app/components/ui/dialog'
 import { Post, postsService } from '@/service/posts.service'
-import { queryKeys } from '@/utils/queryKeys'
 
 interface PostsFeedProps {
   showComposer?: boolean
   className?: string
   limit?: number
   userId?: string
+  attachmentFilter?: {
+    type: 'track' | 'album'
+    id: string
+    name: string
+    artist: string
+    coverArt?: string
+  }
 }
 
 // Add posts feed to queryKeys if not exists (I should check queryKeys first, but using a string key is safe for now or extending it locally)
 const POSTS_QUERY_KEY = 'posts-feed'
 
 export const PostsFeed = memo(
-  ({ showComposer = true, className, limit = 20, userId }: PostsFeedProps) => {
+  ({
+    showComposer = true,
+    className,
+    limit = 20,
+    userId,
+    attachmentFilter,
+  }: PostsFeedProps) => {
     const [replyingTo, setReplyingTo] = useState<Post | null>(null)
 
     const {
@@ -37,11 +49,25 @@ export const PostsFeed = memo(
       isLoading,
       refetch,
     } = useInfiniteQuery({
-      queryKey: [POSTS_QUERY_KEY, userId || 'all', limit],
-      queryFn: ({ pageParam = 0 }) =>
-        userId
+      queryKey: [
+        POSTS_QUERY_KEY,
+        userId || 'all',
+        attachmentFilter?.id || 'none',
+        limit,
+      ],
+      queryFn: ({ pageParam = 0 }) => {
+        if (attachmentFilter) {
+          return postsService.getPostsByAttachment(
+            attachmentFilter.type,
+            attachmentFilter.id,
+            pageParam,
+            limit,
+          )
+        }
+        return userId
           ? postsService.getUserPosts(userId, pageParam, limit)
-          : postsService.getFeed(pageParam, limit),
+          : postsService.getFeed(pageParam, limit)
+      },
       initialPageParam: 0,
       getNextPageParam: (lastPage, allPages) => {
         // If last page has fewer items than limit, no more pages
@@ -55,7 +81,22 @@ export const PostsFeed = memo(
 
     return (
       <div className={`space-y-6 ${className}`}>
-        {showComposer && <PostComposer onPostCreated={refetch} />}
+        {showComposer && (
+          <PostComposer
+            onPostCreated={refetch}
+            forcedAttachment={
+              attachmentFilter
+                ? {
+                    id: attachmentFilter.id,
+                    type: attachmentFilter.type,
+                    name: attachmentFilter.name,
+                    artist: attachmentFilter.artist,
+                    coverArt: attachmentFilter.coverArt,
+                  }
+                : undefined
+            }
+          />
+        )}
 
         {isLoading && posts.length === 0 ? (
           <div className="flex justify-center p-8">
@@ -68,6 +109,7 @@ export const PostsFeed = memo(
                 key={post.id}
                 post={post}
                 onReply={(post) => setReplyingTo(post)}
+                onDelete={() => refetch()}
               />
             ))}
 

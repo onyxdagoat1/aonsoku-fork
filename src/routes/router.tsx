@@ -68,9 +68,6 @@ const AdminPanel = lazy(() =>
   })),
 )
 const AdvancedSearch = lazy(() => import('@/app/pages/search/advanced'))
-const SmartPlaylistBuilder = lazy(
-  () => import('@/app/components/playlists/SmartPlaylistBuilder'),
-)
 const ExportSettings = lazy(() => import('@/app/pages/settings/export'))
 const QueueHistory = lazy(() => import('@/app/components/queue/QueueHistory'))
 const YeditorProfile = lazy(() => import('@/app/pages/yeditor'))
@@ -415,16 +412,6 @@ export const router = createHashRouter([
         element: (
           <Suspense fallback={<HomeFallback />}>
             <AdvancedSearch />
-          </Suspense>
-        ),
-      },
-      {
-        id: 'smart-playlist-builder',
-        path: '/playlists/smart-builder',
-        errorElement: <ErrorPage />,
-        element: (
-          <Suspense fallback={<HomeFallback />}>
-            <SmartPlaylistBuilder />
           </Suspense>
         ),
       },

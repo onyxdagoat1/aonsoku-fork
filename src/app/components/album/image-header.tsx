@@ -1,12 +1,22 @@
 import randomCSSHexColor from '@chriscodesthings/random-css-hex-color'
 import clsx from 'clsx'
+import { Info } from 'lucide-react'
 import { useState } from 'react'
 import { LazyLoadImage } from 'react-lazy-load-image-component'
 
 import { getCoverArtUrl } from '@/api/httpClient'
+import { AlbumComment } from '@/app/components/album/comment'
 import { AlbumHeaderFallback } from '@/app/components/fallbacks/album-fallbacks'
 import { BadgesData, HeaderInfoGenerator } from '@/app/components/header-info'
 import { CustomLightBox } from '@/app/components/lightbox'
+import { Button } from '@/app/components/ui/button'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/app/components/ui/dialog'
+import { ScrollArea } from '@/app/components/ui/scroll-area'
 import { cn } from '@/lib/utils'
 import { CoverArt } from '@/types/coverArtType'
 import { IFeaturedArtist } from '@/types/responses/artist'
@@ -26,6 +36,7 @@ interface ImageHeaderProps {
   coverArtAlt: string
   badges: BadgesData
   isPlaylist?: boolean
+  description?: string
   onColorExtracted?: (color: string) => void
 }
 
@@ -41,10 +52,12 @@ export default function ImageHeader({
   coverArtAlt,
   badges,
   isPlaylist = false,
+  description,
   onColorExtracted,
 }: ImageHeaderProps) {
   const [loaded, setLoaded] = useState(false)
   const [open, setOpen] = useState(false)
+  const [infoOpen, setInfoOpen] = useState(false)
   const [bgColor, setBgColor] = useState('')
 
   function getImage() {
@@ -186,6 +199,32 @@ export default function ImageHeader({
             <div className="mt-1">
               <HeaderInfoGenerator badges={badges} showFirstDot={false} />
             </div>
+          )}
+
+          {description && (
+            <>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="mt-2 text-white/70 hover:text-white hover:bg-white/10"
+                onClick={() => setInfoOpen(true)}
+              >
+                <Info className="w-5 h-5" />
+              </Button>
+
+              <Dialog open={infoOpen} onOpenChange={setInfoOpen}>
+                <DialogContent className="max-w-xl max-h-[80vh] flex flex-col z-50 bg-background/95 backdrop-blur-xl border-white/10">
+                  <DialogHeader>
+                    <DialogTitle className="text-xl font-bold">
+                      About {title}
+                    </DialogTitle>
+                  </DialogHeader>
+                  <ScrollArea className="flex-1 pr-4">
+                    <AlbumComment comment={description} />
+                  </ScrollArea>
+                </DialogContent>
+              </Dialog>
+            </>
           )}
         </div>
       </div>

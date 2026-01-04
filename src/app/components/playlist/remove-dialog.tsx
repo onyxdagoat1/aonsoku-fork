@@ -1,9 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { MouseEvent } from 'react'
 import { useTranslation } from 'react-i18next'
-import { useMatches, useNavigate } from 'react-router-dom'
 import { toast } from 'react-toastify'
-
 import {
   AlertDialog,
   AlertDialogAction,
@@ -14,25 +12,14 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/app/components/ui/alert-dialog'
-import { ROUTES } from '@/routes/routesList'
 import { subsonic } from '@/service/subsonic'
 import { useRemovePlaylist } from '@/store/playlists.store'
 import { queryKeys } from '@/utils/queryKeys'
 
 export function RemovePlaylistDialog() {
   const { t } = useTranslation()
-  const navigate = useNavigate()
-  const matches = useMatches()
-
-  const { playlistId, confirmDialogState, setConfirmDialogState } =
+  const { confirmDialogState, setConfirmDialogState, playlistId } =
     useRemovePlaylist()
-
-  function navigateIfNeeded() {
-    const isOnPlaylistPage = matches.find((route) => route.id === 'playlist')
-    const pageId = isOnPlaylistPage?.params.playlistId ?? ''
-
-    if (pageId === playlistId) navigate(ROUTES.LIBRARY.HOME)
-  }
 
   const queryClient = useQueryClient()
 
@@ -42,36 +29,50 @@ export function RemovePlaylistDialog() {
       queryClient.invalidateQueries({
         queryKey: [queryKeys.playlist.all],
       })
-      toast.success(t('playlist.form.delete.toast.success'))
+      toast.success(
+        t('playlist.form.delete.toast.success', {
+          defaultValue: 'Playlist deleted',
+        }),
+      )
       setConfirmDialogState(false)
-      navigateIfNeeded()
     },
     onError: () => {
-      toast.error(t('playlist.form.delete.toast.error'))
+      toast.error(
+        t('playlist.form.delete.toast.error', {
+          defaultValue: 'Error deleting playlist',
+        }),
+      )
     },
   })
 
-  async function handleRemovePlaylist(e: MouseEvent<HTMLButtonElement>) {
+  async function handleRemove(e: MouseEvent<HTMLButtonElement>) {
     e.preventDefault()
-
-    await removeMutation.mutateAsync(playlistId)
+    if (playlistId) {
+      await removeMutation.mutateAsync(playlistId)
+    }
   }
 
   return (
-    <AlertDialog open={confirmDialogState}>
+    <AlertDialog open={confirmDialogState} onOpenChange={setConfirmDialogState}>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>{t('playlist.form.delete.title')}</AlertDialogTitle>
+          <AlertDialogTitle>
+            {t('playlist.form.delete.title', {
+              defaultValue: 'Delete playlist',
+            })}
+          </AlertDialogTitle>
           <AlertDialogDescription>
-            {t('playlist.form.delete.description')}
+            {t('playlist.form.delete.description', {
+              defaultValue: 'Are you sure you want to delete this playlist?',
+            })}
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel onClick={() => setConfirmDialogState(false)}>
-            {t('logout.dialog.cancel')}
+            {t('logout.dialog.cancel', { defaultValue: 'Cancel' })}
           </AlertDialogCancel>
-          <AlertDialogAction onClick={handleRemovePlaylist}>
-            {t('logout.dialog.confirm')}
+          <AlertDialogAction onClick={handleRemove}>
+            {t('logout.dialog.confirm', { defaultValue: 'Delete' })}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

@@ -158,6 +158,7 @@ function convertToID3Tags(metadata, existingTags = {}) {
   if (metadata.disc) tags.partOfSet = metadata.disc.toString()
   if (metadata.composer) tags.composer = metadata.composer
   if (metadata.bpm) tags.bpm = metadata.bpm.toString()
+  if (metadata.key) tags.initialKey = metadata.key
   if (metadata.comment) tags.comment = { text: metadata.comment }
   if (metadata.lyrics) tags.unsynchronisedLyrics = { text: metadata.lyrics }
 

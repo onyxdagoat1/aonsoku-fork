@@ -26,8 +26,8 @@ import {
 import { Input } from '@/app/components/ui/input'
 import { Switch } from '@/app/components/ui/switch'
 import { Textarea } from '@/app/components/ui/textarea'
-import { subsonic } from '@/service/subsonic'
 import { socialPlaylistsService } from '@/service/socialPlaylists'
+import { subsonic } from '@/service/subsonic'
 import { usePlaylists } from '@/store/playlists.store'
 import { PlaylistData } from '@/types/playlistsContext'
 import { queryKeys } from '@/utils/queryKeys'
@@ -110,17 +110,17 @@ export function CreatePlaylistDialog() {
         comment,
         isPublic: isPublic ? 'true' : 'false',
       })
-      
+
       // Sync to Supabase if public (or always, to support switching later)
       if (playlist) {
         await socialPlaylistsService.syncPlaylist({
-             id: playlist.id,
-             name: playlist.name,
-             description: playlist.comment,
-             is_public: isPublic,
-             song_count: playlist.songCount,
-             cover_art_url: playlist.coverArt
-         })
+          id: playlist.id,
+          name: playlist.name,
+          description: playlist.comment,
+          is_public: isPublic,
+          song_count: playlist.songCount,
+          cover_art_url: playlist.coverArt,
+        })
       }
     } else {
       await updateMutation.mutateAsync({
@@ -129,14 +129,14 @@ export function CreatePlaylistDialog() {
         comment,
         isPublic: isPublic ? 'true' : 'false',
       })
-      
+
       await socialPlaylistsService.syncPlaylist({
-             id: data.id,
-             name: name,
-             description: comment,
-             is_public: isPublic,
-             song_count: data.songCount, 
-             cover_art_url: data.coverArt
+        id: data.id,
+        name: name,
+        description: comment,
+        is_public: isPublic,
+        song_count: data.songCount,
+        cover_art_url: data.coverArt,
       })
     }
 

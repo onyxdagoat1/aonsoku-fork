@@ -109,7 +109,7 @@ export function DataTableList<TData, TValue>({
       onSortingChange: setSorting,
       getSortedRowModel: getSortedRowModel(),
       onRowSelectionChange: setRowSelection,
-      enableSorting: false,
+      enableSorting: true,
       sortingFns: {
         customSortFn: <T extends { original: Record<string, string> }>(
           rowA: T,

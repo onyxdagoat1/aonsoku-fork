@@ -35,8 +35,14 @@ export function songsColumns(): ColumnDefType<ISong>[] {
         width: 48,
         minWidth: '48px',
       },
-      header: () => {
-        return <div className="w-full text-center">#</div>
+      enableSorting: true,
+      sortingFn: 'basic',
+      header: ({ column, table }) => {
+        return (
+          <MemoDataTableColumnHeader column={column} table={table}>
+            <div className="w-full text-center">#</div>
+          </MemoDataTableColumnHeader>
+        )
       },
       cell: ({ row, table }) => {
         const trackNumber = row.index + 1
@@ -202,7 +208,13 @@ export function songsColumns(): ColumnDefType<ISong>[] {
     {
       id: 'played',
       accessorKey: 'played',
-      header: i18n.t('table.columns.lastPlayed'),
+      enableSorting: true,
+      sortingFn: 'basic',
+      header: ({ column, table }) => (
+        <MemoDataTableColumnHeader column={column} table={table}>
+          {i18n.t('table.columns.lastPlayed')}
+        </MemoDataTableColumnHeader>
+      ),
       style: {
         width: 180,
         maxWidth: 180,
